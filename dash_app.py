@@ -509,12 +509,6 @@ def _render_page_content(module, page, filters):
             "Los filtros actuales no devuelven resultados. Ajusta el periodo, asesor o canal.",
             title="Sin resultados", color="yellow", withCloseButton=True)
 
-    # Nav tabs
-    tabs = []
-    for pk, plabel in mod_info["pages"].items():
-        tabs.append(dbc.Tab(label=plabel, tab_id=pk))
-    nav_tabs = dbc.Tabs(tabs, id="nav-tabs", active_tab=page, className="mb-3")
-
     page_funcs = {
         "pedidos": {
             "resumen": pagina_resumen, "participacion": pagina_participacion,
@@ -545,19 +539,9 @@ def _render_page_content(module, page, filters):
         print(traceback.format_exc())
         result = dmc.Alert(f"Error: {e}", title="Error", color="red", withCloseButton=True)
 
-    return html.Div([nav_tabs, html.Hr(className="mt-0 mb-3"), result])
+    return html.Div([result])
 
 
-# Navigate tabs
-@callback(
-    Output("store-page", "data", allow_duplicate=True),
-    Input("nav-tabs", "active_tab"),
-    prevent_initial_call=True,
-)
-def navigate_tab(active_tab):
-    if active_tab:
-        return active_tab
-    return no_update
 
 
 ANALYSIS_BTN_IDS = [f"btn-analisis-{pk}" for pk in PAGE_ROUTES]
