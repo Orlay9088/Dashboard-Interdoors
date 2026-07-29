@@ -190,13 +190,13 @@ def build_sidebar():
 app.layout = html.Div([
     dcc.Store(id="store-module", data="pedidos"),
     dcc.Store(id="store-page", data="resumen"),
-    dcc.Store(id="store-filters", data={}),
+    dcc.Store(id="store-filters", data="{}"),
     dcc.Store(id="store-refresh", data=0),
     dcc.Store(id="store-clear", data=0),
     dcc.Store(id="store-tipo", data="pedidos"),
     build_sidebar(),
     html.Div(id="page-content", children=[
-        dmc.Alert("Cargando datos del modulo activo...", title="Iniciando", color="blue", withCloseButton=False),
+        html.H3("Cargando...", style={"textAlign": "center", "color": NAVY, "padding": "3rem"}),
     ], style=CONTENT_STYLE),
 ])
 
@@ -210,6 +210,14 @@ app.layout = html.Div([
     Input("store-clear", "data"),
 )
 def render_page_wrapper(module, page, filters, refresh_count, clear_count):
+    import json
+    if isinstance(filters, str):
+        try:
+            filters = json.loads(filters)
+        except:
+            filters = {}
+    if not isinstance(filters, dict):
+        filters = {}
     return _render_page_content(module, page, filters)
 
 # ============================================================
@@ -278,12 +286,13 @@ def switch_module(*args):
     Input("dropdown-estado", "value"),
 )
 def update_filters(start, end, asesor, canal, estado):
-    return {
+    import json
+    return json.dumps({
         "rango": [start, end],
         "asesor": asesor or "Todos",
         "canal": canal or "Todos",
         "estado": estado or "Todos",
-    }
+    })
 
 
 @callback(
@@ -411,12 +420,21 @@ def update_dropdowns(_refresh, _clear, tipo):
 
 
 def _render_page_content(module, page, filters):
+    import json
     module = str(module).strip().lower()
     if module not in MODULES:
         module = list(MODULES.keys())[0]
     mod_info = MODULES[module]
     if page not in mod_info["pages"]:
         page = list(mod_info["pages"].keys())[0]
+
+    if isinstance(filters, str):
+        try:
+            filters = json.loads(filters)
+        except:
+            filters = {}
+    if not isinstance(filters, dict):
+        filters = {}
 
     try:
         df = _load_cached(module)
@@ -514,6 +532,14 @@ ANALYSIS_OUTPUTS = [f"analisis-{pk}" for pk in PAGE_ROUTES]
 )
 def generate_analysis(*args):
     filters = args[len(ANALYSIS_BTN_IDS)]
+    import json
+    if isinstance(filters, str):
+        try:
+            filters = json.loads(filters)
+        except:
+            filters = {}
+    if not isinstance(filters, dict):
+        filters = {}
     module = args[len(ANALYSIS_BTN_IDS) + 1]
     api_key = args[len(ANALYSIS_BTN_IDS) + 2]
     ctx = dash.ctx
