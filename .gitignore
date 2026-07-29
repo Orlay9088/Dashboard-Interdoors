@@ -10,6 +10,7 @@ build/
 base/Base_Maestra_Pedidos.parquet
 base/Base_Maestra_Pedidos.xlsx
 base/backups/
+base/*.parquet
 entrada/*.xlsx
 salida/
 dashboard_data/
