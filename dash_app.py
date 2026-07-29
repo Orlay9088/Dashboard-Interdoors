@@ -17,7 +17,7 @@ from etl.detector import detectar_tipo
 from etl.normalizer import normalizar
 from etl.processor import procesar as procesar_etl
 
-from firebase_config import try_load, try_save
+from firebase_config import try_load, try_save, is_cache_stale, mark_cache_fresh, get_metadata, load_local, clear_local_cache
 from analysis import generar_analisis, generar_con_gemini
 from pages.pedidos import (
     pagina_resumen, pagina_participacion, pagina_pareto,
@@ -36,6 +36,9 @@ from pages.inventario import (
 _data_cache = {}
 
 def _load_cached(module):
+    if is_cache_stale():
+        _clear_cache()
+        mark_cache_fresh()
     if module in _data_cache and _data_cache[module] is not None:
         return _data_cache[module].copy()
     df, backend = try_load(module)
@@ -269,10 +272,7 @@ def process_upload(n_clicks, contents, filename, refresh_count):
 )
 def clear_data(n, clear_count):
     _clear_cache()
-    try:
-        set_metadata("ultima_actualizacion", {"fecha": "-", "tipo": "-", "registros": 0, "archivo": "-"})
-    except Exception:
-        pass
+    clear_local_cache()
     return html.Div("Datos limpiados.", style={"color": GREEN}), clear_count + 1
 
 
@@ -294,18 +294,21 @@ def refresh_data(n, count):
     Input("store-filters", "data"),
 )
 def update_sidebar_info(n, _refresh, _clear, filters):
-    from firebase_config import load_local
-    from config import ARCHIVO_BASE
     info = []
     for tipo in ["pedidos", "facturas", "inventario"]:
         df = load_local(tipo)
         if not df.empty:
             info.append(f"{tipo}: {len(df):,}")
+    meta = get_metadata()
+    syncs = meta.get("syncs_remaining", 0)
+    sync_info = f"| Firestore: {syncs}/3" if syncs > 0 else "| Firestore: agotado"
+    lines = []
     if info:
-        return html.Div([html.Div(" | ".join(info), style={"color": GREEN, "fontWeight": "bold"})])
-    if ARCHIVO_BASE.exists():
-        return html.Div(f"Base local: {ARCHIVO_BASE.stat().st_size/1e6:.1f}MB", style={"color": AMBER})
-    return html.Div("Sin datos. Sube un archivo.", style={"color": AMBER})
+        lines.append(html.Div(" | ".join(info), style={"color": GREEN, "fontWeight": "bold"}))
+    else:
+        lines.append(html.Div("Sin datos. Sube un archivo.", style={"color": AMBER}))
+    lines.append(html.Div(sync_info, className="small", style={"color": "#94a3b8"}))
+    return html.Div(lines)
 
 
 @callback(
