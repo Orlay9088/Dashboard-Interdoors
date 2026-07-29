@@ -17,7 +17,7 @@ from etl.detector import detectar_tipo
 from etl.normalizer import normalizar
 from etl.processor import procesar as procesar_etl
 
-from firebase_config import get_db, try_load, try_save, get_metadata, set_metadata
+from firebase_config import try_load, try_save
 from analysis import generar_analisis, generar_con_gemini
 from pages.pedidos import (
     pagina_resumen, pagina_participacion, pagina_pareto,
@@ -294,18 +294,18 @@ def refresh_data(n, count):
     Input("store-filters", "data"),
 )
 def update_sidebar_info(n, _refresh, _clear, filters):
-    try:
-        meta = get_metadata()
-        ult = meta.get("ultima_actualizacion", {})
-        fecha = ult.get("fecha", "N/A")
-        tipo = ult.get("tipo", "-")
-        regs = ult.get("registros", 0)
-        return html.Div([
-            html.Div(f"Ultima actualizacion: {fecha}"),
-            html.Div(f"Tipo: {tipo} | {regs:,} registros", style={"color": GREEN}),
-        ])
-    except Exception:
-        return html.Div("Firestore no disponible. Conecta las credenciales.", style={"color": AMBER})
+    from firebase_config import load_local
+    from config import ARCHIVO_BASE
+    info = []
+    for tipo in ["pedidos", "facturas", "inventario"]:
+        df = load_local(tipo)
+        if not df.empty:
+            info.append(f"{tipo}: {len(df):,}")
+    if info:
+        return html.Div([html.Div(" | ".join(info), style={"color": GREEN, "fontWeight": "bold"})])
+    if ARCHIVO_BASE.exists():
+        return html.Div(f"Base local: {ARCHIVO_BASE.stat().st_size/1e6:.1f}MB", style={"color": AMBER})
+    return html.Div("Sin datos. Sube un archivo.", style={"color": AMBER})
 
 
 @callback(
