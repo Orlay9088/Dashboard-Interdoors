@@ -329,7 +329,7 @@ def render_page(module, page, filters, _refresh, _clear):
     nav_items = []
     for pk, plabel in mod_info["pages"].items():
         nav_items.append(dbc.Button(
-            plabel, id=f"nav-{pk}", color="link",
+            plabel, id=f"nav-{module}_{pk}", color="link",
             className="me-1" if page != pk else "me-1 active",
             size="sm",
             style={"fontWeight": "bold", "color": NAVY} if page == pk else {"color": GRAY},
