@@ -68,8 +68,8 @@ def pagina_resumen_stock(data):
     children.append(html.Hr())
     children.append(html.Div([
         html.H6("Analisis Automatico", className="fw-bold", style={"color": NAVY}),
-        dbc.Button("Generar Analisis", id="btn-analisis-stock", color="secondary", size="sm", className="mb-2"),
-        html.Div(id="analisis-stock", className="small p-3",
+        dbc.Button("Generar Analisis", id="btn-analisis-inventario_resumen_stock", color="secondary", size="sm", className="mb-2"),
+            html.Div(id="analisis-inventario_resumen_stock", className="small p-3",
                  style={"backgroundColor": "#f8fafc", "borderRadius": "8px", "border": "1px solid #e2e8f0", "minHeight": "60px"}),
     ], className="mt-4"))
     return children
@@ -119,8 +119,8 @@ def pagina_por_bodega(data):
     children.append(html.Hr())
     children.append(html.Div([
         html.H6("Analisis Automatico", className="fw-bold", style={"color": NAVY}),
-        dbc.Button("Generar Analisis", id="btn-analisis-bodega", color="secondary", size="sm", className="mb-2"),
-        html.Div(id="analisis-bodega", className="small p-3",
+        dbc.Button("Generar Analisis", id="btn-analisis-inventario_por_bodega", color="secondary", size="sm", className="mb-2"),
+            html.Div(id="analisis-inventario_por_bodega", className="small p-3",
                  style={"backgroundColor": "#f8fafc", "borderRadius": "8px", "border": "1px solid #e2e8f0", "minHeight": "60px"}),
     ], className="mt-4"))
     return children
@@ -174,8 +174,8 @@ def pagina_criticos(data):
     children.append(html.Hr())
     children.append(html.Div([
         html.H6("Analisis Automatico", className="fw-bold", style={"color": NAVY}),
-        dbc.Button("Generar Analisis", id="btn-analisis-criticos", color="secondary", size="sm", className="mb-2"),
-        html.Div(id="analisis-criticos", className="small p-3",
+        dbc.Button("Generar Analisis", id="btn-analisis-inventario_criticos", color="secondary", size="sm", className="mb-2"),
+            html.Div(id="analisis-inventario_criticos", className="small p-3",
                  style={"backgroundColor": "#f8fafc", "borderRadius": "8px", "border": "1px solid #e2e8f0", "minHeight": "60px"}),
     ], className="mt-4"))
     return children

@@ -59,8 +59,8 @@ def pagina_resumen_ventas(data):
     children.append(html.Hr())
     children.append(html.Div([
         html.H6("Analisis Automatico", className="fw-bold", style={"color": NAVY}),
-        dbc.Button("Generar Analisis", id="btn-analisis-ventas", color="secondary", size="sm", className="mb-2"),
-        html.Div(id="analisis-ventas", className="small p-3",
+        dbc.Button("Generar Analisis", id="btn-analisis-facturas_resumen_ventas", color="secondary", size="sm", className="mb-2"),
+            html.Div(id="analisis-facturas_resumen_ventas", className="small p-3",
                  style={"backgroundColor": "#f8fafc", "borderRadius": "8px", "border": "1px solid #e2e8f0", "minHeight": "60px"}),
     ], className="mt-4"))
     return children
@@ -115,8 +115,8 @@ def pagina_margenes(data):
     children.append(html.Hr())
     children.append(html.Div([
         html.H6("Analisis Automatico", className="fw-bold", style={"color": NAVY}),
-        dbc.Button("Generar Analisis", id="btn-analisis-margenes", color="secondary", size="sm", className="mb-2"),
-        html.Div(id="analisis-margenes", className="small p-3",
+        dbc.Button("Generar Analisis", id="btn-analisis-facturas_margenes", color="secondary", size="sm", className="mb-2"),
+            html.Div(id="analisis-facturas_margenes", className="small p-3",
                  style={"backgroundColor": "#f8fafc", "borderRadius": "8px", "border": "1px solid #e2e8f0", "minHeight": "60px"}),
     ], className="mt-4"))
     return children
@@ -163,8 +163,8 @@ def pagina_mix_producto(data):
     children.append(html.Hr())
     children.append(html.Div([
         html.H6("Analisis Automatico", className="fw-bold", style={"color": NAVY}),
-        dbc.Button("Generar Analisis", id="btn-analisis-mix", color="secondary", size="sm", className="mb-2"),
-        html.Div(id="analisis-mix", className="small p-3",
+        dbc.Button("Generar Analisis", id="btn-analisis-facturas_mix_producto", color="secondary", size="sm", className="mb-2"),
+            html.Div(id="analisis-facturas_mix_producto", className="small p-3",
                  style={"backgroundColor": "#f8fafc", "borderRadius": "8px", "border": "1px solid #e2e8f0", "minHeight": "60px"}),
     ], className="mt-4"))
     return children
@@ -213,8 +213,8 @@ def pagina_precio_promedio(data):
     children.append(html.Hr())
     children.append(html.Div([
         html.H6("Analisis Automatico", className="fw-bold", style={"color": NAVY}),
-        dbc.Button("Generar Analisis", id="btn-analisis-precios", color="secondary", size="sm", className="mb-2"),
-        html.Div(id="analisis-precios", className="small p-3",
+        dbc.Button("Generar Analisis", id="btn-analisis-facturas_precio_promedio", color="secondary", size="sm", className="mb-2"),
+            html.Div(id="analisis-facturas_precio_promedio", className="small p-3",
                  style={"backgroundColor": "#f8fafc", "borderRadius": "8px", "border": "1px solid #e2e8f0", "minHeight": "60px"}),
     ], className="mt-4"))
     return children
