@@ -341,6 +341,11 @@ def update_dropdowns(_refresh, _clear, tipo):
     Input("store-clear", "data"),
 )
 def render_page(module, page, filters, _refresh, _clear):
+    module = str(module).strip().lower()
+    if module not in MODULES:
+        module = list(MODULES.keys())[0]
+    if page not in MODULES.get(module, {}).get("pages", {}):
+        page = list(MODULES[module]["pages"].keys())[0]
     try:
         df = _load_cached(module)
     except Exception as e:
@@ -394,7 +399,12 @@ def render_page(module, page, filters, _refresh, _clear):
 
     func = page_funcs.get(module, {}).get(page)
     if not func:
-        return html.Div("Pagina no encontrada.")
+        return dmc.Alert([
+            html.Div(f"Pagina no encontrada.", style={"fontWeight": "bold"}),
+            html.Div(f"Module: '{module}' | Page: '{page}'", className="small text-muted mt-1"),
+            html.Div(f"Available modules: {list(page_funcs.keys())}", className="small text-muted"),
+            html.Div(f"Available pages for '{module}': {list(page_funcs.get(module, {}).keys())}", className="small text-muted"),
+        ], title="Error", color="red", withCloseButton=True)
 
     try:
         result = func(data)
