@@ -7,21 +7,24 @@ from pathlib import Path
 _initialized = False
 _db = None
 
-KEY_PATH = Path(__file__).parent / "firebase-key.json"
+RENDER_SECRET_PATH = Path("/etc/secrets/firebase-key.json")
+LOCAL_KEY_PATH = Path(__file__).parent / "firebase-key.json"
 
 def get_db():
     global _initialized, _db
     if _initialized:
         return _db
     cred = None
-    if KEY_PATH.exists():
-        cred = credentials.Certificate(str(KEY_PATH))
-    else:
+    for path in [RENDER_SECRET_PATH, LOCAL_KEY_PATH]:
+        if path.exists():
+            cred = credentials.Certificate(str(path))
+            break
+    if cred is None:
         raw = os.environ.get("FIREBASE_KEY_JSON")
         if raw:
             cred = credentials.Certificate(json.loads(raw))
     if cred is None:
-        raise RuntimeError("No se encontro firebase-key.json ni FIREBASE_KEY_JSON")
+        raise RuntimeError("No se encontro firebase-key.json (buscado en /etc/secrets/, raiz del proyecto, y FIREBASE_KEY_JSON)")
     app = firebase_admin.initialize_app(cred)
     _db = firestore.client()
     _initialized = True
