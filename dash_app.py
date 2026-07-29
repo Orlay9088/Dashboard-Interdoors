@@ -101,8 +101,10 @@ def build_sidebar():
             multiple=False,
             accept=".xlsx,.xls",
         ),
-        html.Div(id="file-name", className="small", style={"color": "#93c5fd"}),
-        dbc.Button("Procesar archivo", id="btn-process", color="primary", size="sm", className="w-100 mb-1"),
+        html.Div(id="file-name", className="small mb-1", style={"color": "#93c5fd"}),
+        html.Div([
+            dbc.Button("Procesar archivo", id="btn-process", color="primary", size="sm", className="w-100 mb-1"),
+        ]),
         html.Div(id="upload-status", style={"fontSize": "0.8rem", "minHeight": "2rem"}),
         html.Hr(style={"borderColor": "rgba(255,255,255,0.15)"}),
 
@@ -197,15 +199,15 @@ def update_filters(start, end, asesor, canal, estado):
     Output("store-refresh", "data"),
     Output("store-module", "data", allow_duplicate=True),
     Output("store-tipo", "data"),
-    Input("upload-data", "contents"),
     Input("btn-process", "n_clicks"),
+    State("upload-data", "contents"),
     State("upload-data", "filename"),
     State("store-refresh", "data"),
     prevent_initial_call=True,
 )
-def process_upload(contents, n_clicks, filename, refresh_count):
+def process_upload(n_clicks, contents, filename, refresh_count):
     if not contents:
-        return no_update, no_update, no_update, no_update
+        return html.Div("Selecciona un archivo Excel primero.", style={"color": AMBER}), no_update, no_update, no_update
     if not filename:
         return html.Div("Selecciona un archivo.", style={"color": AMBER}), no_update, no_update, no_update
     if not filename.endswith((".xlsx", ".xls")):
