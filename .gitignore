@@ -11,6 +11,8 @@ base/Base_Maestra_Pedidos.parquet
 base/Base_Maestra_Pedidos.xlsx
 base/backups/
 base/*.parquet
+base/.cache_meta.json
+base/.sync_counter.json
 entrada/*.xlsx
 salida/
 dashboard_data/
