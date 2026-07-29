@@ -1,6 +1,5 @@
 import dash_bootstrap_components as dbc
-import dash_mantine_components as dmc
-from dash import html, dcc
+from dash import html
 import pandas as pd
 
 NAVY = "#1e3a5f"
@@ -9,6 +8,7 @@ AMBER = "#f59e0b"
 GREEN = "#10b981"
 RED = "#ef4444"
 GRAY = "#64748b"
+SLATE = "#94a3b8"
 
 HEX_TO_RGB = {
     "#1e3a5f": (30, 58, 95), "#3b82f6": (59, 130, 246),
@@ -16,13 +16,21 @@ HEX_TO_RGB = {
     "#ef4444": (239, 68, 68), "#64748b": (100, 116, 139),
 }
 
+METRIC_ICONS = {
+    "valor": "   $", "pedidos": "   #", "clientes": "   ",
+    "pendiente": "   ", "promedio": "   ", "cumplimiento": "   ",
+    "construccion": "   ", "stock": "   ", "productos": "   ",
+    "existencia": "   ", "comprometido": "   ",
+    "ventas": "   ", "facturas": "   ", "ticket": "   ",
+    "margen": "   ", "rendimiento": "   ", "ranking": "   ",
+    "proyeccion": "   ", "bodega": "   ", "linea": "   ",
+}
 
 def rgba(color, alpha):
     rgb = HEX_TO_RGB.get(color)
     if rgb:
         return f"rgba({rgb[0]},{rgb[1]},{rgb[2]},{alpha})"
     return color
-
 
 PLOTLY_TEMPLATE = dict(
     layout=dict(
@@ -34,7 +42,6 @@ PLOTLY_TEMPLATE = dict(
     )
 )
 
-
 def fig_layout(title="", height=400, **overrides):
     layout = dict(
         title=dict(text=title, font=dict(size=14, color=NAVY), x=0.02, y=0.97),
@@ -45,22 +52,52 @@ def fig_layout(title="", height=400, **overrides):
     layout.update(overrides)
     return layout
 
-
 def section_title(title, sub=""):
     return html.Div([
-        html.H5(title, className="fw-bold m-0", style={"color": NAVY}),
-        html.P(sub, className="text-muted small m-0") if sub else "",
-    ], className="mb-3")
+        html.Div(style={
+            "width": "4px", "height": "24px", "backgroundColor": BLUE,
+            "borderRadius": "2px", "display": "inline-block",
+            "verticalAlign": "middle", "marginRight": "10px",
+        }),
+        html.Div([
+            html.H5(title, className="fw-bold m-0", style={"color": NAVY, "display": "inline"}),
+            html.P(sub, className="text-muted small m-0 mt-1") if sub else "",
+        ], style={"display": "inline-block", "verticalAlign": "middle"}),
+    ], className="mb-4")
 
 
-def kpi_card(label, value, sub=""):
-    return dmc.Card([
-        dmc.CardSection([
-            html.Div(label, className="text-center text-uppercase small text-muted fw-semibold"),
-            html.Div(value, className="text-center fw-bold", style={"fontSize": "1.5rem", "color": NAVY}),
-            html.Div(sub, className="text-center small text-muted mt-1") if sub else "",
-        ]),
-    ], withBorder=True, shadow="sm", padding="lg", radius="md", className="h-100")
+def kpi_card(label, value, sub="", color=None, icon=None):
+    if color is None:
+        color = NAVY
+    if icon is None:
+        label_lower = label.lower()
+        for key, ico in METRIC_ICONS.items():
+            if key in label_lower:
+                icon = ico; break
+        if icon is None:
+            icon = "   "
+    return html.Div([
+        html.Div(style={
+            "height": "3px", "background": color,
+            "borderRadius": "3px 3px 0 0", "marginBottom": "12px",
+        }),
+        html.Div([
+            html.Span(icon, style={"fontSize": "1.1rem", "marginRight": "6px"}),
+            html.Span(label, style={"fontSize": "0.7rem", "textTransform": "uppercase",
+                                     "color": GRAY, "fontWeight": "600", "letterSpacing": "0.5px"}),
+        ], className="mb-2"),
+        html.Div(value, style={"fontSize": "1.6rem", "fontWeight": "bold",
+                                "color": color, "lineHeight": "1.2"}),
+        html.Div(sub, style={"fontSize": "0.7rem", "color": SLATE, "marginTop": "4px"}) if sub else "",
+    ], style={
+        "background": "white", "borderRadius": "8px",
+        "padding": "14px 16px 16px 16px",
+        "boxShadow": "0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)",
+        "height": "100%", "transition": "box-shadow 0.2s",
+    })
+
+def kpi_card_icon(label, value, sub="", color=NAVY):
+    return kpi_card(label, value, sub, color)
 
 
 def fmt_p(valor):
@@ -69,14 +106,12 @@ def fmt_p(valor):
     s = f"{abs(valor):,.0f}".replace(",", ".")
     return f"$ {s}"
 
-
 def fmt_pm(valor):
     if pd.isna(valor) or valor == 0:
         return "$ 0"
     v = valor / 1e6
     s = f"{abs(v):,.1f}".replace(",", "X").replace(".", ",").replace("X", ".")
     return f"$ {s}M"
-
 
 def build_podium(rank_df, title, value_col, pct_col, extra_col=None):
     top3 = rank_df.head(3).reset_index(drop=True)
@@ -114,7 +149,6 @@ def build_podium(rank_df, title, value_col, pct_col, extra_col=None):
         html.H6(title, className="fw-bold text-center mb-2", style={"color": NAVY}),
         dbc.Row([cols[1], cols[0], cols[2]], className="g-0", style={"alignItems": "flex-end"}),
     ], className="mb-3")
-
 
 def apply_filters(data, filters_dict):
     if data.empty:

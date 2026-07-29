@@ -24,18 +24,18 @@ def pagina_resumen(data):
     children = [section_title("Resumen Ejecutivo", "Pedidos - Indicadores principales")]
 
     kpi_row = dbc.Row([
-        dbc.Col(kpi_card("Valor Total", fmt_p(vp), fmt_pm(vp)), width=3),
-        dbc.Col(kpi_card("Pedidos", f"{total_pedidos:,}", f"{cant_pedida:,.0f} unidades"), width=3),
-        dbc.Col(kpi_card("Clientes Activos", f"{total_clientes}", f"{num_asesores} asesores"), width=3),
-        dbc.Col(kpi_card("Valor Pendiente", fmt_p(vp), f"{pct_pend:.2f}% del pedido"), width=3),
+        dbc.Col(kpi_card("Valor Total", fmt_p(vp), fmt_pm(vp), color=BLUE), width=3),
+        dbc.Col(kpi_card("Pedidos", f"{total_pedidos:,}", f"{cant_pedida:,.0f} unidades", color=NAVY), width=3),
+        dbc.Col(kpi_card("Clientes Activos", f"{total_clientes}", f"{num_asesores} asesores", color=NAVY), width=3),
+        dbc.Col(kpi_card("Valor Pendiente", fmt_p(vp), f"{pct_pend:.2f}% del pedido", color=AMBER), width=3),
     ], className="mb-4 g-3")
     children.append(kpi_row)
 
     kpi2 = dbc.Row([
-        dbc.Col(kpi_card("Promedio x Cliente", fmt_p(promedio_cliente), fmt_pm(promedio_cliente)), width=3),
-        dbc.Col(kpi_card("Promedio x Pedido", fmt_p(promedio_pedido), fmt_pm(promedio_pedido)), width=3),
-        dbc.Col(kpi_card("Cumplimiento", f"{vc/vp*100:.2f}%" if vp else "0%", f"{fmt_p(vc)} comprometido"), width=3),
-        dbc.Col(kpi_card("Construccion", f"{data[data['_canal']=='CNST - CONSTRUCCION']['_valor'].sum()/vp*100:.2f}%" if vp else "0%", "% del total"), width=3),
+        dbc.Col(kpi_card("Promedio x Cliente", fmt_p(promedio_cliente), fmt_pm(promedio_cliente), color=GRAY), width=3),
+        dbc.Col(kpi_card("Promedio x Pedido", fmt_p(promedio_pedido), fmt_pm(promedio_pedido), color=GRAY), width=3),
+        dbc.Col(kpi_card("Cumplimiento", f"{vc/vp*100:.2f}%" if vp else "0%", f"{fmt_p(vc)} comprometido", color=GREEN), width=3),
+        dbc.Col(kpi_card("Construccion", f"{data[data['_canal']=='CNST - CONSTRUCCION']['_valor'].sum()/vp*100:.2f}%" if vp else "0%", "% del total", color=AMBER), width=3),
     ], className="mb-4 g-3")
     children.append(kpi2)
 
