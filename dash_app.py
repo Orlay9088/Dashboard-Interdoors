@@ -16,8 +16,8 @@ from pages.components import NAVY, BLUE, AMBER, GREEN, RED, GRAY, apply_filters
 from etl.detector import detectar_tipo
 from etl.normalizer import normalizar
 from etl.processor import procesar as procesar_etl
-from etl.uploader import subir_a_firestore
-from firebase_config import get_db, load_from_firestore, get_metadata, set_metadata
+
+from firebase_config import get_db, try_load, try_save, get_metadata, set_metadata
 from analysis import generar_analisis, generar_con_gemini
 from pages.pedidos import (
     pagina_resumen, pagina_participacion, pagina_pareto,
@@ -38,8 +38,9 @@ _data_cache = {}
 def _load_cached(module):
     if module in _data_cache and _data_cache[module] is not None:
         return _data_cache[module].copy()
-    df = load_from_firestore(module)
-    _data_cache[module] = df.copy() if not df.empty else None
+    df, backend = try_load(module)
+    if not df.empty:
+        _data_cache[module] = df.copy()
     return df
 
 def _clear_cache(module=None):
@@ -99,9 +100,9 @@ def build_sidebar():
     ]
     for key, mod in MODULES.items():
         children.append(dbc.Button(
-            mod["label"], id=f"mod-{key}", color="primary",
-            className="w-100 mb-1", size="sm",
-            style={"backgroundColor": "transparent", "borderColor": "rgba(255,255,255,0.2)"},
+            mod["label"], id=f"mod-{key}", color="light",
+            className="w-100 mb-2", size="sm",
+            style={"fontWeight": "bold"},
         ))
 
     children.append(html.Hr(style={"borderColor": "rgba(255,255,255,0.15)"}))
@@ -242,7 +243,7 @@ def process_upload(n_clicks, contents, filename, refresh_count):
         df_raw = pd.read_excel(str(ruta), sheet_name=sheet)
         df_norm = normalizar(df_raw, tipo)
         df_proc = procesar_etl(df_norm)
-        n_reg = subir_a_firestore(df_proc, tipo, filename)
+        n_reg = try_save(df_proc, tipo, filename)
         _clear_cache(tipo)
 
         return html.Div([
