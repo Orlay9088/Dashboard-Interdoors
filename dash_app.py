@@ -194,18 +194,15 @@ app.layout = html.Div([
     dcc.Store(id="store-refresh", data=0),
     dcc.Store(id="store-clear", data=0),
     dcc.Store(id="store-tipo", data="pedidos"),
-    dcc.Loading(
-        id="loading-content",
-        type="cube",
-        color=BLUE,
-        children=html.Div(id="page-content-wrapper", style=CONTENT_STYLE),
-    ),
     build_sidebar(),
+    html.Div(id="page-content", children=[
+        dmc.Alert("Cargando datos del modulo activo...", title="Iniciando", color="blue", withCloseButton=False),
+    ], style=CONTENT_STYLE),
 ])
 
 # Wrapper callback that delegates to render_page
 @callback(
-    Output("page-content-wrapper", "children"),
+    Output("page-content", "children"),
     Input("store-module", "data"),
     Input("store-page", "data"),
     Input("store-filters", "data"),
