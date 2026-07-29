@@ -198,14 +198,16 @@ def update_filters(start, end, asesor, canal, estado):
     Output("store-refresh", "data"),
     Output("store-module", "data", allow_duplicate=True),
     Output("store-tipo", "data"),
+    Input("upload-data", "contents"),
     Input("btn-process", "n_clicks"),
-    State("upload-data", "contents"),
     State("upload-data", "filename"),
     State("store-refresh", "data"),
     prevent_initial_call=True,
 )
-def process_upload(n, contents, filename, refresh_count):
-    if not contents or not filename:
+def process_upload(contents, n_clicks, filename, refresh_count):
+    if not contents:
+        return no_update, no_update, no_update, no_update
+    if not filename:
         return html.Div("Selecciona un archivo.", style={"color": AMBER}), no_update, no_update, no_update
     if not filename.endswith((".xlsx", ".xls")):
         return html.Div("Solo archivos Excel.", style={"color": RED}), no_update, no_update, no_update
