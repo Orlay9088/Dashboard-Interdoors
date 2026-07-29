@@ -92,9 +92,11 @@ def build_sidebar():
         html.H6("Subir archivo", className="text-uppercase small fw-semibold mb-2", style={"color": "#94a3b8"}),
         dcc.Upload(
             id="upload-data",
-            children=html.Div(["Arrastra o ", html.A("selecciona .xlsx", style={"color": "#93c5fd"})]),
+            children=html.Div(["Arrastra o ", html.Span("selecciona .xlsx",
+                style={"color": "#93c5fd", "textDecoration": "underline", "cursor": "pointer"})]),
             className="border border-2 border-dashed rounded-3 p-2 text-center small mb-2",
             style={"cursor": "pointer", "borderColor": "rgba(255,255,255,0.3)", "color": "white"},
+            multiple=False,
         ),
         html.Div(id="file-name", className="small", style={"color": "#93c5fd"}),
         dbc.Button("Procesar archivo", id="btn-process", color="primary", size="sm", className="w-100 mb-1"),
