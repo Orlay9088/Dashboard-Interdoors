@@ -153,6 +153,10 @@ def build_sidebar():
                 html.Div(id="upload-status", style={"fontSize": "0.8rem", "minHeight": "2rem"}),
             ])
         ),
+        html.Div(id="mod-last-file", className="small mb-1", style={"color": "#64748b", "minHeight": "1rem"}),
+        dbc.Button("Recargar ultimo archivo", id="btn-reload-module", color="secondary",
+                   size="sm", className="w-100 mb-1", style={"fontSize": "0.75rem"}),
+        html.Div(id="reload-status", style={"fontSize": "0.75rem", "minHeight": "1rem"}),
     ], id="upload-section")),
 
     children.append(html.Hr(style={"borderColor": "rgba(255,255,255,0.15)"}))
@@ -239,6 +243,44 @@ def update_module_badges(_refresh, _clear):
         else:
             results.append("vacio")
     return results
+
+
+# Sidebar: show last uploaded file for current module
+@callback(
+    Output("mod-last-file", "children"),
+    Input("store-module", "data"),
+    Input("store-refresh", "data"),
+)
+def update_last_file(module, _refresh):
+    from firebase_config import get_last_files
+    module = str(module).strip().lower()
+    if module not in MODULES:
+        module = "pedidos"
+    files = get_last_files()
+    fname = files.get(module, "")
+    if fname:
+        return f"Ultimo: {fname}"
+    return ""
+
+
+# Sidebar: reload module from last saved parquet
+@callback(
+    Output("reload-status", "children"),
+    Output("store-refresh", "data", allow_duplicate=True),
+    Input("btn-reload-module", "n_clicks"),
+    State("store-module", "data"),
+    State("store-refresh", "data"),
+    prevent_initial_call=True,
+)
+def reload_module(n, module, count):
+    module = str(module).strip().lower()
+    if module not in MODULES:
+        return html.Div("Modulo invalido.", style={"color": RED}), no_update
+    _clear_cache(module)
+    df = load_local(module)
+    if df.empty:
+        return html.Div("No hay datos guardados. Sube un archivo primero.", style={"color": AMBER}), no_update
+    return html.Div(f"Recargado: {len(df):,} registros.", style={"color": GREEN}), count + 1
 
 
 # Sidebar: update upload section title

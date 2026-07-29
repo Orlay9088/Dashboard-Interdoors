@@ -13,6 +13,7 @@ base/backups/
 base/*.parquet
 base/.cache_meta.json
 base/.sync_counter.json
+base/.last_files.json
 entrada/*.xlsx
 salida/
 dashboard_data/

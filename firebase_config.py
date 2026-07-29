@@ -13,9 +13,33 @@ LOCAL_PARQUET = {
     "facturas": LOCAL_BASE / "facturas.parquet",
     "inventario": LOCAL_BASE / "inventario.parquet",
 }
+LAST_FILES_JSON = LOCAL_BASE / ".last_files.json"
 
 MAX_SYNCS_PER_DAY = 3
 CACHE_TTL_HOURS = 24
+
+
+def _load_json(path, default=None):
+    if path.exists():
+        with open(path) as f:
+            return json.load(f)
+    return default if default is not None else {}
+
+
+def _save_json(path, data):
+    LOCAL_BASE.mkdir(parents=True, exist_ok=True)
+    with open(path, "w") as f:
+        json.dump(data, f)
+
+
+def save_last_file(tipo, filename):
+    data = _load_json(LAST_FILES_JSON, {"pedidos": "", "facturas": "", "inventario": ""})
+    data[tipo] = filename
+    _save_json(LAST_FILES_JSON, data)
+
+
+def get_last_files():
+    return _load_json(LAST_FILES_JSON, {"pedidos": "", "facturas": "", "inventario": ""})
 
 
 def _load_counter():
@@ -113,6 +137,8 @@ def try_save(df, tipo, filename=""):
     n = len(df)
     save_local(df, tipo)
     _use_firestore_sync()
+    if filename:
+        save_last_file(tipo, filename)
     return n
 
 
