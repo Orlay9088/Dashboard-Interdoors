@@ -200,29 +200,23 @@ app.layout = html.Div([
     dcc.Store(id="store-tipo", data="pedidos"),
     build_sidebar(),
     html.Div(id="page-content", children=[
-        html.H3("Cargando...", style={"textAlign": "center", "color": NAVY, "padding": "3rem"}),
+        html.H2("INICIAL A", style={"color": RED, "padding": "2rem", "background": "#fff"}),
+        html.P("Si ves esto, el layout carga.", style={"color": GRAY}),
     ], style=CONTENT_STYLE),
 ])
 
-# Wrapper callback that delegates to render_page
+# TEST CALLBACK - minimal to verify Dash works
 @callback(
     Output("page-content", "children"),
     Input("store-module", "data"),
-    Input("store-page", "data"),
-    Input("store-filters", "data"),
-    Input("store-refresh", "data"),
-    Input("store-clear", "data"),
 )
-def render_page_wrapper(module, page, filters, refresh_count, clear_count):
-    import json
-    if isinstance(filters, str):
-        try:
-            filters = json.loads(filters)
-        except:
-            filters = {}
-    if not isinstance(filters, dict):
-        filters = {}
-    return _render_page_content(module, page, filters)
+def test_simple(module):
+    return [
+        html.H2(f"CALLBACK OK B", style={"color": GREEN, "padding": "2rem", "background": "#fff"}),
+        html.P(f"Module: {module}", style={"color": BLUE, "fontSize": "1.2rem"}),
+        html.P("Si ves esto, los callbacks de Dash funcionan.", style={"color": GRAY}),
+        html.P(f"Timestamp: {datetime.now().strftime('%H:%M:%S')}", style={"color": GREEN}),
+    ]
 
 # ============================================================
 # CALLBACKS
