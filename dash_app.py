@@ -200,23 +200,29 @@ app.layout = html.Div([
     dcc.Store(id="store-tipo", data="pedidos"),
     build_sidebar(),
     html.Div(id="page-content", children=[
-        html.H2("INICIAL A", style={"color": RED, "padding": "2rem", "background": "#fff"}),
-        html.P("Si ves esto, el layout carga.", style={"color": GRAY}),
+        html.H3("Cargando dashboard...", style={"textAlign": "center", "color": NAVY, "padding": "3rem"}),
     ], style=CONTENT_STYLE),
 ])
 
-# TEST CALLBACK - minimal to verify Dash works
+# Main content renderer
 @callback(
     Output("page-content", "children"),
     Input("store-module", "data"),
+    Input("store-page", "data"),
+    Input("store-filters", "data"),
+    Input("store-refresh", "data"),
+    Input("store-clear", "data"),
 )
-def test_simple(module):
-    return [
-        html.H2(f"CALLBACK OK B", style={"color": GREEN, "padding": "2rem", "background": "#fff"}),
-        html.P(f"Module: {module}", style={"color": BLUE, "fontSize": "1.2rem"}),
-        html.P("Si ves esto, los callbacks de Dash funcionan.", style={"color": GRAY}),
-        html.P(f"Timestamp: {datetime.now().strftime('%H:%M:%S')}", style={"color": GREEN}),
-    ]
+def render_page_wrapper(module, page, filters, refresh_count, clear_count):
+    import json
+    if isinstance(filters, str):
+        try:
+            filters = json.loads(filters)
+        except:
+            filters = {}
+    if not isinstance(filters, dict):
+        filters = {}
+    return _render_content(module, page, filters)
 
 # ============================================================
 # CALLBACKS
@@ -455,15 +461,13 @@ def update_dropdowns(_refresh, _clear, tipo):
 
 
 
-def _render_page_content(module, page, filters):
+def _render_content(module, page, filters):
     import json
     module = str(module).strip().lower()
     if module not in MODULES:
         module = list(MODULES.keys())[0]
-    mod_info = MODULES[module]
-    if page not in mod_info["pages"]:
-        page = list(mod_info["pages"].keys())[0]
-
+    if page not in MODULES[module]["pages"]:
+        page = list(MODULES[module]["pages"].keys())[0]
     if isinstance(filters, str):
         try:
             filters = json.loads(filters)
@@ -472,36 +476,16 @@ def _render_page_content(module, page, filters):
     if not isinstance(filters, dict):
         filters = {}
 
-    try:
-        df = _load_cached(module)
-    except Exception as e:
-        import traceback
-        return dmc.Alert([
-            html.Div("Error al cargar datos.", style={"fontWeight": "bold"}),
-            html.Div(str(e), className="small text-muted mt-1"),
-        ], title="Error", color="red", withCloseButton=True)
-
+    df = load_local(module)
     if df.empty:
-        import os
-        path = f"base/{module}.parquet"
-        file_exists = os.path.exists(path)
-        file_size = os.path.getsize(path) if file_exists else 0
         return dmc.Alert([
-            html.Div("No hay datos para mostrar.", style={"fontWeight": "bold"}),
-            html.Div(f"Sube un archivo Excel con datos de {mod_info['label']}.", className="small mt-1"),
-            html.Div([
-                html.Span(f"Module: {module} | Page: {page} | ", style={"color": GRAY}),
-                html.Span(f"File: {path} | ", style={"color": GRAY}),
-                html.Span(f"Exists: {file_exists} | Size: {file_size:,} bytes",
-                         style={"color": GREEN if file_exists else RED}),
-            ], className="small mt-2", style={"fontFamily": "monospace"}),
+            html.Div(f"No hay datos para {MODULES[module]['label']}.", style={"fontWeight": "bold"}),
+            html.Div(f"Sube un archivo Excel en el panel lateral.", className="small mt-1"),
         ], title="Sin Datos", color="yellow", withCloseButton=True)
 
     data = apply_filters(df, filters)
     if data.empty:
-        return dmc.Alert(
-            "Los filtros actuales no devuelven resultados. Ajusta el periodo, asesor o canal.",
-            title="Sin resultados", color="yellow", withCloseButton=True)
+        return dmc.Alert("Filtros no devuelven resultados.", title="Sin resultados", color="yellow")
 
     page_funcs = {
         "pedidos": {
@@ -519,21 +503,18 @@ def _render_page_content(module, page, filters):
             "criticos": pagina_criticos,
         },
     }
-
     func = page_funcs.get(module, {}).get(page)
     if not func:
-        return dmc.Alert([
-            html.Div(f"Pagina no encontrada.", style={"fontWeight": "bold"}),
-            html.Div(f"Module: '{module}' | Page: '{page}'", className="small text-muted mt-1"),
-        ], title="Error", color="red", withCloseButton=True)
+        return dmc.Alert(f"Pagina '{page}' no encontrada para '{module}'.", title="Error", color="red")
 
     try:
         result = func(data)
+        return html.Div(result)
     except Exception as e:
-        print(traceback.format_exc())
-        result = dmc.Alert(f"Error: {e}", title="Error", color="red", withCloseButton=True)
-
-    return html.Div([result])
+        return dmc.Alert([
+            html.Div(f"Error al renderizar: {module}/{page}", style={"fontWeight": "bold"}),
+            html.Div(str(e), className="small text-muted mt-1"),
+        ], title="Error de Pagina", color="red", withCloseButton=True)
 
 
 
