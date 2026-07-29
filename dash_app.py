@@ -31,6 +31,24 @@ from pages.inventario import (
 )
 
 # ============================================================
+# CACHE
+# ============================================================
+_data_cache = {}
+
+def _load_cached(module):
+    if module in _data_cache and _data_cache[module] is not None:
+        return _data_cache[module].copy()
+    df = load_from_firestore(module)
+    _data_cache[module] = df.copy() if not df.empty else None
+    return df
+
+def _clear_cache(module=None):
+    if module:
+        _data_cache.pop(module, None)
+    else:
+        _data_cache.clear()
+
+# ============================================================
 # APP SETUP
 # ============================================================
 app = dash.Dash(
@@ -225,6 +243,7 @@ def process_upload(n_clicks, contents, filename, refresh_count):
         df_norm = normalizar(df_raw, tipo)
         df_proc = procesar_etl(df_norm)
         n_reg = subir_a_firestore(df_proc, tipo, filename)
+        _clear_cache(tipo)
 
         return html.Div([
             html.Div(f"OK: {filename}", style={"color": "#93c5fd"}),
@@ -248,11 +267,23 @@ def process_upload(n_clicks, contents, filename, refresh_count):
     prevent_initial_call=True,
 )
 def clear_data(n, clear_count):
+    _clear_cache()
     try:
         set_metadata("ultima_actualizacion", {"fecha": "-", "tipo": "-", "registros": 0, "archivo": "-"})
     except Exception:
         pass
     return html.Div("Datos limpiados.", style={"color": GREEN}), clear_count + 1
+
+
+@callback(
+    Output("store-refresh", "data", allow_duplicate=True),
+    Input("refresh-data", "n_clicks"),
+    State("store-refresh", "data"),
+    prevent_initial_call=True,
+)
+def refresh_data(n, count):
+    _clear_cache()
+    return count + 1
 
 
 @callback(
@@ -286,7 +317,7 @@ def update_sidebar_info(n, _refresh, _clear, filters):
 )
 def update_dropdowns(_refresh, _clear, tipo):
     try:
-        df = load_from_firestore(tipo)
+        df = _load_cached(tipo)
         if df.empty:
             return [{"label": "Sin datos", "value": "Todos"}], [{"label": "Sin datos", "value": "Todos"}], [{"label": "Sin datos", "value": "Todos"}]
         asesores = [{"label": "Todos", "value": "Todos"}] + [{"label": a, "value": a} for a in sorted(df["_vendedor"].dropna().unique()) if a]
@@ -307,7 +338,7 @@ def update_dropdowns(_refresh, _clear, tipo):
 )
 def render_page(module, page, filters, _refresh, _clear):
     try:
-        df = load_from_firestore(module)
+        df = _load_cached(module)
     except Exception as e:
         return dmc.Alert([
             html.Div("Error al conectar con Firestore.", style={"fontWeight": "bold"}),
@@ -413,7 +444,7 @@ def generate_analysis(*args):
     _, page = PAGE_ROUTES.get(route, ("pedidos", "resumen"))
 
     try:
-        df = load_from_firestore(module)
+        df = _load_cached(module)
     except Exception:
         return [no_update] * len(ANALYSIS_OUTPUTS)
 
