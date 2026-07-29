@@ -64,16 +64,16 @@ app = dash.Dash(
 server = app.server
 
 MODULES = {
-    "pedidos": {"label": "Pedidos", "icon": "", "pages": {
+    "pedidos": {"label": "PEDIDOS", "color": BLUE, "pages": {
         "resumen": "Resumen", "participacion": "Participacion",
         "pareto": "Pareto", "ranking": "Ranking", "embudo": "Embudo",
         "heatmap": "Heatmap", "proyeccion": "Proyeccion",
     }},
-    "facturas": {"label": "Facturacion", "icon": "", "pages": {
+    "facturas": {"label": "FACTURACION", "color": GREEN, "pages": {
         "resumen_ventas": "Resumen", "margenes": "Margenes",
         "mix_producto": "Mix Producto", "precio_promedio": "Precio Prom.",
     }},
-    "inventario": {"label": "Inventario", "icon": "", "pages": {
+    "inventario": {"label": "INVENTARIO", "color": AMBER, "pages": {
         "resumen_stock": "Resumen", "por_bodega": "Por Bodega",
         "criticos": "Criticos",
     }},
@@ -83,6 +83,9 @@ PAGE_ROUTES = {}
 for mod_key, mod_val in MODULES.items():
     for page_key in mod_val["pages"]:
         PAGE_ROUTES[f"{mod_key}_{page_key}"] = (mod_key, page_key)
+
+MODULE_LABELS = [v["label"] for v in MODULES.values()]
+MODULE_COLORS = {k: v["color"] for k, v in MODULES.items()}
 
 SIDEBAR_STYLE = {
     "position": "fixed", "top": 0, "left": 0, "bottom": 0,
@@ -98,20 +101,30 @@ CONTENT_STYLE = {"marginLeft": "260px", "padding": "1.5rem", "background": "#f8f
 def build_sidebar():
     children = [
         html.H5("Dashboard Interdoors", className="fw-bold mb-3 text-center", style={"color": "white"}),
-
-        html.H6("Modulo", className="text-uppercase small fw-semibold mb-2", style={"color": "#94a3b8"}),
     ]
+
+    # Module cards
     for key, mod in MODULES.items():
-        children.append(dbc.Button(
-            mod["label"], id=f"mod-{key}", color="light",
-            className="w-100 mb-2", size="sm",
-            style={"fontWeight": "bold"},
-        ))
+        children.append(html.Div([
+            dbc.Button([
+                html.Div([
+                    html.Span(mod["label"], className="fw-bold",
+                              style={"fontSize": "0.85rem", "color": "white"}),
+                ], className="d-flex align-items-center justify-content-between"),
+            ], id=f"mod-{key}", className="w-100 mb-2 text-start py-2 px-3",
+               style={"backgroundColor": "rgba(255,255,255,0.08)", "border": "1px solid rgba(255,255,255,0.1)",
+                      "borderRadius": "8px", "borderLeft": f"3px solid {mod['color']}"}),
+            html.Div(id=f"mod-badge-{key}", className="text-end",
+                     style={"fontSize": "0.7rem", "marginTop": "-8px", "marginBottom": "6px",
+                            "color": "#94a3b8", "paddingRight": "8px"}),
+        ]))
 
     children.append(html.Hr(style={"borderColor": "rgba(255,255,255,0.15)"}))
 
-    children.extend([
-        html.H6("Subir archivo", className="text-uppercase small fw-semibold mb-2", style={"color": "#94a3b8"}),
+    # Upload section - conditional per module
+    children.append(html.Div([
+        html.H6(id="upload-module-title", className="text-uppercase small fw-semibold mb-2",
+                style={"color": "#94a3b8"}),
         dcc.Upload(
             id="upload-data",
             children=html.Div(["Arrastra o ", html.Span("selecciona .xlsx",
@@ -124,12 +137,14 @@ def build_sidebar():
             accept=".xlsx,.xls",
         ),
         html.Div(id="file-name", className="small mb-1", style={"color": "#93c5fd"}),
-        html.Div([
-            dbc.Button("Procesar archivo", id="btn-process", color="primary", size="sm", className="w-100 mb-1"),
-        ]),
+        dbc.Button("Procesar archivo", id="btn-process", color="primary", size="sm", className="w-100 mb-1"),
         html.Div(id="upload-status", style={"fontSize": "0.8rem", "minHeight": "2rem"}),
-        html.Hr(style={"borderColor": "rgba(255,255,255,0.15)"}),
+    ], id="upload-section")),
 
+    children.append(html.Hr(style={"borderColor": "rgba(255,255,255,0.15)"}))
+
+    # Filters
+    children.extend([
         html.H6("Filtros", className="text-uppercase small fw-semibold mb-2", style={"color": "#94a3b8"}),
         html.Label("Periodo", className="form-label small", style={"color": "white"}),
         dcc.DatePickerRange(id="date-range", className="mb-2 w-100", display_format="DD/MM/YYYY"),
@@ -172,6 +187,33 @@ app.layout = html.Div([
 # ============================================================
 # CALLBACKS
 # ============================================================
+
+# Sidebar: update module badges with record counts
+@callback(
+    [Output(f"mod-badge-{k}", "children") for k in MODULES],
+    Input("store-refresh", "data"),
+    Input("store-clear", "data"),
+)
+def update_module_badges(_refresh, _clear):
+    results = []
+    for key in MODULES:
+        df = load_local(key)
+        if not df.empty:
+            results.append(f"{len(df):,} reg")
+        else:
+            results.append("vacio")
+    return results
+
+
+# Sidebar: update upload section title
+@callback(
+    Output("upload-module-title", "children"),
+    Input("store-module", "data"),
+)
+def update_upload_title(module):
+    mod = MODULES.get(str(module).strip().lower(), MODULES["pedidos"])
+    return f"{mod['label']} — Subir archivo"
+
 
 @callback(
     Output("file-name", "children"),
@@ -225,9 +267,10 @@ def update_filters(start, end, asesor, canal, estado):
     State("upload-data", "contents"),
     State("upload-data", "filename"),
     State("store-refresh", "data"),
+    State("store-module", "data"),
     prevent_initial_call=True,
 )
-def process_upload(n_clicks, contents, filename, refresh_count):
+def process_upload(n_clicks, contents, filename, refresh_count, active_module):
     if not contents:
         return html.Div("Selecciona un archivo Excel primero.", style={"color": AMBER}), no_update, no_update, no_update
     if not filename:
@@ -249,9 +292,14 @@ def process_upload(n_clicks, contents, filename, refresh_count):
         n_reg = try_save(df_proc, tipo, filename)
         _clear_cache(tipo)
 
+        if tipo not in MODULES:
+            tipo = str(active_module).strip().lower()
+        if tipo not in MODULES:
+            tipo = "pedidos"
+
         return html.Div([
             html.Div(f"OK: {filename}", style={"color": "#93c5fd"}),
-            html.Div(f"Tipo: {tipo} | {n_reg:,} registros subidos a Firestore",
+            html.Div(f"Tipo: {tipo} | {n_reg:,} registros guardados",
                      style={"color": GREEN, "fontWeight": "bold"}),
         ]), refresh_count + 1, tipo, tipo
     except Exception as e:
@@ -291,9 +339,8 @@ def refresh_data(n, count):
     Output("sidebar-info", "children"),
     Input("store-refresh", "data"),
     Input("store-clear", "data"),
-    Input("store-filters", "data"),
 )
-def update_sidebar_info(n, _refresh, _clear, filters):
+def update_sidebar_info(n, _clear):
     info = []
     for tipo in ["pedidos", "facturas", "inventario"]:
         df = load_local(tipo)
@@ -344,22 +391,22 @@ def render_page(module, page, filters, _refresh, _clear):
     module = str(module).strip().lower()
     if module not in MODULES:
         module = list(MODULES.keys())[0]
-    if page not in MODULES.get(module, {}).get("pages", {}):
-        page = list(MODULES[module]["pages"].keys())[0]
+    mod_info = MODULES[module]
+    if page not in mod_info["pages"]:
+        page = list(mod_info["pages"].keys())[0]
+
     try:
         df = _load_cached(module)
     except Exception as e:
         return dmc.Alert([
-            html.Div("Error al conectar con Firestore.", style={"fontWeight": "bold"}),
-            html.Div(f"Verifica el archivo firebase-key.json y la conexion.", className="small mt-1"),
+            html.Div("Error al cargar datos.", style={"fontWeight": "bold"}),
             html.Div(str(e), className="small text-muted mt-1"),
-        ], title="Error de Conexion", color="red", withCloseButton=True)
+        ], title="Error", color="red", withCloseButton=True)
 
     if df.empty:
         return dmc.Alert([
             html.Div("No hay datos para mostrar.", style={"fontWeight": "bold"}),
-            html.Div(f"Sube un archivo Excel de tipo {MODULES[module]['label']} usando el panel lateral.",
-                     className="small mt-1"),
+            html.Div(f"Sube un archivo Excel con datos de {mod_info['label']}.", className="small mt-1"),
         ], title="Sin Datos", color="yellow", withCloseButton=True)
 
     data = apply_filters(df, filters)
@@ -368,17 +415,14 @@ def render_page(module, page, filters, _refresh, _clear):
             "Los filtros actuales no devuelven resultados. Ajusta el periodo, asesor o canal.",
             title="Sin resultados", color="yellow", withCloseButton=True)
 
-    mod_info = MODULES[module]
-    nav_items = []
+    # Nav tabs
+    tabs = []
     for pk, plabel in mod_info["pages"].items():
-        nav_items.append(dbc.Button(
-            plabel, id=f"nav-{module}_{pk}", color="link",
-            className="me-1" if page != pk else "me-1 active",
-            size="sm",
-            style={"fontWeight": "bold", "color": NAVY} if page == pk else {"color": GRAY},
+        tabs.append(dbc.Tab(label=plabel, tab_id=pk,
+            label_style={"color": GRAY},
+            active_label_style={"color": NAVY, "fontWeight": "bold"},
         ))
-
-    nav = html.Div(nav_items, className="mb-3")
+    nav_tabs = dbc.Tabs(tabs, id="nav-tabs", active_tab=page, className="mb-3")
 
     page_funcs = {
         "pedidos": {
@@ -402,8 +446,6 @@ def render_page(module, page, filters, _refresh, _clear):
         return dmc.Alert([
             html.Div(f"Pagina no encontrada.", style={"fontWeight": "bold"}),
             html.Div(f"Module: '{module}' | Page: '{page}'", className="small text-muted mt-1"),
-            html.Div(f"Available modules: {list(page_funcs.keys())}", className="small text-muted"),
-            html.Div(f"Available pages for '{module}': {list(page_funcs.get(module, {}).keys())}", className="small text-muted"),
         ], title="Error", color="red", withCloseButton=True)
 
     try:
@@ -412,30 +454,23 @@ def render_page(module, page, filters, _refresh, _clear):
         print(traceback.format_exc())
         result = dmc.Alert(f"Error: {e}", title="Error", color="red", withCloseButton=True)
 
-    return html.Div([nav, html.Hr(className="mt-0 mb-3"), result])
+    return html.Div([nav_tabs, html.Hr(className="mt-0 mb-3"), result])
 
 
+# Navigate tabs
 @callback(
     Output("store-page", "data", allow_duplicate=True),
-    [Input(f"nav-{pk}", "n_clicks") for pk in PAGE_ROUTES],
+    Input("nav-tabs", "active_tab"),
     prevent_initial_call=True,
 )
-def navigate(*args):
-    ctx = dash.ctx
-    if not ctx.triggered:
-        return no_update
-    route = ctx.triggered[0]["prop_id"].split(".")[0].replace("nav-", "")
-    _, page = PAGE_ROUTES.get(route, ("pedidos", "resumen"))
-    return page
+def navigate_tab(active_tab):
+    if active_tab:
+        return active_tab
+    return no_update
 
 
-ANALYSIS_BTN_IDS = []
-for pk in PAGE_ROUTES:
-    ANALYSIS_BTN_IDS.append(f"btn-analisis-{pk}")
-
-ANALYSIS_OUTPUTS = []
-for pk in PAGE_ROUTES:
-    ANALYSIS_OUTPUTS.append(f"analisis-{pk}")
+ANALYSIS_BTN_IDS = [f"btn-analisis-{pk}" for pk in PAGE_ROUTES]
+ANALYSIS_OUTPUTS = [f"analisis-{pk}" for pk in PAGE_ROUTES]
 
 
 @callback(
