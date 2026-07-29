@@ -420,18 +420,27 @@ def _render_page_content(module, page, filters):
 
     try:
         df = _load_cached(module)
-        print(f"[render_page] module={module} page={page} rows={len(df)} empty={df.empty}")
     except Exception as e:
-        print(f"[render_page] LOAD ERROR: {e}")
+        import traceback
         return dmc.Alert([
             html.Div("Error al cargar datos.", style={"fontWeight": "bold"}),
             html.Div(str(e), className="small text-muted mt-1"),
         ], title="Error", color="red", withCloseButton=True)
 
     if df.empty:
+        import os
+        path = f"base/{module}.parquet"
+        file_exists = os.path.exists(path)
+        file_size = os.path.getsize(path) if file_exists else 0
         return dmc.Alert([
             html.Div("No hay datos para mostrar.", style={"fontWeight": "bold"}),
             html.Div(f"Sube un archivo Excel con datos de {mod_info['label']}.", className="small mt-1"),
+            html.Div([
+                html.Span(f"Module: {module} | Page: {page} | ", style={"color": GRAY}),
+                html.Span(f"File: {path} | ", style={"color": GRAY}),
+                html.Span(f"Exists: {file_exists} | Size: {file_size:,} bytes",
+                         style={"color": GREEN if file_exists else RED}),
+            ], className="small mt-2", style={"fontFamily": "monospace"}),
         ], title="Sin Datos", color="yellow", withCloseButton=True)
 
     data = apply_filters(df, filters)
