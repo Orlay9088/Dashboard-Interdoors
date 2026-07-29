@@ -58,35 +58,40 @@ def detectar_archivo(ruta=None):
 # ============================================================
 def validar_estructura(ruta):
     errores = []
+    xls = pd.ExcelFile(ruta)
+    sheet = HOJA_SIESA if HOJA_SIESA in xls.sheet_names else xls.sheet_names[0]
     try:
-        df = pd.read_excel(ruta, sheet_name=HOJA_SIESA, nrows=0)
+        df = pd.read_excel(ruta, sheet_name=sheet, nrows=0)
     except Exception as e:
-        return False, [f"No se pudo leer el archivo: {e}"]
+        return False, [f"No se pudo leer el archivo: {e}"], sheet
 
-    columnas_siesa = list(df.columns)
-    faltantes = [c for c in COLUMNAS_REQUERIDAS if c not in columnas_siesa]
+    columnas_siesa = [c.strip() for c in df.columns]
+    COLUMNAS_ESENCIALES = ["Fecha", "Razon social cliente factura", "Valor pendiente subtotal"]
+    faltantes = [c for c in COLUMNAS_ESENCIALES if c not in columnas_siesa]
 
     if faltantes:
         errores.append(
             f"ERROR DE VALIDACION\n"
             f"Archivo: {ruta.name}\n"
-            f"Campos faltantes: {', '.join(faltantes)}\n"
-            f"Fecha de procesamiento: {datetime.now().strftime('%Y-%m-%d %H:%M')}\n"
-            f"Accion requerida: Verificar que el archivo contenga estas columnas\n"
+            f"Campos faltantes (esenciales): {', '.join(faltantes)}\n"
+            f"Columnas encontradas: {', '.join(columnas_siesa[:20])}\n"
             f"La Base_Maestra_Pedidos NO fue modificada."
         )
-        return False, errores
+        return False, errores, sheet
 
-    return True, []
+    return True, [], sheet
 
 
 # ============================================================
 # 3. CARGAR Y LIMPIAR
 # ============================================================
-def cargar_y_limpiar(ruta):
-    df = pd.read_excel(ruta, sheet_name=HOJA_SIESA)
+def cargar_y_limpiar(ruta, sheet_name=None):
+    if sheet_name is None:
+        xls = pd.ExcelFile(ruta)
+        sheet_name = HOJA_SIESA if HOJA_SIESA in xls.sheet_names else xls.sheet_names[0]
+    df = pd.read_excel(ruta, sheet_name=sheet_name)
     cols = [c for c in COLUMNAS_REQUERIDAS if c in df.columns]
-    df = df[cols].copy()
+    df = df[cols].copy() if cols else df.copy()
 
     for c in df.select_dtypes(include="object").columns:
         df[c] = df[c].astype(str).str.strip().replace("nan", "").replace("None", "")
@@ -106,18 +111,19 @@ def cargar_y_limpiar(ruta):
 # 4. CAMPOS AUXILIARES
 # ============================================================
 def generar_campos_auxiliares(df):
-    f = df["Fecha"]
-    mask = f.notna()
     df["Anio"] = 0
     df["Mes"] = 0
     df["Nombre_Mes"] = ""
     df["Trimestre"] = 0
     df["Semana"] = 0
-    df.loc[mask, "Anio"] = f.loc[mask].dt.year.astype(int)
-    df.loc[mask, "Mes"] = f.loc[mask].dt.month.astype(int)
-    df.loc[mask, "Nombre_Mes"] = f.loc[mask].dt.month.map(MESES_ES).fillna("")
-    df.loc[mask, "Trimestre"] = f.loc[mask].dt.quarter.astype(int)
-    df.loc[mask, "Semana"] = f.loc[mask].dt.isocalendar().week.astype(int)
+    if "Fecha" in df.columns:
+        f = df["Fecha"]
+        mask = f.notna()
+        df.loc[mask, "Anio"] = f.loc[mask].dt.year.astype(int)
+        df.loc[mask, "Mes"] = f.loc[mask].dt.month.astype(int)
+        df.loc[mask, "Nombre_Mes"] = f.loc[mask].dt.month.map(MESES_ES).fillna("")
+        df.loc[mask, "Trimestre"] = f.loc[mask].dt.quarter.astype(int)
+        df.loc[mask, "Semana"] = f.loc[mask].dt.isocalendar().week.astype(int)
     return df
 
 
@@ -507,14 +513,14 @@ def procesar(ruta_archivo=None):
 
         # 2. Validar
         print(f"\n[2/9] Validando estructura...")
-        valido, errores_val = validar_estructura(ruta)
+        valido, errores_val, sheet_name = validar_estructura(ruta)
         if not valido:
             raise ValueError(errores_val[0])
-        print(f"  Estructura valida")
+        print(f"  Estructura valida (hoja: {sheet_name})")
 
         # 3. Cargar y limpiar
         print(f"\n[3/9] Cargando y limpiando datos...")
-        df = cargar_y_limpiar(ruta)
+        df = cargar_y_limpiar(ruta, sheet_name)
         stats["encontrados"] = len(df)
         print(f"  {len(df)} registros cargados")
 
@@ -522,7 +528,8 @@ def procesar(ruta_archivo=None):
         print(f"\n[4/9] Generando campos auxiliares...")
         df = generar_campos_auxiliares(df)
         print(f"  Anios: {sorted(df['Anio'].unique())}")
-        print(f"  Canales: {list(df['CANAL DISTRIBUCION'].unique())}")
+        if "CANAL DISTRIBUCION" in df.columns:
+            print(f"  Canales: {list(df['CANAL DISTRIBUCION'].unique())}")
 
         # 5. Llave unica
         print(f"\n[5/9] Generando llave unica por linea...")
