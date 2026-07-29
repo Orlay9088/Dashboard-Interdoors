@@ -141,7 +141,6 @@ app.layout = html.Div([
     dcc.Store(id="store-refresh", data=0),
     dcc.Store(id="store-clear", data=0),
     dcc.Store(id="store-tipo", data="pedidos"),
-    dcc.Store(id="store-api-key", data=""),
     build_sidebar(),
     html.Div(id="page-content", style=CONTENT_STYLE),
 ])
