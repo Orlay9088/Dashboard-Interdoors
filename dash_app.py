@@ -105,19 +105,27 @@ def build_sidebar():
 
     # Module cards
     for key, mod in MODULES.items():
-        children.append(html.Div([
-            dbc.Button([
+        children.append(dbc.Button(
+            [
                 html.Div([
-                    html.Span(mod["label"], className="fw-bold",
-                              style={"fontSize": "0.85rem", "color": "white"}),
-                ], className="d-flex align-items-center justify-content-between"),
-            ], id=f"mod-{key}", className="w-100 mb-2 text-start py-2 px-3",
-               style={"backgroundColor": "rgba(255,255,255,0.08)", "border": "1px solid rgba(255,255,255,0.1)",
-                      "borderRadius": "8px", "borderLeft": f"3px solid {mod['color']}"}),
-            html.Div(id=f"mod-badge-{key}", className="text-end",
-                     style={"fontSize": "0.7rem", "marginTop": "-8px", "marginBottom": "6px",
-                            "color": "#94a3b8", "paddingRight": "8px"}),
-        ]))
+                    html.Span(f"  {mod['label']}", className="fw-bold",
+                              style={"fontSize": "0.95rem", "color": "white"}),
+                ]),
+                html.Div(id=f"mod-badge-{key}",
+                         style={"fontSize": "0.7rem", "color": "#94a3b8", "marginTop": "2px"}),
+            ],
+            id=f"mod-{key}",
+            className="w-100 text-start",
+            style={
+                "backgroundColor": "rgba(255,255,255,0.06)",
+                "border": "1px solid rgba(255,255,255,0.12)",
+                "borderLeft": f"4px solid {mod['color']}",
+                "borderRadius": "8px",
+                "padding": "12px 14px",
+                "marginBottom": "10px",
+                "transition": "all 0.2s",
+            },
+        ))
 
     children.append(html.Hr(style={"borderColor": "rgba(255,255,255,0.15)"}))
 
@@ -263,6 +271,7 @@ def update_filters(start, end, asesor, canal, estado):
     Output("store-refresh", "data"),
     Output("store-module", "data", allow_duplicate=True),
     Output("store-tipo", "data"),
+    Output("store-page", "data", allow_duplicate=True),
     Input("btn-process", "n_clicks"),
     State("upload-data", "contents"),
     State("upload-data", "filename"),
@@ -272,11 +281,11 @@ def update_filters(start, end, asesor, canal, estado):
 )
 def process_upload(n_clicks, contents, filename, refresh_count, active_module):
     if not contents:
-        return html.Div("Selecciona un archivo Excel primero.", style={"color": AMBER}), no_update, no_update, no_update
+        return html.Div("Selecciona un archivo Excel primero.", style={"color": AMBER}), no_update, no_update, no_update, no_update
     if not filename:
-        return html.Div("Selecciona un archivo.", style={"color": AMBER}), no_update, no_update, no_update
+        return html.Div("Selecciona un archivo.", style={"color": AMBER}), no_update, no_update, no_update, no_update
     if not filename.endswith((".xlsx", ".xls")):
-        return html.Div("Solo archivos Excel.", style={"color": RED}), no_update, no_update, no_update
+        return html.Div("Solo archivos Excel.", style={"color": RED}), no_update, no_update, no_update, no_update
     try:
         content_type, content_string = contents.split(",")
         decoded = base64.b64decode(content_string)
@@ -296,19 +305,20 @@ def process_upload(n_clicks, contents, filename, refresh_count, active_module):
             tipo = str(active_module).strip().lower()
         if tipo not in MODULES:
             tipo = "pedidos"
+        first_page = list(MODULES[tipo]["pages"].keys())[0]
 
         return html.Div([
             html.Div(f"OK: {filename}", style={"color": "#93c5fd"}),
             html.Div(f"Tipo: {tipo} | {n_reg:,} registros guardados",
                      style={"color": GREEN, "fontWeight": "bold"}),
-        ]), refresh_count + 1, tipo, tipo
+        ]), refresh_count + 1, tipo, tipo, first_page
     except Exception as e:
         detalle = traceback.format_exc()
         print(detalle)
         return html.Div([
             html.Div("Error procesando archivo", style={"color": RED, "fontWeight": "bold"}),
             html.Div(str(e), className="small", style={"color": "#f87171"}),
-        ]), no_update, no_update, no_update
+        ]), no_update, no_update, no_update, no_update
 
 
 @callback(
