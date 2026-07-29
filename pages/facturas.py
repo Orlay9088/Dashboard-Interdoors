@@ -26,23 +26,30 @@ def pagina_resumen_ventas(data):
     ], className="mb-4 g-3")
     children.append(kpi_row)
 
-    evol = data.groupby(data["_fecha"].dt.to_period("M")).agg(
-        Ventas=("_valor", "sum"), Costo=("_costo", "sum"),
-        Facturas=("_documento", "nunique"),
-    ).reset_index()
+    has_costo = "_costo" in data.columns
+    agg_dict = {"Ventas": ("_valor", "sum"), "Facturas": ("_documento", "nunique")}
+    if has_costo:
+        agg_dict["Costo"] = ("_costo", "sum")
+    evol = data.groupby(data["_fecha"].dt.to_period("M")).agg(**agg_dict).reset_index()
+    if not has_costo:
+        evol["Costo"] = 0
     evol["_fecha_str"] = evol["_fecha"].astype(str)
 
     fig_evol = go.Figure()
     fig_evol.add_trace(go.Scatter(x=evol["_fecha_str"], y=evol["Ventas"] / 1e6,
         mode="lines+markers", name="Ventas", line=dict(width=3, color=BLUE), marker=dict(size=6)))
-    fig_evol.add_trace(go.Scatter(x=evol["_fecha_str"], y=evol["Costo"] / 1e6,
-        mode="lines+markers", name="Costo", line=dict(width=3, color=RED), marker=dict(size=6)))
+    if has_costo:
+        fig_evol.add_trace(go.Scatter(x=evol["_fecha_str"], y=evol["Costo"] / 1e6,
+            mode="lines+markers", name="Costo", line=dict(width=3, color=RED), marker=dict(size=6)))
     fig_evol.update_layout(**fig_layout("Evolucion Mensual (millones $)", height=380))
     fig_evol.update_layout(legend=dict(orientation="h", y=1.1))
 
-    top_vendedores = data.groupby("_vendedor").agg(
-        Ventas=("_valor", "sum"), Margen=("_margen", "mean"),
-    ).reset_index().sort_values("Ventas", ascending=True).tail(10)
+    top_agg = {"Ventas": ("_valor", "sum")}
+    if "_margen" in data.columns:
+        top_agg["Margen"] = ("_margen", "mean")
+    top_vendedores = data.groupby("_vendedor").agg(**top_agg).reset_index().sort_values("Ventas", ascending=True).tail(10)
+    if "_margen" not in data.columns:
+        top_vendedores["Margen"] = 0
 
     fig_vend = go.Figure()
     fig_vend.add_trace(go.Bar(x=top_vendedores["Ventas"] / 1e6, y=top_vendedores["_vendedor"],
@@ -128,9 +135,10 @@ def pagina_mix_producto(data):
     group_col = "_grupo" if "_grupo" in data.columns and not data["_grupo"].eq("").all() else "_linea"
     titulo = "Grupos" if group_col == "_grupo" else "Lineas"
 
-    mix = data.groupby(group_col).agg(
-        Ventas=("_valor", "sum"), Margen=("_margen", "mean") if "_margen" in data.columns else None,
-    ).reset_index().sort_values("Ventas", ascending=False)
+    mix_agg = {"Ventas": ("_valor", "sum")}
+    if "_margen" in data.columns:
+        mix_agg["Margen"] = ("_margen", "mean")
+    mix = data.groupby(group_col).agg(**mix_agg).reset_index().sort_values("Ventas", ascending=False)
     tv = mix["Ventas"].sum()
     mix["%"] = (mix["Ventas"] / tv * 100).round(1)
 

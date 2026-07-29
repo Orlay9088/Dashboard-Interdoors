@@ -5,7 +5,7 @@ import plotly.graph_objects as go
 import pandas as pd
 from pages.components import (
     section_title, kpi_card, fmt_p, fmt_pm, fig_layout,
-    NAVY, BLUE, AMBER, GREEN, RED,
+    NAVY, BLUE, AMBER, GREEN, RED, GRAY,
 )
 
 
