@@ -145,8 +145,14 @@ def build_sidebar():
             accept=".xlsx,.xls",
         ),
         html.Div(id="file-name", className="small mb-1", style={"color": "#93c5fd"}),
-        dbc.Button("Procesar archivo", id="btn-process", color="primary", size="sm", className="w-100 mb-1"),
-        html.Div(id="upload-status", style={"fontSize": "0.8rem", "minHeight": "2rem"}),
+        dcc.Loading(
+            id="loading-process",
+            type="default",
+            children=html.Div([
+                dbc.Button("Procesar archivo", id="btn-process", color="primary", size="sm", className="w-100 mb-1"),
+                html.Div(id="upload-status", style={"fontSize": "0.8rem", "minHeight": "2rem"}),
+            ])
+        ),
     ], id="upload-section")),
 
     children.append(html.Hr(style={"borderColor": "rgba(255,255,255,0.15)"}))
@@ -188,9 +194,26 @@ app.layout = html.Div([
     dcc.Store(id="store-refresh", data=0),
     dcc.Store(id="store-clear", data=0),
     dcc.Store(id="store-tipo", data="pedidos"),
+    dcc.Loading(
+        id="loading-content",
+        type="cube",
+        color=BLUE,
+        children=html.Div(id="page-content-wrapper", style=CONTENT_STYLE),
+    ),
     build_sidebar(),
-    html.Div(id="page-content", style=CONTENT_STYLE),
 ])
+
+# Wrapper callback that delegates to render_page
+@callback(
+    Output("page-content-wrapper", "children"),
+    Input("store-module", "data"),
+    Input("store-page", "data"),
+    Input("store-filters", "data"),
+    Input("store-refresh", "data"),
+    Input("store-clear", "data"),
+)
+def render_page_wrapper(module, page, filters, refresh_count, clear_count):
+    return _render_page_content(module, page, filters)
 
 # ============================================================
 # CALLBACKS
@@ -389,15 +412,8 @@ def update_dropdowns(_refresh, _clear, tipo):
         return [{"label": "Sin conexion", "value": "Todos"}], [{"label": "Sin conexion", "value": "Todos"}], [{"label": "Sin conexion", "value": "Todos"}]
 
 
-@callback(
-    Output("page-content", "children"),
-    Input("store-module", "data"),
-    Input("store-page", "data"),
-    Input("store-filters", "data"),
-    Input("store-refresh", "data"),
-    Input("store-clear", "data"),
-)
-def render_page(module, page, filters, _refresh, _clear):
+
+def _render_page_content(module, page, filters):
     module = str(module).strip().lower()
     if module not in MODULES:
         module = list(MODULES.keys())[0]
