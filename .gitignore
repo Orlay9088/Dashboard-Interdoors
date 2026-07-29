@@ -15,6 +15,7 @@ salida/
 dashboard_data/
 logs/
 *.log
+error_log.txt
 
 # Environment
 .env
