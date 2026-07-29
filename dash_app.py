@@ -407,7 +407,9 @@ def render_page(module, page, filters, _refresh, _clear):
 
     try:
         df = _load_cached(module)
+        print(f"[render_page] module={module} page={page} rows={len(df)} empty={df.empty}")
     except Exception as e:
+        print(f"[render_page] LOAD ERROR: {e}")
         return dmc.Alert([
             html.Div("Error al cargar datos.", style={"fontWeight": "bold"}),
             html.Div(str(e), className="small text-muted mt-1"),
@@ -428,10 +430,7 @@ def render_page(module, page, filters, _refresh, _clear):
     # Nav tabs
     tabs = []
     for pk, plabel in mod_info["pages"].items():
-        tabs.append(dbc.Tab(label=plabel, tab_id=pk,
-            label_style={"color": GRAY},
-            active_label_style={"color": NAVY, "fontWeight": "bold"},
-        ))
+        tabs.append(dbc.Tab(label=plabel, tab_id=pk))
     nav_tabs = dbc.Tabs(tabs, id="nav-tabs", active_tab=page, className="mb-3")
 
     page_funcs = {
