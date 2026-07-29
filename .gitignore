@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+dist/
+build/
+
+# Data files (auto-generated)
+base/Base_Maestra_Pedidos.parquet
+base/Base_Maestra_Pedidos.xlsx
+base/backups/
+entrada/*.xlsx
+salida/
+dashboard_data/
+logs/
+*.log
+
+# Environment
+.env
+.venv/
+venv/
