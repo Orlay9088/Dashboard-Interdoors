@@ -226,7 +226,6 @@ def pagina_ranking(data):
 
     tv = rank["Valor"].sum()
     rank["% Part"] = (rank["Valor"] / tv * 100).round(2) if tv else 0
-    rank["% Cumpl"] = rank.apply(lambda r: round(r["Comprometido"] / r["Presupuesto"] * 100, 2) if r["Presupuesto"] > 0 else 0, axis=1)
 
     from budget import cargar_presupuesto_asesores, get_budget_for
     from config import RUTA_PRESUPUESTO_ASESORES
@@ -236,6 +235,7 @@ def pagina_ranking(data):
         budgets = {}
     rank["Presupuesto"] = rank["_vendedor"].apply(lambda x: get_budget_for(x, budgets))
     rank["% Presup"] = rank.apply(lambda r: round(r["Valor"] / r["Presupuesto"] * 100, 2) if r["Presupuesto"] > 0 else 0, axis=1)
+    rank["% Cumpl"] = rank.apply(lambda r: round(r["Comprometido"] / r["Presupuesto"] * 100, 2) if r["Presupuesto"] > 0 else 0, axis=1)
     rank.insert(0, "#", range(1, len(rank) + 1))
 
     # Kahoot-style podium with flip cards
