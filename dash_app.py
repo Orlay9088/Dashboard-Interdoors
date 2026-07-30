@@ -242,6 +242,7 @@ app.layout = html.Div([
     dcc.Store(id="store-tipo", data="pedidos"),
     dcc.Store(id="store-pareto-canal", data="TODOS"),
     dcc.Store(id="store-bodega-filter", data="[]"),
+    dcc.Store(id="store-podium-flipped", data="null"),
     build_sidebar(),
     html.Div([
         html.Div(id="nav-bar"),
@@ -365,6 +366,24 @@ def select_bodega(selected):
     if not selected or len(selected) == 0:
         return "[]"
     return json.dumps(selected)
+
+# ===== PODIUM FLIP CALLBACK =====
+@callback(
+    Output("store-podium-flipped", "data"),
+    Input({"type": "podium-card", "index": ALL}, "n_clicks"),
+    State("store-podium-flipped", "data"),
+    prevent_initial_call=True,
+)
+def toggle_podium_flip(n_clicks, current):
+    import json
+    ctx = dash.ctx
+    if not ctx.triggered:
+        return no_update
+    triggered = ctx.triggered[0]["prop_id"]
+    obj = json.loads(triggered.split(".")[0])
+    idx = obj["index"]
+    cur = None if current == "null" else int(current)
+    return str(idx) if cur != idx else "null"
 
 # ===== PAGE CONTENT CALLBACK =====
 @callback(

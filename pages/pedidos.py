@@ -5,7 +5,7 @@ import plotly.graph_objects as go
 import pandas as pd
 from pages.components import (
     section_title, kpi_card, fmt_p, fmt_pm, fig_layout,
-    NAVY, BLUE, AMBER, GREEN, RED, GRAY,
+    NAVY, BLUE, AMBER, GREEN, RED, GRAY, DARKGRAY, GOLD, kahoot_podium,
 )
 
 
@@ -238,72 +238,11 @@ def pagina_ranking(data):
     rank["% Presup"] = rank.apply(lambda r: round(r["Valor"] / r["Presupuesto"] * 100, 2) if r["Presupuesto"] > 0 else 0, axis=1)
     rank.insert(0, "#", range(1, len(rank) + 1))
 
-    # Podium top 3
+    # Kahoot-style podium with flip cards
     top3 = rank.head(3)
-    podiums = []
-    heights = ["200px", "150px", "110px"]
-    orders = [1, 0, 2]
-    colors = ["#FFD700", "#C0C0C0", "#CD7F32"]
-    grads = ["linear-gradient(180deg, #FFD70033, #fff)", "linear-gradient(180deg, #C0C0C033, #fff)", "linear-gradient(180deg, #CD7F3233, #fff)"]
-    borders = ["#FFD700", "#C0C0C0", "#CD7F32"]
-    medals = ["#FFD700", "silver", "#CD7F32"]
-    for i in range(3):
-        r = top3.iloc[orders[i]]
-        podiums.append(html.Div([
-            html.Div(f"#{orders[i]+1}", style={
-                "fontSize": "1.4rem", "fontWeight": "bold", "color": "white",
-                "background": borders[orders[i]], "width": "36px", "height": "36px",
-                "borderRadius": "50%", "display": "flex", "alignItems": "center",
-                "justifyContent": "center", "margin": "8px auto",
-            }),
-            html.Div(r["_vendedor"], style={
-                "fontSize": "0.75rem", "fontWeight": "bold", "color": NAVY,
-                "textAlign": "center", "marginBottom": "4px",
-                "wordBreak": "break-word", "lineHeight": "1.2",
-            }),
-            html.Div(fmt_pm(r["Valor"]), style={
-                "fontSize": "1.1rem", "fontWeight": "bold", "color": NAVY,
-                "textAlign": "center",
-            }),
-            html.Div(fmt_p(r["Valor"]), style={
-                "fontSize": "0.7rem", "color": GRAY, "textAlign": "center", "marginBottom": "4px",
-            }),
-            html.Div(f"{r['% Part']:.1f}% del total", style={
-                "fontSize": "0.65rem", "color": GRAY, "textAlign": "center",
-            }),
-            html.Div(f"Compromiso: {r['% Cumpl']:.1f}%", style={
-                "fontSize": "0.65rem", "color": GREEN, "textAlign": "center",
-            }),
-            html.Div(f"vs Presup: {r['% Presup']:.1f}%" if r["Presupuesto"] > 0 else "Sin presupuesto", style={
-                "fontSize": "0.65rem", "color": GREEN if r["% Presup"] >= 100 else AMBER if r["% Presup"] >= 70 else RED,
-                "textAlign": "center",
-            }),
-            html.Div(f"{int(r['Pedidos']):,} pedidos | {int(r['Clientes'])} clientes", style={
-                "fontSize": "0.6rem", "color": "#94a3b8", "textAlign": "center", "marginTop": "6px",
-            }),
-        ], style={
-            "width": "30%", "background": grads[orders[i]],
-            "borderTop": f"4px solid {borders[orders[i]]}",
-            "borderRadius": "12px 12px 8px 8px",
-            "padding": "12px 8px 16px 8px",
-            "height": heights[orders[i]],
-            "display": "flex", "flexDirection": "column",
-            "justifyContent": "flex-start", "alignItems": "center",
-            "boxShadow": "0 2px 8px rgba(0,0,0,0.06)",
-            "marginTop": "20px" if orders[i] == 1 else "40px",
-        }, className="mx-1"))
+    children.append(kahoot_podium(top3))
 
-    podium_row = html.Div([
-        html.H6("   Podio de Asesores", className="fw-bold text-center mb-3", style={"color": NAVY}),
-        html.Div(podiums, style={
-            "display": "flex", "justifyContent": "center",
-            "alignItems": "flex-end", "padding": "0 20px",
-        }),
-    ], style={"marginBottom": "24px", "padding": "16px",
-              "background": "linear-gradient(180deg, #f1f5f9, white)",
-              "borderRadius": "12px", "border": "1px solid #e2e8f0"})
-
-    children.append(podium_row)
+    presup_total = rank["Presupuesto"].sum()
 
     # Summary KPI row
     presup_total = rank["Presupuesto"].sum()
