@@ -13,7 +13,7 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).parent))
 from config import CARPETA_ENTRADA
-from pages.components import NAVY, BLUE, AMBER, GREEN, RED, GRAY, apply_filters
+from pages.components import NAVY, BLUE, AMBER, GREEN, RED, GRAY, DARKGRAY, GOLD, apply_filters
 from etl.detector import detectar_tipo
 from etl.normalizer import normalizar
 from etl.processor import procesar as procesar_etl
@@ -92,10 +92,10 @@ MODULE_COLORS = {k: v["color"] for k, v in MODULES.items()}
 
 SIDEBAR_STYLE = {
     "position": "fixed", "top": 0, "left": 0, "bottom": 0,
-    "width": "260px", "padding": "1rem", "backgroundColor": NAVY,
+    "width": "260px", "padding": "1rem", "backgroundColor": DARKGRAY,
     "color": "white", "overflowY": "auto", "zIndex": 1000,
 }
-CONTENT_STYLE = {"marginLeft": "260px", "padding": "1.5rem", "background": "#f8fafc", "minHeight": "100vh"}
+CONTENT_STYLE = {"marginLeft": "260px", "padding": "1.5rem", "background": "#F5F5F0", "minHeight": "100vh"}
 
 
 # ============================================================
@@ -103,7 +103,20 @@ CONTENT_STYLE = {"marginLeft": "260px", "padding": "1.5rem", "background": "#f8f
 # ============================================================
 def build_sidebar():
     children = [
-        html.H5("Dashboard Interdoors", className="fw-bold mb-3 text-center", style={"color": "white"}),
+        html.Div([
+            html.Div("INTERDOORS", style={
+                "fontSize": "1.3rem", "fontWeight": "bold", "color": "white",
+                "letterSpacing": "2px", "textAlign": "center",
+            }),
+            html.Div("Creando Hogares", style={
+                "fontSize": "0.65rem", "color": GOLD, "textAlign": "center",
+                "fontStyle": "italic", "letterSpacing": "1px", "marginBottom": "10px",
+            }),
+            html.Div(style={
+                "height": "2px", "background": f"linear-gradient(90deg, transparent, {GOLD}, transparent)",
+                "marginBottom": "16px",
+            }),
+        ]),
     ]
 
     # Module cards
