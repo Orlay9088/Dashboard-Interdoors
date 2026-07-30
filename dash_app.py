@@ -5,7 +5,7 @@ from pathlib import Path
 import sys
 
 import dash
-from dash import dcc, html, Input, Output, State, callback, no_update
+from dash import dcc, html, Input, Output, State, callback, no_update, ALL, MATCH
 import dash_bootstrap_components as dbc
 import dash_mantine_components as dmc
 import pandas as pd
@@ -18,7 +18,7 @@ from etl.normalizer import normalizar
 from etl.processor import procesar as procesar_etl
 
 from firebase_config import try_load, try_save, is_cache_stale, mark_cache_fresh, get_metadata, load_local, clear_local_cache
-from analysis import generar_analisis, generar_con_gemini
+from analysis import generar_analisis, generar_con_gemini, generar_con_opencode
 from pages.pedidos import (
     pagina_resumen, pagina_participacion, pagina_pareto,
     pagina_ranking, pagina_embudo, pagina_heatmap, pagina_proyeccion,
@@ -164,14 +164,27 @@ def build_sidebar():
     # Filters
     children.extend([
         html.H6("Filtros", className="text-uppercase small fw-semibold mb-2", style={"color": "#94a3b8"}),
-        html.Label("Periodo", className="form-label small", style={"color": "white"}),
-        dcc.DatePickerRange(id="date-range", className="mb-2 w-100", display_format="DD/MM/YYYY"),
-        html.Label("Asesor", className="form-label small", style={"color": "white"}),
-        dcc.Dropdown(id="dropdown-asesor", options=[], value="Todos", clearable=False, className="mb-2 small"),
-        html.Label("Canal", className="form-label small", style={"color": "white"}),
-        dcc.Dropdown(id="dropdown-canal", options=[], value="Todos", clearable=False, className="mb-2 small"),
-        html.Label("Estado", className="form-label small", style={"color": "white"}),
-        dcc.Dropdown(id="dropdown-estado", options=[], value="Todos", clearable=False, className="mb-2 small"),
+        html.Div([
+            html.Label("Periodo", className="small mb-1 d-block", style={"color": "#cbd5e1", "fontWeight": "500"}),
+            dcc.DatePickerRange(id="date-range", display_format="DD/MM/YYYY",
+                style={"width": "100%", "fontSize": "0.8rem"},
+                className="mb-3"),
+        ], style={"background": "rgba(255,255,255,0.04)", "borderRadius": "8px", "padding": "10px", "marginBottom": "8px"}),
+        html.Div([
+            html.Label("Asesor", className="small mb-1 d-block", style={"color": "#cbd5e1", "fontWeight": "500"}),
+            dcc.Dropdown(id="dropdown-asesor", options=[], value="Todos", clearable=False,
+                style={"fontSize": "0.8rem"}, className="small-dropdown mb-0"),
+        ], style={"background": "rgba(255,255,255,0.04)", "borderRadius": "8px", "padding": "10px", "marginBottom": "8px"}),
+        html.Div([
+            html.Label("Canal", className="small mb-1 d-block", style={"color": "#cbd5e1", "fontWeight": "500"}),
+            dcc.Dropdown(id="dropdown-canal", options=[], value="Todos", clearable=False,
+                style={"fontSize": "0.8rem"}, className="small-dropdown mb-0"),
+        ], style={"background": "rgba(255,255,255,0.04)", "borderRadius": "8px", "padding": "10px", "marginBottom": "8px"}),
+        html.Div([
+            html.Label("Estado", className="small mb-1 d-block", style={"color": "#cbd5e1", "fontWeight": "500"}),
+            dcc.Dropdown(id="dropdown-estado", options=[], value="Todos", clearable=False,
+                style={"fontSize": "0.8rem"}, className="small-dropdown mb-0"),
+        ], style={"background": "rgba(255,255,255,0.04)", "borderRadius": "8px", "padding": "10px", "marginBottom": "8px"}),
         html.Hr(style={"borderColor": "rgba(255,255,255,0.15)"}),
 
         dbc.Button("Refrescar datos", id="refresh-data", color="light", size="sm", className="w-100 mb-1 text-dark"),
@@ -179,12 +192,15 @@ def build_sidebar():
         html.Div(id="clear-status", style={"fontSize": "0.8rem", "minHeight": "1.5rem"}),
         html.Hr(style={"borderColor": "rgba(255,255,255,0.15)"}),
 
-        html.H6("Gemini AI", className="text-uppercase small fw-semibold mb-2", style={"color": "#94a3b8"}),
-        dbc.Input(id="api-key-input", type="password", placeholder="API Key Gemini", size="sm", className="mb-1",
+        html.H6("IA Analisis", className="text-uppercase small fw-semibold mb-2", style={"color": "#94a3b8"}),
+        dbc.Input(id="api-key-opencode", type="password", placeholder="API Key OpenCode AI", size="sm", className="mb-1",
                   style={"fontSize": "0.8rem"}),
-        dbc.Button("Verificar API", id="btn-verify-api", color="success", size="sm", className="w-100 mb-1"),
+        dbc.Input(id="api-key-gemini", type="password", placeholder="API Key Gemini", size="sm", className="mb-1",
+                  style={"fontSize": "0.8rem"}),
+        dbc.Button("Verificar APIs", id="btn-verify-api", color="success", size="sm", className="w-100 mb-1"),
         html.Div(id="api-status", style={"fontSize": "0.75rem", "color": "#94a3b8", "minHeight": "1.2rem"}),
-        dcc.Store(id="store-api-key", data=""),
+        dcc.Store(id="store-api-opencode", data=""),
+        dcc.Store(id="store-api-gemini", data=""),
         html.Hr(style={"borderColor": "rgba(255,255,255,0.15)"}),
         html.Div(id="sidebar-info", className="small", style={"color": "#94a3b8"}),
     ])
@@ -507,9 +523,29 @@ def _render_content(module, page, filters):
     if not func:
         return dmc.Alert(f"Pagina '{page}' no encontrada para '{module}'.", title="Error", color="red")
 
+    # Navigation buttons
+    nav_buttons = []
+    for pk, plabel in MODULES[module]["pages"].items():
+        active_style = {
+            "backgroundColor": BLUE, "color": "white", "border": f"1px solid {BLUE}",
+            "fontWeight": "bold", "fontSize": "0.78rem", "padding": "6px 14px",
+            "borderRadius": "6px", "marginRight": "6px", "marginBottom": "4px",
+            "cursor": "pointer",
+        }
+        inactive_style = {
+            "backgroundColor": "white", "color": GRAY, "border": "1px solid #e2e8f0",
+            "fontSize": "0.78rem", "padding": "6px 14px", "borderRadius": "6px",
+            "marginRight": "6px", "marginBottom": "4px", "cursor": "pointer",
+        }
+        nav_buttons.append(html.Button(
+            plabel, id={"type": "nav-btn", "module": module, "page": pk},
+            style=active_style if pk == page else inactive_style,
+        ))
+    nav = html.Div(nav_buttons, style={"display": "flex", "flexWrap": "wrap", "marginBottom": "16px"})
+
     try:
         result = func(data)
-        return html.Div(result)
+        return html.Div([nav, html.Hr(style={"margin": "0 0 16px 0"}), html.Div(result)])
     except Exception as e:
         return dmc.Alert([
             html.Div(f"Error al renderizar: {module}/{page}", style={"fontWeight": "bold"}),
@@ -528,7 +564,8 @@ ANALYSIS_OUTPUTS = [f"analisis-{pk}" for pk in PAGE_ROUTES]
     [Input(bid, "n_clicks") for bid in ANALYSIS_BTN_IDS],
     State("store-filters", "data"),
     State("store-module", "data"),
-    State("store-api-key", "data"),
+    State("store-api-opencode", "data"),
+    State("store-api-gemini", "data"),
     prevent_initial_call=True,
 )
 def generate_analysis(*args):
@@ -542,7 +579,8 @@ def generate_analysis(*args):
     if not isinstance(filters, dict):
         filters = {}
     module = args[len(ANALYSIS_BTN_IDS) + 1]
-    api_key = args[len(ANALYSIS_BTN_IDS) + 2]
+    opencode_key = args[len(ANALYSIS_BTN_IDS) + 2]
+    gemini_key = args[len(ANALYSIS_BTN_IDS) + 3]
     ctx = dash.ctx
     if not ctx.triggered:
         return [no_update] * len(ANALYSIS_OUTPUTS)
@@ -556,10 +594,12 @@ def generate_analysis(*args):
         return [no_update] * len(ANALYSIS_OUTPUTS)
 
     data = apply_filters(df, filters)
-    if api_key:
-        result = generar_con_gemini(module, page, data, api_key)
-        result = result if result else generar_analisis(module, page, data)
-    else:
+    result = None
+    if opencode_key:
+        result = generar_con_opencode(module, page, data, opencode_key)
+    if not result and gemini_key:
+        result = generar_con_gemini(module, page, data, gemini_key)
+    if not result:
         result = generar_analisis(module, page, data)
 
     outputs = [no_update] * len(ANALYSIS_OUTPUTS)
@@ -570,23 +610,63 @@ def generate_analysis(*args):
 
 @callback(
     Output("api-status", "children"),
-    Output("store-api-key", "data"),
+    Output("store-api-opencode", "data"),
+    Output("store-api-gemini", "data"),
     Input("btn-verify-api", "n_clicks"),
-    State("api-key-input", "value"),
+    State("api-key-opencode", "value"),
+    State("api-key-gemini", "value"),
     prevent_initial_call=True,
 )
-def verify_api(n, key):
-    if not key:
-        return html.Div("Ingresa una API Key.", style={"color": AMBER}), no_update
-    try:
-        import requests
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={key}"
-        resp = requests.post(url, json={"contents": [{"parts": [{"text": "di hola"}]}]}, timeout=10)
-        if resp.ok:
-            return html.Div("API Gemini verificada", style={"color": GREEN}), key
-        return html.Div(f"Error: {resp.status_code}", style={"color": RED}), no_update
-    except Exception as e:
-        return html.Div(f"Error: {e}", style={"color": RED}), no_update
+def verify_apis(n, opencode_key, gemini_key):
+    results = []
+    out_opencode = no_update
+    out_gemini = no_update
+    import requests
+
+    if opencode_key:
+        try:
+            resp = requests.post("https://api.opencode.ai/v1/chat/completions",
+                json={"model": "gpt-4o", "messages": [{"role": "user", "content": "hi"}]},
+                headers={"Authorization": f"Bearer {opencode_key}"}, timeout=10)
+            if resp.ok:
+                results.append("OpenCode: OK")
+                out_opencode = opencode_key
+            else:
+                results.append(f"OpenCode: {resp.status_code}")
+        except Exception as e:
+            results.append(f"OpenCode: error")
+    if gemini_key:
+        try:
+            resp = requests.post(
+                "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent",
+                params={"key": gemini_key},
+                json={"contents": [{"parts": [{"text": "hi"}]}]}, timeout=10)
+            if resp.ok:
+                results.append("Gemini: OK")
+                out_gemini = gemini_key
+            else:
+                results.append(f"Gemini: {resp.status_code}")
+        except Exception as e:
+            results.append("Gemini: error")
+    if not results:
+        return html.Div("Ingresa al menos una API Key.", style={"color": AMBER}), no_update, no_update
+    return html.Div(" | ".join(results), style={"color": GREEN}), out_opencode, out_gemini
+
+
+# Navigation buttons callback
+@callback(
+    Output("store-page", "data", allow_duplicate=True),
+    Input({"type": "nav-btn", "module": ALL, "page": ALL}, "n_clicks"),
+    prevent_initial_call=True,
+)
+def navigate_pages(n_clicks):
+    ctx = dash.ctx
+    if not ctx.triggered:
+        return no_update
+    triggered = ctx.triggered[0]["prop_id"]
+    import json
+    obj = json.loads(triggered.split(".")[0])
+    return obj["page"]
 
 
 if __name__ == "__main__":

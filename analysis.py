@@ -175,6 +175,61 @@ Metricas principales:
 Responde con una lista usando * al inicio de cada linea. Se breve."""
     for attempt in range(3):
         try:
+            resp = requests.post(
+                "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent",
+                params={"key": api_key},
+                json={"contents": [{"parts": [{"text": prompt}]}]}, timeout=30)
+            if resp.ok:
+                text = resp.json()["candidates"][0]["content"]["parts"][0]["text"]
+                text = text.replace("```html", "").replace("```", "").strip()
+                return html.Div([
+                    html.P([html.Strong("Analisis con Gemini AI")], className="fw-bold mb-2",
+                           style={"color": "#1e3a5f"}),
+                    html.Div(text, className="small"),
+                ])
+            elif resp.status_code == 429 and attempt < 2:
+                time.sleep(2 ** attempt)
+        except Exception:
+            if attempt < 2:
+                time.sleep(2 ** attempt)
+    return None
+
+
+def generar_con_opencode(tipo, page, data, api_key):
+    if not api_key or data.empty:
+        return None
+    ventas = data["_valor"].sum()
+    prompt = f"""Eres un analista de datos comerciales. Genera un analisis conciso en 3-4 puntos clave para la seccion '{page}' del tipo '{tipo}'.
+Metricas: Valor total: ${ventas:,.0f} | Registros: {len(data):,}
+Responde con bullet points (* ). Se breve."""
+    for attempt in range(2):
+        try:
+            resp = requests.post("https://api.opencode.ai/v1/chat/completions",
+                json={"model": "gpt-4o", "messages": [{"role": "user", "content": prompt}]},
+                headers={"Authorization": f"Bearer {api_key}"}, timeout=30)
+            if resp.ok:
+                text = resp.json()["choices"][0]["message"]["content"]
+                text = text.replace("```html", "").replace("```", "").strip()
+                return html.Div([
+                    html.P([html.Strong("Analisis con OpenCode AI")], className="fw-bold mb-2",
+                           style={"color": "#1e3a5f"}),
+                    html.Div(text, className="small"),
+                ])
+            elif resp.status_code == 429 and attempt < 1:
+                time.sleep(3)
+        except Exception:
+            if attempt < 1:
+                time.sleep(2)
+    return None
+    ventas = data["_valor"].sum()
+    prompt = f"""Eres un analista de datos comerciales. Genera un analisis conciso en 3-4 puntos clave para la seccion '{page}' del tipo '{tipo}'.
+Metricas principales:
+- Valor total: ${ventas:,.0f}
+- Registros: {len(data):,}
+- Columnas: {', '.join([c for c in data.columns if c.startswith('_')][:10])}
+Responde con una lista usando * al inicio de cada linea. Se breve."""
+    for attempt in range(3):
+        try:
             url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={api_key}"
             resp = requests.post(url, json={"contents": [{"parts": [{"text": prompt}]}]}, timeout=30)
             if resp.ok:
