@@ -241,13 +241,102 @@ def pagina_ranking(data):
     rank["% Cumpl"] = rank.apply(lambda r: round(r["Comprometido"] / r["Valor"] * 100, 2) if r["Valor"] > 0 else 0, axis=1)
     rank.insert(0, "#", range(1, len(rank) + 1))
 
-    fig = go.Figure()
-    fig.add_trace(go.Bar(x=rank["Valor"].head(10) / 1e6, y=rank["_vendedor"].head(10),
-        orientation="h", marker_color=BLUE, text=[fmt_pm(v) for v in rank["Valor"].head(10)],
-        textposition="outside"))
-    fig.update_layout(**fig_layout("Top 10 Asesores (millones $)", height=380))
-    fig.update_xaxes(title="$ millones")
+    # Podium top 3
+    top3 = rank.head(3)
+    podiums = []
+    heights = ["200px", "150px", "110px"]
+    orders = [1, 0, 2]
+    colors = ["#FFD700", "#C0C0C0", "#CD7F32"]
+    grads = ["linear-gradient(180deg, #FFD70033, #fff)", "linear-gradient(180deg, #C0C0C033, #fff)", "linear-gradient(180deg, #CD7F3233, #fff)"]
+    borders = ["#FFD700", "#C0C0C0", "#CD7F32"]
+    medals = ["#FFD700", "silver", "#CD7F32"]
+    for i in range(3):
+        r = top3.iloc[orders[i]]
+        podiums.append(html.Div([
+            html.Div(f"#{orders[i]+1}", style={
+                "fontSize": "1.4rem", "fontWeight": "bold", "color": "white",
+                "background": borders[orders[i]], "width": "36px", "height": "36px",
+                "borderRadius": "50%", "display": "flex", "alignItems": "center",
+                "justifyContent": "center", "margin": "8px auto",
+            }),
+            html.Div(r["_vendedor"], style={
+                "fontSize": "0.75rem", "fontWeight": "bold", "color": NAVY,
+                "textAlign": "center", "marginBottom": "4px",
+                "wordBreak": "break-word", "lineHeight": "1.2",
+            }),
+            html.Div(fmt_pm(r["Valor"]), style={
+                "fontSize": "1.1rem", "fontWeight": "bold", "color": NAVY,
+                "textAlign": "center",
+            }),
+            html.Div(fmt_p(r["Valor"]), style={
+                "fontSize": "0.7rem", "color": GRAY, "textAlign": "center", "marginBottom": "4px",
+            }),
+            html.Div(f"{r['% Part']:.1f}% del total", style={
+                "fontSize": "0.65rem", "color": GRAY, "textAlign": "center",
+            }),
+            html.Div(f"Compromiso: {r['% Cumpl']:.1f}%", style={
+                "fontSize": "0.65rem", "color": GREEN, "textAlign": "center",
+            }),
+            html.Div(f"{int(r['Pedidos']):,} pedidos | {int(r['Clientes'])} clientes", style={
+                "fontSize": "0.6rem", "color": "#94a3b8", "textAlign": "center", "marginTop": "6px",
+            }),
+        ], style={
+            "width": "30%", "background": grads[orders[i]],
+            "borderTop": f"4px solid {borders[orders[i]]}",
+            "borderRadius": "12px 12px 8px 8px",
+            "padding": "12px 8px 16px 8px",
+            "height": heights[orders[i]],
+            "display": "flex", "flexDirection": "column",
+            "justifyContent": "flex-start", "alignItems": "center",
+            "boxShadow": "0 2px 8px rgba(0,0,0,0.06)",
+            "marginTop": "20px" if orders[i] == 1 else "40px",
+        }, className="mx-1"))
 
+    podium_row = html.Div([
+        html.H6("   Podio de Asesores", className="fw-bold text-center mb-3", style={"color": NAVY}),
+        html.Div(podiums, style={
+            "display": "flex", "justifyContent": "center",
+            "alignItems": "flex-end", "padding": "0 20px",
+        }),
+    ], style={"marginBottom": "24px", "padding": "16px",
+              "background": "linear-gradient(180deg, #f1f5f9, white)",
+              "borderRadius": "12px", "border": "1px solid #e2e8f0"})
+
+    children.append(podium_row)
+
+    # Summary KPI row
+    kpi_row = dbc.Row([
+        dbc.Col(kpi_card("Asesores Activos", f"{len(rank)}", "", color=BLUE), width=3),
+        dbc.Col(kpi_card("Valor Total", fmt_p(tv), fmt_pm(tv), color=NAVY), width=3),
+        dbc.Col(kpi_card("Top 3 %", f"{rank.head(3)['% Part'].sum():.1f}%", "Concentracion top 3", color=GREEN if rank.head(3)['% Part'].sum() < 60 else AMBER), width=3),
+        dbc.Col(kpi_card("Cumpl. Prom.", f"{rank['% Cumpl'].mean():.1f}%", "Promedio general", color=GREEN if rank['% Cumpl'].mean() > 50 else AMBER), width=3),
+    ], className="mb-4 g-3")
+    children.append(kpi_row)
+
+    # Bar chart - all sellers sorted desc
+    fig = go.Figure()
+    top_show = rank.head(10)
+    fig.add_trace(go.Bar(
+        x=top_show["Valor"] / 1e6,
+        y=top_show["_vendedor"],
+        orientation="h",
+        marker=dict(
+            color=[BLUE if i > 0 else "#FFD700" for i in range(len(top_show))],
+            line=dict(color="white", width=1),
+        ),
+        text=[fmt_pm(v) for v in top_show["Valor"]],
+        textposition="outside",
+        hovertemplate="<b>%{y}</b><br>Valor: %{text}<br>Participacion: %{customdata}%<extra></extra>",
+        customdata=top_show["% Part"].tolist(),
+    ))
+    fig.update_layout(**fig_layout("Top 10 Asesores por Valor (millones $)", height=380))
+    fig.update_layout(margin=dict(t=40, b=10, l=200, r=60))
+    fig.update_xaxes(title="$ millones", showgrid=True, gridcolor="#e2e8f0")
+    fig.update_yaxes(autorange="reversed")
+
+    children.append(dbc.Row([dbc.Col(dcc.Graph(figure=fig), width=12)], className="mb-3"))
+
+    # Ranking table
     table = dash_table.DataTable(
         columns=[{"name": c, "id": c} for c in ["#", "_vendedor", "Valor_total", "% Part", "Pedidos", "Clientes", "% Cumpl"]],
         data=[{"#": r["#"], "_vendedor": r["_vendedor"], "Valor_total": fmt_p(r["Valor"]),
@@ -255,18 +344,25 @@ def pagina_ranking(data):
                "Clientes": f"{int(r['Clientes'])}", "% Cumpl": f"{r['% Cumpl']:.1f}%"}
               for _, r in rank.iterrows()],
         style_table={"overflowX": "auto"},
-        style_cell={"textAlign": "left", "padding": "4px 8px", "fontSize": "0.8rem"},
+        style_cell={"textAlign": "left", "padding": "4px 8px", "fontSize": "0.75rem"},
         style_header={"fontWeight": "bold", "backgroundColor": "#f8fafc"},
+        style_data_conditional=[
+            {"if": {"filter_query": "{#} = 1", "column_id": "#"},
+             "backgroundColor": "#FFF8E1", "fontWeight": "bold"},
+            {"if": {"filter_query": "{#} = 2", "column_id": "#"},
+             "backgroundColor": "#F5F5F5", "fontWeight": "bold"},
+            {"if": {"filter_query": "{#} = 3", "column_id": "#"},
+             "backgroundColor": "#FFF0E0", "fontWeight": "bold"},
+        ],
         page_size=15,
+        sort_action="native",
     )
-
-    children.append(dbc.Row([dbc.Col(dcc.Graph(figure=fig), width=12)], className="mb-3"))
     children.append(table)
     children.append(html.Hr())
     children.append(html.Div([
         html.H6("Analisis Automatico", className="fw-bold", style={"color": NAVY}),
         dbc.Button("Generar Analisis", id="btn-analisis-pedidos_ranking", color="secondary", size="sm", className="mb-2"),
-            html.Div(id="analisis-pedidos_ranking", className="small p-3",
+        html.Div(id="analisis-pedidos_ranking", className="small p-3",
                  style={"backgroundColor": "#f8fafc", "borderRadius": "8px", "border": "1px solid #e2e8f0", "minHeight": "60px"}),
     ], className="mt-4"))
     return children
