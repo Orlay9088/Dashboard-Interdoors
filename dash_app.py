@@ -234,7 +234,7 @@ app.layout = html.Div([
     Input("store-pareto-canal", "data"),
 )
 def render_page_wrapper(module, page, filters, refresh_count, clear_count, pareto_canal):
-    import json
+    import json, traceback
     if isinstance(filters, str):
         try:
             filters = json.loads(filters)
@@ -242,7 +242,15 @@ def render_page_wrapper(module, page, filters, refresh_count, clear_count, paret
             filters = {}
     if not isinstance(filters, dict):
         filters = {}
-    return _render_content(module, page, filters, pareto_canal)
+    try:
+        return _render_content(module, page, filters, pareto_canal)
+    except Exception as e:
+        return dmc.Alert([
+            html.Div("Error de renderizado", style={"fontWeight": "bold"}),
+            html.Div(f"Module: {module} | Page: {page}", className="small mt-1"),
+            html.Div(str(e), className="small text-danger mt-1"),
+            html.Div(traceback.format_exc().replace("\n", "<br>"), style={"fontSize": "0.65rem", "fontFamily": "monospace", "maxHeight": "200px", "overflow": "auto", "marginTop": "8px"}),
+        ], title="Error Interno", color="red", withCloseButton=True)
 
 # ============================================================
 # CALLBACKS

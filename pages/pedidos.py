@@ -242,7 +242,10 @@ def pagina_ranking(data):
 
     from budget import cargar_presupuesto_asesores, get_budget_for
     from config import RUTA_PRESUPUESTO_ASESORES
-    budgets = cargar_presupuesto_asesores(str(RUTA_PRESUPUESTO_ASESORES))
+    try:
+        budgets = cargar_presupuesto_asesores(str(RUTA_PRESUPUESTO_ASESORES))
+    except Exception:
+        budgets = {}
     rank["Presupuesto"] = rank["_vendedor"].apply(lambda x: get_budget_for(x, budgets))
     rank["% Presup"] = rank.apply(lambda r: round(r["Valor"] / r["Presupuesto"] * 100, 2) if r["Presupuesto"] > 0 else 0, axis=1)
     rank.insert(0, "#", range(1, len(rank) + 1))
