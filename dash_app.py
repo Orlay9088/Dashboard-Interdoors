@@ -698,32 +698,36 @@ def verify_apis(n, opencode_key, gemini_key):
 @callback(
     Output("store-page", "data", allow_duplicate=True),
     Input({"type": "nav-btn", "page": ALL}, "n_clicks"),
+    State("store-page", "data"),
     prevent_initial_call=True,
 )
-def navigate_buttons(n_clicks):
+def navigate_buttons(n_clicks, current_page):
     import json
     ctx = dash.ctx
     if not ctx.triggered:
         return no_update
     triggered = ctx.triggered[0]["prop_id"]
     obj = json.loads(triggered.split(".")[0])
-    return obj["page"]
+    page = obj["page"]
+    return page if page != current_page else no_update
 
 
 # Pareto canal selector callback
 @callback(
     Output("store-pareto-canal", "data"),
     Input({"type": "canal-btn", "name": ALL}, "n_clicks"),
+    State("store-pareto-canal", "data"),
     prevent_initial_call=True,
 )
-def select_pareto_canal(n_clicks):
+def select_pareto_canal(n_clicks, current):
     import json
     ctx = dash.ctx
     if not ctx.triggered:
         return no_update
     triggered = ctx.triggered[0]["prop_id"]
     obj = json.loads(triggered.split(".")[0])
-    return obj["name"]
+    name = obj["name"]
+    return name if name != current else no_update
 
 
 if __name__ == "__main__":
