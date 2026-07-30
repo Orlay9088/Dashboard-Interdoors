@@ -5,7 +5,7 @@ from pathlib import Path
 import sys
 
 import dash
-from dash import dcc, html, Input, Output, State, callback, no_update, ALL, MATCH
+from dash import dcc, html, Input, Output, State, callback, no_update
 import dash_bootstrap_components as dbc
 import dash_mantine_components as dmc
 import pandas as pd
@@ -80,9 +80,11 @@ MODULES = {
 }
 
 PAGE_ROUTES = {}
+ALL_PAGE_KEYS = set()
 for mod_key, mod_val in MODULES.items():
     for page_key in mod_val["pages"]:
         PAGE_ROUTES[f"{mod_key}_{page_key}"] = (mod_key, page_key)
+        ALL_PAGE_KEYS.add(page_key)
 
 MODULE_LABELS = [v["label"] for v in MODULES.values()]
 MODULE_COLORS = {k: v["color"] for k, v in MODULES.items()}
@@ -538,7 +540,7 @@ def _render_content(module, page, filters):
             "marginRight": "6px", "marginBottom": "4px", "cursor": "pointer",
         }
         nav_buttons.append(html.Button(
-            plabel, id={"type": "nav-btn", "module": module, "page": pk},
+            plabel, id=f"nav-page-{pk}",
             style=active_style if pk == page else inactive_style,
         ))
     nav = html.Div(nav_buttons, style={"display": "flex", "flexWrap": "wrap", "marginBottom": "16px"})
@@ -656,17 +658,15 @@ def verify_apis(n, opencode_key, gemini_key):
 # Navigation buttons callback
 @callback(
     Output("store-page", "data", allow_duplicate=True),
-    Input({"type": "nav-btn", "module": ALL, "page": ALL}, "n_clicks"),
+    [Input(f"nav-page-{pk}", "n_clicks") for pk in ALL_PAGE_KEYS],
     prevent_initial_call=True,
 )
-def navigate_pages(n_clicks):
+def navigate_pages(*args):
     ctx = dash.ctx
     if not ctx.triggered:
         return no_update
-    triggered = ctx.triggered[0]["prop_id"]
-    import json
-    obj = json.loads(triggered.split(".")[0])
-    return obj["page"]
+    btn_id = ctx.triggered[0]["prop_id"].split(".")[0]
+    return btn_id.replace("nav-page-", "")
 
 
 if __name__ == "__main__":
