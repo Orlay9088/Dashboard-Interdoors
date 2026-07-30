@@ -54,7 +54,7 @@ def pagina_resumen(data):
         line=dict(width=3, color=GREEN), marker=dict(size=6, color=GREEN)))
     fig_evol.update_layout(**fig_layout("Evolucion Mensual (millones $)", height=380))
     fig_evol.update_layout(legend=dict(orientation="h", y=1.1, x=0.7))
-    fig_evol.update_xaxes(tickangle=-45)
+    fig_evol.update_xaxes(tickangle=-45, tickfont=dict(size=9), dtick="M1")
 
     top_asesores = data.groupby("_vendedor").agg(
         Valor=("_valor", "sum"),
@@ -64,8 +64,10 @@ def pagina_resumen(data):
     fig_asesores.add_trace(go.Bar(x=top_asesores["Valor"] / 1e6, y=top_asesores["_vendedor"],
         orientation="h", marker_color=BLUE,
         text=[fmt_pm(v) for v in top_asesores["Valor"]], textposition="outside"))
-    fig_asesores.update_layout(**fig_layout("Top 10 Asesores (millones $)", height=380))
+    fig_asesores.update_layout(**fig_layout("Top 10 Asesores (millones $)", height=380,
+        margin=dict(t=40, b=20, l=20, r=40)))
     fig_asesores.update_xaxes(title="$ millones")
+    fig_asesores.update_yaxes(automargin=True, tickfont=dict(size=10))
 
     part_const = (data[data["_canal"] == "CNST - CONSTRUCCION"]["_valor"].sum() / vp * 100) if vp else 0
     top3 = data.groupby("_cliente")["_valor"].sum().sort_values(ascending=False)
@@ -132,7 +134,8 @@ def pagina_participacion(data):
     fig_ase = go.Figure(go.Bar(x=asesores["_vendedor"].head(10), y=asesores["Valor"].head(10) / 1e6,
         marker_color=BLUE, text=[f"{r:.1f}%" for r in asesores["%"].head(10)], textposition="outside"))
     fig_ase.update_layout(**fig_layout("Top 10 Asesores (millones $)", height=380))
-    fig_ase.update_xaxes(tickangle=-45)
+    fig_ase.update_xaxes(tickangle=-45, tickfont=dict(size=9))
+    fig_ase.update_yaxes(automargin=True)
 
     lineas = data.groupby("_linea").agg(
         Valor=("_valor", "sum"),
@@ -142,7 +145,8 @@ def pagina_participacion(data):
     fig_lin = go.Figure(go.Bar(x=lineas["_linea"].head(10), y=lineas["Valor"].head(10) / 1e6,
         marker_color=GREEN, text=[f"{r:.1f}%" for r in lineas["%"].head(10)], textposition="outside"))
     fig_lin.update_layout(**fig_layout("Top 10 Lineas (millones $)", height=380))
-    fig_lin.update_xaxes(tickangle=-45)
+    fig_lin.update_xaxes(tickangle=-45, tickfont=dict(size=9))
+    fig_lin.update_yaxes(automargin=True)
 
     children.append(dbc.Row([
         dbc.Col(dcc.Graph(figure=fig_canal), width=4),
@@ -170,17 +174,19 @@ def pagina_pareto(data):
     pg["%"] = (pg["Valor"] / vp * 100).round(2)
     pg["% Acum"] = pg["%"].cumsum()
     pg.insert(0, "#", range(1, len(pg) + 1))
-    top = pg.head(15)
+    top = pg.head(15).copy()
+    top["_label"] = top["_cliente"].apply(lambda x: x[:22] + "..." if len(str(x)) > 25 else str(x))
 
     fig = go.Figure()
-    fig.add_trace(go.Bar(x=top["_cliente"], y=top["Valor"],
+    fig.add_trace(go.Bar(x=top["_label"], y=top["Valor"],
         marker_color=BLUE, name="Valor", text=[fmt_pm(v) for v in top["Valor"]], textposition="outside"))
-    fig.add_trace(go.Scatter(x=top["_cliente"], y=top["% Acum"],
+    fig.add_trace(go.Scatter(x=top["_label"], y=top["% Acum"],
         name="% Acumulado", yaxis="y2", marker_color=RED, mode="lines+markers", line=dict(width=3)))
     fig.update_layout(**fig_layout(titulo, height=420,
+        margin=dict(t=40, b=60, l=80, r=50),
         yaxis=dict(title="$", gridcolor="#f1f5f9", zeroline=False),
         yaxis2=dict(title="%", overlaying="y", side="right", range=[0, 105])))
-    fig.update_xaxes(tickangle=-45)
+    fig.update_xaxes(tickangle=-45, tickfont=dict(size=9))
 
     hasta_80 = (pg["% Acum"] <= 80).sum()
     top3_pct = pg.head(3)["%"].sum()
@@ -345,10 +351,10 @@ def pagina_ranking(data):
         hovertemplate="<b>%{y}</b><br>Valor: %{text}<br>Participacion: %{customdata}%<extra></extra>",
         customdata=top_show["% Part"].tolist(),
     ))
-    fig.update_layout(**fig_layout("Top 10 Asesores por Valor (millones $)", height=380))
-    fig.update_layout(margin=dict(t=40, b=10, l=200, r=60))
+    fig.update_layout(**fig_layout("Top 10 Asesores por Valor (millones $)", height=380,
+        margin=dict(t=40, b=20, l=20, r=40)))
     fig.update_xaxes(title="$ millones", showgrid=True, gridcolor="#e2e8f0")
-    fig.update_yaxes(autorange="reversed")
+    fig.update_yaxes(automargin=True, tickfont=dict(size=10))
 
     children.append(dbc.Row([dbc.Col(dcc.Graph(figure=fig), width=12)], className="mb-3"))
 

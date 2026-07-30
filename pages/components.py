@@ -35,18 +35,21 @@ def rgba(color, alpha):
 PLOTLY_TEMPLATE = dict(
     layout=dict(
         paper_bgcolor="#f8fafc", plot_bgcolor="#f8fafc",
-        font=dict(family="Segoe UI, Arial, sans-serif", color="#334155"),
+        font=dict(family="Segoe UI, Arial, sans-serif", color="#334155", size=12),
         hoverlabel=dict(bgcolor=NAVY, font_color="white", font_size=12),
-        xaxis=dict(gridcolor="#e2e8f0", zeroline=False, showline=True, linecolor="#cbd5e1"),
-        yaxis=dict(gridcolor="#e2e8f0", zeroline=False, showline=True, linecolor="#cbd5e1"),
+        xaxis=dict(gridcolor="#e2e8f0", zeroline=False, showline=True, linecolor="#cbd5e1",
+                   automargin=True, tickfont=dict(size=10)),
+        yaxis=dict(gridcolor="#e2e8f0", zeroline=False, showline=True, linecolor="#cbd5e1",
+                   automargin=True, tickfont=dict(size=10)),
     )
 )
 
 def fig_layout(title="", height=400, **overrides):
     layout = dict(
         title=dict(text=title, font=dict(size=14, color=NAVY), x=0.02, y=0.97),
-        height=height, margin=dict(t=36, b=40, l=10, r=10),
+        height=height, margin=dict(t=40, b=50, l=80, r=40),
         hovermode="x unified",
+        autosize=True,
     )
     layout.update(PLOTLY_TEMPLATE["layout"])
     layout.update(overrides)

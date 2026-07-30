@@ -57,6 +57,7 @@ def pagina_resumen_ventas(data):
         text=[fmt_pm(v) for v in top_vendedores["Ventas"]], textposition="outside"))
     fig_vend.update_layout(**fig_layout("Top 10 Vendedores (millones $)", height=380))
     fig_vend.update_xaxes(title="$ millones")
+    fig_vend.update_yaxes(automargin=True, tickfont=dict(size=10))
 
     children.append(dbc.Row([
         dbc.Col(dcc.Graph(figure=fig_evol), width=6),
@@ -102,6 +103,7 @@ def pagina_margenes(data):
         text=[f"{r['Margen %']:.1f}%" for _, r in mgn_vend.iterrows()], textposition="outside"))
     fig_vend.update_layout(**fig_layout("Margen por Vendedor (millones $)", height=380))
     fig_vend.update_xaxes(title="$ millones")
+    fig_vend.update_yaxes(automargin=True, tickfont=dict(size=10))
 
     children.append(dbc.Row([
         dbc.Col(dcc.Graph(figure=fig_canal), width=6),
