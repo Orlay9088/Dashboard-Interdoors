@@ -151,23 +151,10 @@ def apply_filters(data, filters_dict):
 # ============================================================
 # KAHOOT-STYLE PODIUM with 3D flip cards
 # ============================================================
-PODIUM_CSS = """
-.podium-wrapper { display: flex; justify-content: center; align-items: flex-end; padding: 12px 0; gap: 12px; }
-.podium-card { perspective: 700px; cursor: pointer; flex: 1; max-width: 185px; min-height: 260px; transition: transform 0.25s ease, box-shadow 0.25s ease; }
-.podium-card:hover { transform: translateY(-6px); }
-.podium-card:nth-child(2) { margin-bottom: 28px; }
-.podium-card-inner { position: relative; width: 100%; height: 100%; transition: transform 0.5s ease-in-out; transform-style: preserve-3d; }
-.podium-card.flipped .podium-card-inner { transform: rotateY(180deg); }
-.podium-front, .podium-back { position: absolute; width: 100%; height: 100%; backface-visibility: hidden; border-radius: 12px; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; padding: 14px 10px; box-sizing: border-box; box-shadow: 0 4px 16px rgba(0,0,0,0.08); }
-.podium-back { transform: rotateY(180deg); justify-content: center; }
-.podium-flip-btn { margin-top: 10px; padding: 5px 14px; border-radius: 20px; border: 1.5px solid rgba(255,255,255,0.4); background: rgba(255,255,255,0.12); color: inherit; cursor: pointer; font-size: 0.65rem; font-weight: bold; transition: background 0.2s; }
-.podium-flip-btn:hover { background: rgba(255,255,255,0.25); }
-"""
-
-def kahoot_podium(rank_df, flipped=None):
+def kahoot_podium(rank_df):
     top3 = rank_df.head(3).reset_index(drop=True)
     bg_colors = [LIGHTBLUE, GOLD, CORAL]
-    dk_colors = ["#4A6DB0", "#9A7400", "#C04A38"]
+    dk_colors = ["#4A6DB0", "#9A7400", "#B04030"]
     tx_colors = ["white", DARKGRAY, "white"]
     orders = [1, 0, 2]
     labels = ["#2", "#1", "#3"]
@@ -177,55 +164,57 @@ def kahoot_podium(rank_df, flipped=None):
         r = top3.iloc[orders[i]]
         initials = "".join([w[0] for w in str(r["_vendedor"]).split()[:2]]).upper()
         bg, dk, tx = bg_colors[i], dk_colors[i], tx_colors[i]
-        flipped_class = "flipped" if flipped is not None and flipped == i else ""
+        margin_top = "-18px" if orders[i] == 0 else "0px"
 
         presup = r.get("% Presup", 0)
         progr = min(100, max(0, presup))
+        progr_color = GREEN if progr >= 100 else AMBER if progr >= 70 else RED
 
-        # ---- FRONT FACE ----
-        front = html.Div([
-            dmc.Badge(labels[i], variant="filled", color="dark", style={"position": "absolute", "top": "8px", "right": "8px",
-                      "fontSize": "0.7rem", "fontWeight": "bold"}),
-            dmc.Avatar(initials, radius="xl", size="md", color=dk,
-                       style={"marginTop": "6px", "marginBottom": "8px"}),
-            html.Div(str(r["_vendedor"]), style={"fontSize": "0.68rem", "fontWeight": "bold", "textAlign": "center",
-                     "color": tx, "lineHeight": "1.15", "wordBreak": "break-word", "minHeight": "28px"}),
-            html.Div(fmt_pm(r["Valor"]), style={"fontSize": "1.15rem", "fontWeight": "900", "textAlign": "center",
-                     "color": tx, "marginBottom": "1px"}),
-            html.Div(f"{r.get('% Part', 0):.1f}% participacion", style={"fontSize": "0.65rem", "textAlign": "center",
-                     "color": tx, "opacity": "0.85", "marginBottom": "8px"}),
-            html.Div([
-                html.Div(f"Ppto: {presup:.0f}%" if presup > 0 else "Sin ppto", style={"fontSize": "0.65rem",
-                         "fontWeight": "500", "textAlign": "center", "color": tx, "marginBottom": "3px", "opacity": "0.85"}),
-                dmc.Progress(value=progr, color="white", size="sm",
-                             style={"width": "80%", "margin": "0 auto", "backgroundColor": "rgba(255,255,255,0.2)"}),
-            ], style={"width": "100%", "textAlign": "center"}),
-        ], className="podium-front", style={"background": bg, "color": tx})
-
-        # ---- BACK FACE ----
-        back = html.Div([
-            html.Div(str(r["_vendedor"]), style={"fontSize": "0.7rem", "fontWeight": "bold", "textAlign": "center",
-                     "color": tx, "marginBottom": "6px", "lineHeight": "1.2"}),
-            html.Div(f"Comprometido: {fmt_p(r.get('Comprometido', 0))}", style={"fontSize": "0.62rem", "textAlign": "center",
-                     "color": tx, "opacity": "0.9"}),
-            html.Div(f"Cumplimiento: {r.get('% Cumpl', 0):.1f}%", style={"fontSize": "0.62rem", "textAlign": "center",
-                     "color": tx, "opacity": "0.7", "marginBottom": "8px"}),
-            dmc.Progress(value=progr, color="white", size="sm",
-                         style={"width": "75%", "margin": "0 auto 4px auto", "backgroundColor": "rgba(255,255,255,0.2)"}),
-            html.Div(f"vs Presupuesto: {presup:.0f}%" if presup > 0 else "Sin presupuesto",
-                     style={"fontSize": "0.75rem", "fontWeight": "700", "textAlign": "center", "color": tx}),
-            html.Div(f"{int(r.get('Pedidos', 0)):,} pedidos | {int(r.get('Clientes', 0))} clientes",
-                     style={"fontSize": "0.6rem", "color": tx, "opacity": "0.65", "textAlign": "center", "marginTop": "8px"}),
-            html.Button("  Volver  ", className="podium-flip-btn",
-                        id={"type": "podium-flip", "index": i},
-                        style={"color": tx}),
-        ], className="podium-back", style={"background": bg, "color": tx})
-
-        cards.append(html.Div([
-            html.Div([front, back], className="podium-card-inner"),
-        ], id={"type": "podium-card", "index": i}, className=f"podium-card {flipped_class}"))
+        card = html.Div([
+            dmc.Badge(labels[i], variant="filled", color="dark",
+                      style={"position": "absolute", "top": "6px", "right": "6px", "fontSize": "0.6rem"}),
+            dmc.Avatar(initials, radius="xl", size="sm",
+                       style={"backgroundColor": dk, "color": "white", "marginBottom": "6px"}),
+            html.Div(str(r["_vendedor"]), style={
+                "fontSize": "0.62rem", "fontWeight": "700", "textAlign": "center",
+                "color": tx, "lineHeight": "1.1", "wordBreak": "break-word",
+                "minHeight": "28px", "marginBottom": "4px",
+            }),
+            html.Div(fmt_pm(r["Valor"]), style={
+                "fontSize": "0.95rem", "fontWeight": "900", "textAlign": "center",
+                "color": tx, "marginBottom": "1px",
+            }),
+            html.Div(f"{r.get('% Part', 0):.1f}% part.", style={
+                "fontSize": "0.58rem", "textAlign": "center", "color": tx, "opacity": "0.8",
+                "marginBottom": "6px",
+            }),
+            html.Div(f"Presup: {presup:.0f}%" if presup > 0 else "Sin presupuesto", style={
+                "fontSize": "0.58rem", "fontWeight": "600", "textAlign": "center",
+                "color": tx, "marginBottom": "3px", "opacity": "0.85",
+            }),
+            dmc.Progress(value=progr, color=progr_color, size="xs",
+                         style={"width": "70%", "margin": "0 auto"}),
+        ], style={
+            "position": "relative",
+            "width": "155px", "minHeight": "190px",
+            "background": bg, "color": tx,
+            "borderRadius": "10px",
+            "padding": "14px 8px 12px 8px",
+            "display": "flex", "flexDirection": "column",
+            "alignItems": "center",
+            "boxShadow": "0 2px 10px rgba(0,0,0,0.07)",
+            "marginTop": margin_top,
+            "transition": "transform 0.2s, box-shadow 0.2s",
+            "borderBottom": f"3px solid {dk}",
+        })
+        cards.append(card)
 
     return html.Div([
-        dcc.Markdown(f"<style>{PODIUM_CSS}</style>", dangerously_allow_html=True),
-        html.Div(cards, className="podium-wrapper"),
-    ], style={"margin": "12px 0 20px 0"})
+        html.Div(cards, style={
+            "display": "flex", "justifyContent": "center",
+            "alignItems": "flex-end", "gap": "10px",
+            "padding": "20px 0 10px 0",
+        }),
+    ], style={"margin": "8px 0 16px 0"})
+
+
