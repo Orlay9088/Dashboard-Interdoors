@@ -239,6 +239,12 @@ def pagina_ranking(data):
     tv = rank["Valor"].sum()
     rank["% Part"] = (rank["Valor"] / tv * 100).round(2) if tv else 0
     rank["% Cumpl"] = rank.apply(lambda r: round(r["Comprometido"] / r["Valor"] * 100, 2) if r["Valor"] > 0 else 0, axis=1)
+
+    from budget import cargar_presupuesto_asesores, get_budget_for
+    from config import RUTA_PRESUPUESTO_ASESORES
+    budgets = cargar_presupuesto_asesores(str(RUTA_PRESUPUESTO_ASESORES))
+    rank["Presupuesto"] = rank["_vendedor"].apply(lambda x: get_budget_for(x, budgets))
+    rank["% Presup"] = rank.apply(lambda r: round(r["Valor"] / r["Presupuesto"] * 100, 2) if r["Presupuesto"] > 0 else 0, axis=1)
     rank.insert(0, "#", range(1, len(rank) + 1))
 
     # Podium top 3
@@ -277,6 +283,10 @@ def pagina_ranking(data):
             html.Div(f"Compromiso: {r['% Cumpl']:.1f}%", style={
                 "fontSize": "0.65rem", "color": GREEN, "textAlign": "center",
             }),
+            html.Div(f"vs Presup: {r['% Presup']:.1f}%" if r["Presupuesto"] > 0 else "Sin presupuesto", style={
+                "fontSize": "0.65rem", "color": GREEN if r["% Presup"] >= 100 else AMBER if r["% Presup"] >= 70 else RED,
+                "textAlign": "center",
+            }),
             html.Div(f"{int(r['Pedidos']):,} pedidos | {int(r['Clientes'])} clientes", style={
                 "fontSize": "0.6rem", "color": "#94a3b8", "textAlign": "center", "marginTop": "6px",
             }),
@@ -305,11 +315,14 @@ def pagina_ranking(data):
     children.append(podium_row)
 
     # Summary KPI row
+    presup_total = rank["Presupuesto"].sum()
+    presup_pct = (tv / presup_total * 100) if presup_total else 0
+    presup_color = GREEN if presup_pct >= 100 else AMBER if presup_pct >= 70 else RED
     kpi_row = dbc.Row([
         dbc.Col(kpi_card("Asesores Activos", f"{len(rank)}", "", color=BLUE), width=3),
         dbc.Col(kpi_card("Valor Total", fmt_p(tv), fmt_pm(tv), color=NAVY), width=3),
-        dbc.Col(kpi_card("Top 3 %", f"{rank.head(3)['% Part'].sum():.1f}%", "Concentracion top 3", color=GREEN if rank.head(3)['% Part'].sum() < 60 else AMBER), width=3),
-        dbc.Col(kpi_card("Cumpl. Prom.", f"{rank['% Cumpl'].mean():.1f}%", "Promedio general", color=GREEN if rank['% Cumpl'].mean() > 50 else AMBER), width=3),
+        dbc.Col(kpi_card("vs Presupuesto", f"{presup_pct:.1f}%", f"Meta: {fmt_pm(presup_total)}" if presup_total else "Sin datos", color=presup_color), width=3),
+        dbc.Col(kpi_card("Cumpl. Prom.", f"{rank['% Cumpl'].mean():.1f}%", f"Top 3: {rank.head(3)['% Part'].sum():.1f}%", color=GREEN if rank['% Cumpl'].mean() > 50 else AMBER), width=3),
     ], className="mb-4 g-3")
     children.append(kpi_row)
 
@@ -338,9 +351,11 @@ def pagina_ranking(data):
 
     # Ranking table
     table = dash_table.DataTable(
-        columns=[{"name": c, "id": c} for c in ["#", "_vendedor", "Valor_total", "% Part", "Pedidos", "Clientes", "% Cumpl"]],
+        columns=[{"name": c, "id": c} for c in ["#", "_vendedor", "Valor_total", "% Part", "% Presup", "Pedidos", "Clientes", "% Cumpl"]],
         data=[{"#": r["#"], "_vendedor": r["_vendedor"], "Valor_total": fmt_p(r["Valor"]),
-               "% Part": f"{r['% Part']:.1f}%", "Pedidos": f"{int(r['Pedidos']):,}",
+               "% Part": f"{r['% Part']:.1f}%",
+               "% Presup": f"{r['% Presup']:.1f}%" if r["Presupuesto"] > 0 else "-",
+               "Pedidos": f"{int(r['Pedidos']):,}",
                "Clientes": f"{int(r['Clientes'])}", "% Cumpl": f"{r['% Cumpl']:.1f}%"}
               for _, r in rank.iterrows()],
         style_table={"overflowX": "auto"},

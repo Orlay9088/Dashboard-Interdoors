@@ -14,6 +14,8 @@ ARCHIVO_BASE = CARPETA_BASE / "Base_Maestra_Pedidos.parquet"
 ARCHIVO_LOG = CARPETA_LOGS / "procesamiento.log"
 
 RUTA_PRESUPUESTO = PROYECTO / "presupuesto por asesor.xlsx"
+RUTA_PRESUPUESTO_ASESORES = Path(r"C:\Users\Usuario\Desktop\Proyectos Activos\presupuesto por asesor.xlsx")
+RUTA_PRESUPUESTO_COMPANY = Path(r"C:\Users\Usuario\Desktop\Proyectos Activos\Ptto 2026 (1).xlsx")
 
 HOJA_SIESA = "Tabla principal"
 
