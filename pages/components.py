@@ -1,4 +1,6 @@
 from dash import html, dcc
+import dash_bootstrap_components as dbc
+import dash_mantine_components as dmc
 import pandas as pd
 
 # ============================================================
@@ -150,81 +152,80 @@ def apply_filters(data, filters_dict):
 # KAHOOT-STYLE PODIUM with 3D flip cards
 # ============================================================
 PODIUM_CSS = """
-.podium-wrapper { display: flex; justify-content: center; align-items: flex-end; padding: 20px 0; gap: 16px; }
-.podium-card { perspective: 800px; cursor: pointer; flex: 1; max-width: 220px; min-height: 340px; }
-.podium-card:nth-child(2) { margin-bottom: 40px; }
-.podium-card-inner { position: relative; width: 100%; height: 100%; transition: transform 0.6s cubic-bezier(0.4,0,0.2,1); transform-style: preserve-3d; }
+.podium-wrapper { display: flex; justify-content: center; align-items: flex-end; padding: 12px 0; gap: 12px; }
+.podium-card { perspective: 700px; cursor: pointer; flex: 1; max-width: 185px; min-height: 260px; transition: transform 0.25s ease, box-shadow 0.25s ease; }
+.podium-card:hover { transform: translateY(-6px); }
+.podium-card:nth-child(2) { margin-bottom: 28px; }
+.podium-card-inner { position: relative; width: 100%; height: 100%; transition: transform 0.5s ease-in-out; transform-style: preserve-3d; }
 .podium-card.flipped .podium-card-inner { transform: rotateY(180deg); }
-.podium-front, .podium-back { position: absolute; width: 100%; height: 100%; backface-visibility: hidden; border-radius: 14px; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 18px 12px; box-sizing: border-box; }
-.podium-back { transform: rotateY(180deg); }
-.podium-avatar { width: 52px; height: 52px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1.1rem; color: white; margin-bottom: 10px; }
-.podium-badge { font-size: 1.3rem; font-weight: 900; margin: 6px 0; letter-spacing: 1px; }
-.podium-progress { width: 80%; height: 8px; border-radius: 4px; background: rgba(255,255,255,0.3); margin: 8px 0; overflow: hidden; }
-.podium-progress-bar { height: 100%; border-radius: 4px; background: rgba(255,255,255,0.8); transition: width 0.8s ease; }
-.podium-flip-btn { margin-top: 12px; padding: 6px 16px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.5); background: rgba(255,255,255,0.15); color: inherit; cursor: pointer; font-size: 0.7rem; font-weight: bold; }
+.podium-front, .podium-back { position: absolute; width: 100%; height: 100%; backface-visibility: hidden; border-radius: 12px; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; padding: 14px 10px; box-sizing: border-box; box-shadow: 0 4px 16px rgba(0,0,0,0.08); }
+.podium-back { transform: rotateY(180deg); justify-content: center; }
+.podium-flip-btn { margin-top: 10px; padding: 5px 14px; border-radius: 20px; border: 1.5px solid rgba(255,255,255,0.4); background: rgba(255,255,255,0.12); color: inherit; cursor: pointer; font-size: 0.65rem; font-weight: bold; transition: background 0.2s; }
+.podium-flip-btn:hover { background: rgba(255,255,255,0.25); }
 """
 
 def kahoot_podium(rank_df, flipped=None):
-    from dash import html
     top3 = rank_df.head(3).reset_index(drop=True)
-    colors_bg = [LIGHTBLUE, GOLD, CORAL]   # #2, #1, #3 (left, center, right)
-    colors_dk = ["#4A6DB0", "#B8860B", "#C04A38"]
-    colors_tx = ["white", DARKGRAY, "white"]
+    bg_colors = [LIGHTBLUE, GOLD, CORAL]
+    dk_colors = ["#4A6DB0", "#9A7400", "#C04A38"]
+    tx_colors = ["white", DARKGRAY, "white"]
     orders = [1, 0, 2]
     labels = ["#2", "#1", "#3"]
-
     cards = []
+
     for i in range(3):
         r = top3.iloc[orders[i]]
         initials = "".join([w[0] for w in str(r["_vendedor"]).split()[:2]]).upper()
-        color = colors_bg[i]
-        dk = colors_dk[i]
-        tx = colors_tx[i]
+        bg, dk, tx = bg_colors[i], dk_colors[i], tx_colors[i]
         flipped_class = "flipped" if flipped is not None and flipped == i else ""
 
-        # Budget progress
         presup = r.get("% Presup", 0)
-        progress_width = min(100, max(0, presup))
+        progr = min(100, max(0, presup))
 
+        # ---- FRONT FACE ----
         front = html.Div([
-            html.Div(initials, className="podium-avatar", style={"background": dk}),
-            html.Div(str(r["_vendedor"]), style={"fontSize": "0.7rem", "fontWeight": "bold", "textAlign": "center",
-                    "color": tx, "wordBreak": "break-word", "lineHeight": "1.2", "marginBottom": "6px"}),
-            html.Div(fmt_pm(r["Valor"]), style={"fontSize": "1.3rem", "fontWeight": "900", "color": tx, "marginBottom": "2px"}),
-            html.Div(f"{r.get('% Part', 0):.1f}% participacion", style={"fontSize": "0.65rem", "color": tx, "opacity": "0.85"}),
-            html.Div(labels[i], className="podium-badge", style={"color": tx, "opacity": "0.6"}),
-        ], className="podium-front", style={"background": color})
+            dmc.Badge(labels[i], variant="filled", color="dark", style={"position": "absolute", "top": "8px", "right": "8px",
+                      "fontSize": "0.7rem", "fontWeight": "bold"}),
+            dmc.Avatar(initials, radius="xl", size="md", color=dk,
+                       style={"marginTop": "6px", "marginBottom": "8px"}),
+            html.Div(str(r["_vendedor"]), style={"fontSize": "0.68rem", "fontWeight": "bold", "textAlign": "center",
+                     "color": tx, "lineHeight": "1.15", "wordBreak": "break-word", "minHeight": "28px"}),
+            html.Div(fmt_pm(r["Valor"]), style={"fontSize": "1.15rem", "fontWeight": "900", "textAlign": "center",
+                     "color": tx, "marginBottom": "1px"}),
+            html.Div(f"{r.get('% Part', 0):.1f}% participacion", style={"fontSize": "0.65rem", "textAlign": "center",
+                     "color": tx, "opacity": "0.85", "marginBottom": "8px"}),
+            html.Div([
+                html.Div(f"Ppto: {presup:.0f}%" if presup > 0 else "Sin ppto", style={"fontSize": "0.65rem",
+                         "fontWeight": "500", "textAlign": "center", "color": tx, "marginBottom": "3px", "opacity": "0.85"}),
+                dmc.Progress(value=progr, color="white", size="sm",
+                             style={"width": "80%", "margin": "0 auto", "backgroundColor": "rgba(255,255,255,0.2)"}),
+            ], style={"width": "100%", "textAlign": "center"}),
+        ], className="podium-front", style={"background": bg, "color": tx})
 
+        # ---- BACK FACE ----
         back = html.Div([
-            html.Div(str(r["_vendedor"]), style={"fontSize": "0.72rem", "fontWeight": "bold", "textAlign": "center",
-                    "color": tx, "wordBreak": "break-word", "marginBottom": "8px"}),
-            html.Div([
-                html.Div(f"Comprometido: {fmt_p(r.get('Comprometido', 0))}", style={"fontSize": "0.62rem", "color": tx, "opacity": "0.9"}),
-                html.Div(f"({r.get('% Cumpl', 0):.1f}% cumplimiento)", style={"fontSize": "0.6rem", "color": tx, "opacity": "0.7"}),
-            ], style={"marginBottom": "8px", "textAlign": "center"}),
-            html.Div([
-                html.Div(f"vs Presupuesto:", style={"fontSize": "0.6rem", "color": tx, "opacity": "0.7", "textAlign": "center"}),
-                html.Div([
-                    html.Div(className="podium-progress-bar",
-                             style={"width": f"{progress_width}%", "background": "rgba(255,255,255,0.9)"}),
-                ], className="podium-progress"),
-                html.Div(f"{presup:.0f}%" if presup > 0 else "Sin presupuesto",
-                         style={"fontSize": "0.75rem", "fontWeight": "bold", "color": tx, "textAlign": "center"}),
-            ], style={"marginBottom": "8px"}),
+            html.Div(str(r["_vendedor"]), style={"fontSize": "0.7rem", "fontWeight": "bold", "textAlign": "center",
+                     "color": tx, "marginBottom": "6px", "lineHeight": "1.2"}),
+            html.Div(f"Comprometido: {fmt_p(r.get('Comprometido', 0))}", style={"fontSize": "0.62rem", "textAlign": "center",
+                     "color": tx, "opacity": "0.9"}),
+            html.Div(f"Cumplimiento: {r.get('% Cumpl', 0):.1f}%", style={"fontSize": "0.62rem", "textAlign": "center",
+                     "color": tx, "opacity": "0.7", "marginBottom": "8px"}),
+            dmc.Progress(value=progr, color="white", size="sm",
+                         style={"width": "75%", "margin": "0 auto 4px auto", "backgroundColor": "rgba(255,255,255,0.2)"}),
+            html.Div(f"vs Presupuesto: {presup:.0f}%" if presup > 0 else "Sin presupuesto",
+                     style={"fontSize": "0.75rem", "fontWeight": "700", "textAlign": "center", "color": tx}),
             html.Div(f"{int(r.get('Pedidos', 0)):,} pedidos | {int(r.get('Clientes', 0))} clientes",
-                     style={"fontSize": "0.58rem", "color": tx, "opacity": "0.7", "textAlign": "center"}),
+                     style={"fontSize": "0.6rem", "color": tx, "opacity": "0.65", "textAlign": "center", "marginTop": "8px"}),
             html.Button("  Volver  ", className="podium-flip-btn",
                         id={"type": "podium-flip", "index": i},
                         style={"color": tx}),
-        ], className="podium-back", style={"background": color})
+        ], className="podium-back", style={"background": bg, "color": tx})
 
-        card_id = {"type": "podium-card", "index": i}
         cards.append(html.Div([
             html.Div([front, back], className="podium-card-inner"),
-        ], id=card_id, className=f"podium-card {flipped_class}"))
+        ], id={"type": "podium-card", "index": i}, className=f"podium-card {flipped_class}"))
 
-    rank_title = f"   Podio {rank_df.attrs.get('title', 'de Asesores')}" if hasattr(rank_df, 'attrs') else "   Podio de Asesores"
     return html.Div([
         dcc.Markdown(f"<style>{PODIUM_CSS}</style>", dangerously_allow_html=True),
         html.Div(cards, className="podium-wrapper"),
-    ], style={"margin": "16px 0 24px 0"})
+    ], style={"margin": "12px 0 20px 0"})
