@@ -3,7 +3,7 @@ import dash_bootstrap_components as dbc
 import dash_mantine_components as dmc
 import plotly.graph_objects as go
 import plotly.express as px
-from pages.components import section_title, kpi_card, fmt_p, fmt_pm, fig_layout, NAVY, BLUE, GREEN, AMBER, RED
+from pages.components import section_title, kpi_card, fmt_p, fmt_pm, fig_layout, NAVY, BLUE, GREEN, AMBER, RED, DARKGRAY
 
 
 def pagina_resumen_stock(data):
@@ -25,6 +25,44 @@ def pagina_resumen_stock(data):
     ], className="mb-4 g-3")
     children.append(kpi_row)
 
+    # Tabla resumen de bodegas seleccionadas (solo 3 columnas)
+    bodegas_summary = data.groupby("_bodega").agg(
+        CantComprometida=("_cantidad_pen", "sum"),
+        Existencia=("_cantidad", "sum"),
+        CantDisponible=("_cantidad_com", "sum"),
+    ).reset_index().sort_values("Existencia", ascending=False)
+    summary_data = []
+    for _, r in bodegas_summary.iterrows():
+        summary_data.append({
+            "Bodega": str(r["_bodega"]),
+            "Cant. Comprometida": f"{int(r['CantComprometida']):,}",
+            "Existencia": f"{int(r['Existencia']):,}",
+            "Cant. Disponible": f"{int(r['CantDisponible']):,}",
+        })
+    summary_data.append({
+        "Bodega": "TOTAL",
+        "Cant. Comprometida": f"{int(bodegas_summary['CantComprometida'].sum()):,}",
+        "Existencia": f"{int(bodegas_summary['Existencia'].sum()):,}",
+        "Cant. Disponible": f"{int(bodegas_summary['CantDisponible'].sum()):,}",
+    })
+    summary_table = dash_table.DataTable(
+        columns=[{"name": c, "id": c} for c in ["Bodega", "Cant. Comprometida", "Existencia", "Cant. Disponible"]],
+        data=summary_data,
+        style_table={"overflowX": "auto", "marginBottom": "16px"},
+        style_cell={"textAlign": "left", "padding": "6px 10px", "fontSize": "0.8rem"},
+        style_header={"fontWeight": "bold", "backgroundColor": "#323955", "color": "white", "padding": "8px 10px"},
+        style_data_conditional=[
+            {"if": {"filter_query": "{Bodega} = 'TOTAL'"},
+             "backgroundColor": "#F3C615", "color": DARKGRAY, "fontWeight": "bold"},
+        ],
+        page_size=20,
+    )
+    children.append(html.Div([
+        html.H6("   Resumen por Bodega", className="fw-bold mb-2", style={"color": NAVY, "fontSize": "0.9rem"}),
+        summary_table,
+    ]))
+
+    # Graficos
     bodegas_data = data.groupby("_bodega").agg(
         Valor=("_valor", "sum"), Existencia=("_cantidad", "sum"),
         Comprometido=("_cantidad_pen", "sum"), Disponible=("_cantidad_com", "sum"),
