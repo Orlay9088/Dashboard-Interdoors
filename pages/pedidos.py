@@ -219,7 +219,7 @@ def pagina_pareto(data):
 def pagina_ranking(data):
     children = [section_title("Ranking de Asesores", "Comparativa de rendimiento")]
 
-    rank = data.groupby("_vendedor").agg(
+    rank = data[~data["_vendedor"].isin(["VENTAS CORPORATIVAS", "VENTAS INTERNACIONALES"])].groupby("_vendedor").agg(
         Valor=("_valor", "sum"), Pedidos=("_documento", "nunique"),
         Clientes=("_cliente", "nunique"), Comprometido=("_valor_sec", "sum"),
     ).reset_index().sort_values("Valor", ascending=False).reset_index(drop=True)

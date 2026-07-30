@@ -164,7 +164,7 @@ def kahoot_podium(rank_df):
         r = top3.iloc[orders[i]]
         initials = "".join([w[0] for w in str(r["_vendedor"]).split()[:2]]).upper()
         bg, dk, tx = bg_colors[i], dk_colors[i], tx_colors[i]
-        margin_top = "-18px" if orders[i] == 0 else "0px"
+        margin_top = "-40px" if orders[i] == 0 else "0px"
 
         presup = r.get("% Presup", 0)
         progr = min(100, max(0, presup))
@@ -194,9 +194,13 @@ def kahoot_podium(rank_df):
             }),
             dmc.Progress(value=progr, color=progr_color, size="xs",
                          style={"width": "70%", "margin": "0 auto"}),
+            html.Div(f"Cumpl: {r.get('% Cumpl', 0):.1f}%", style={
+                "fontSize": "0.58rem", "fontWeight": "600", "textAlign": "center",
+                "color": tx, "marginTop": "4px", "opacity": "0.85",
+            }),
         ], style={
             "position": "relative",
-            "width": "155px", "minHeight": "190px",
+            "width": "155px", "minHeight": "210px",
             "background": bg, "color": tx,
             "borderRadius": "10px",
             "padding": "14px 8px 12px 8px",
