@@ -379,55 +379,60 @@ def select_bodega(selected):
 )
 def render_page_content(module, page, filters, refresh_count, clear_count, pareto_canal, bodega_filter):
     import json, traceback
-    module = str(module).strip().lower()
-    if module not in MODULES:
-        module = list(MODULES.keys())[0]
-    mod_info = MODULES[module]
-    if page not in mod_info["pages"]:
-        page = list(mod_info["pages"].keys())[0]
-    if isinstance(filters, str):
-        try: filters = json.loads(filters)
-        except: filters = {}
-    if not isinstance(filters, dict):
-        filters = {}
-
-    df = load_local(module)
-    if df.empty:
-        return dmc.Alert([html.Div(f"No hay datos para {mod_info['label']}."),
-                         html.Div("Sube un archivo Excel en el panel lateral.", className="small mt-1")],
-                        title="Sin Datos", color="yellow", withCloseButton=True)
-    data = apply_filters(df, filters)
-    if data.empty:
-        return dmc.Alert("Filtros no devuelven resultados.", title="Sin resultados", color="yellow")
-
-    if module == "pedidos" and page == "pareto" and pareto_canal != "TODOS":
-        data = data[data["_canal"] == pareto_canal]
-    if module == "inventario" and bodega_filter and bodega_filter != "[]" and "_bodega" in data.columns:
-        import json
-        try:
-            selected = json.loads(bodega_filter)
-            if selected:
-                data = data[data["_bodega"].astype(str).isin(selected)]
-        except Exception:
-            pass
-
-    page_funcs = {
-        "pedidos": {"resumen":pagina_resumen,"participacion":pagina_participacion,"pareto":pagina_pareto,
-                    "ranking":pagina_ranking,"embudo":pagina_embudo,"heatmap":pagina_heatmap,"proyeccion":pagina_proyeccion},
-        "facturas": {"resumen_ventas":pagina_resumen_ventas,"margenes":pagina_margenes,
-                     "mix_producto":pagina_mix_producto,"precio_promedio":pagina_precio_promedio},
-        "inventario": {"resumen_stock":pagina_resumen_stock,"por_bodega":pagina_por_bodega,"criticos":pagina_criticos},
-    }
-    func = page_funcs.get(module, {}).get(page)
-    if not func:
-        return dmc.Alert(f"Pagina '{page}' no encontrada", title="Error", color="red")
     try:
-        return html.Div(func(data))
+        module = str(module).strip().lower()
+        if module not in MODULES:
+            module = list(MODULES.keys())[0]
+        mod_info = MODULES[module]
+        if page not in mod_info["pages"]:
+            page = list(mod_info["pages"].keys())[0]
+        if isinstance(filters, str):
+            try: filters = json.loads(filters)
+            except: filters = {}
+        if not isinstance(filters, dict):
+            filters = {}
+
+        df = load_local(module)
+        if df.empty:
+            return dmc.Alert([html.Div(f"No hay datos para {mod_info['label']}."),
+                             html.Div("Sube un archivo Excel en el panel lateral.", className="small mt-1")],
+                            title="Sin Datos", color="yellow", withCloseButton=True)
+        data = apply_filters(df, filters)
+        if data.empty:
+            return dmc.Alert("Filtros no devuelven resultados.", title="Sin resultados", color="yellow")
+
+        if module == "pedidos" and page == "pareto" and pareto_canal != "TODOS":
+            data = data[data["_canal"] == pareto_canal]
+        if module == "inventario" and bodega_filter and bodega_filter != "[]" and "_bodega" in data.columns:
+            try:
+                selected = json.loads(bodega_filter)
+                if selected:
+                    data = data[data["_bodega"].astype(str).isin(selected)]
+            except Exception:
+                pass
+
+        page_funcs = {
+            "pedidos": {"resumen":pagina_resumen,"participacion":pagina_participacion,"pareto":pagina_pareto,
+                        "ranking":pagina_ranking,"embudo":pagina_embudo,"heatmap":pagina_heatmap,"proyeccion":pagina_proyeccion},
+            "facturas": {"resumen_ventas":pagina_resumen_ventas,"margenes":pagina_margenes,
+                         "mix_producto":pagina_mix_producto,"precio_promedio":pagina_precio_promedio},
+            "inventario": {"resumen_stock":pagina_resumen_stock,"por_bodega":pagina_por_bodega,"criticos":pagina_criticos},
+        }
+        func = page_funcs.get(module, {}).get(page)
+        if not func:
+            return dmc.Alert(f"Pagina no encontrada", title="Error", color="red")
+        try:
+            return html.Div(func(data))
+        except Exception as e:
+            return dmc.Alert([html.Div(f"Error: {module}/{page}", style={"fontWeight":"bold"}),
+                             html.Div(str(e), className="small text-muted mt-1"),
+                             html.Div(traceback.format_exc().replace("\n","<br>"), style={"fontSize":"0.6rem","maxHeight":"150px","overflow":"auto"})],
+                            title="Error de Pagina", color="red", withCloseButton=True)
     except Exception as e:
-        return dmc.Alert([html.Div(f"Error: {module}/{page}", style={"fontWeight":"bold"}),
-                         html.Div(str(e), className="small text-muted mt-1"),
-                         html.Div(traceback.format_exc().replace("\n","<br>"), style={"fontSize":"0.6rem","maxHeight":"150px","overflow":"auto"})],
-                        title="Error de Pagina", color="red", withCloseButton=True)
+        return dmc.Alert([html.Div("ERROR GLOBAL", style={"fontWeight":"bold", "color": RED, "fontSize":"1.2rem"}),
+                         html.Div(str(e), style={"fontSize":"0.7rem", "color": RED}),
+                         html.Div(traceback.format_exc().replace("\n","<br>"), style={"fontSize":"0.55rem","maxHeight":"200px","overflow":"auto","fontFamily":"monospace"})],
+                        title="Error Critico en Dashboard", color="red", withCloseButton=True)
 
 # ===== SINGLE ANALYSIS CALLBACK =====
 @callback(
