@@ -153,8 +153,8 @@ def apply_filters(data, filters_dict):
 # ============================================================
 def kahoot_podium(rank_df):
     top3 = rank_df.head(3).reset_index(drop=True)
-    bg_colors = [LIGHTBLUE, GOLD, CORAL]
-    dk_colors = ["#4A6DB0", "#9A7400", "#B04030"]
+    bg_colors = ["#B8BCC8", "#F3C615", "#CD7F32"]   # Plata, Oro, Cobre
+    dk_colors = ["#6A6F7A", "#9A7400", "#8B4513"]
     tx_colors = ["white", DARKGRAY, "white"]
     orders = [1, 0, 2]
     labels = ["#2", "#1", "#3"]
