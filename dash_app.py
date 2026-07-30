@@ -209,14 +209,24 @@ def build_sidebar():
         html.Hr(style={"borderColor": "rgba(255,255,255,0.15)"}),
 
         html.H6("IA Analisis", className="text-uppercase small fw-semibold mb-2", style={"color": "#94a3b8"}),
-        dbc.Input(id="api-key-opencode", type="password", placeholder="API Key OpenCode AI", size="sm", className="mb-1",
+        dcc.Dropdown(
+            id="ai-model-select",
+            options=[
+                {"label": "OpenCode AI", "value": "opencode"},
+                {"label": "Gemini (Google)", "value": "gemini"},
+                {"label": "Sin IA (analisis local)", "value": "local"},
+            ],
+            value="local",
+            clearable=False,
+            className="mb-2",
+            style={"fontSize": "0.8rem"},
+        ),
+        dbc.Input(id="api-key-input", type="password", placeholder="API Key", size="sm", className="mb-1",
                   style={"fontSize": "0.8rem"}),
-        dbc.Input(id="api-key-gemini", type="password", placeholder="API Key Gemini", size="sm", className="mb-1",
-                  style={"fontSize": "0.8rem"}),
-        dbc.Button("Verificar APIs", id="btn-verify-api", color="success", size="sm", className="w-100 mb-1"),
+        dbc.Button("Verificar", id="btn-verify-api", color="success", size="sm", className="w-100 mb-1"),
         html.Div(id="api-status", style={"fontSize": "0.75rem", "color": "#94a3b8", "minHeight": "1.2rem"}),
-        dcc.Store(id="store-api-opencode", data=""),
-        dcc.Store(id="store-api-gemini", data=""),
+        dcc.Store(id="store-api-key", data=""),
+        dcc.Store(id="store-ai-model", data="local"),
         html.Hr(style={"borderColor": "rgba(255,255,255,0.15)"}),
         html.Div(id="sidebar-info", className="small", style={"color": "#94a3b8"}),
     ])
@@ -237,8 +247,18 @@ app.layout = html.Div([
         html.Div(id="canal-bar"),
         html.Div(id="page-content"),
         html.Hr(style={"margin": "16px 0"}),
-        html.Div(id="analisis-result", style={"padding": "12px", "backgroundColor": "#f8fafc",
-            "borderRadius": "8px", "border": "1px solid #e2e8f0", "minHeight": "50px"}),
+        html.Div([
+            html.Button("   Analizar con IA   ",
+                id="btn-single-analysis",
+                style={
+                    "backgroundColor": GOLD, "color": DARKGRAY, "border": f"1px solid {GOLD}",
+                    "fontSize": "0.85rem", "padding": "8px 24px", "borderRadius": "6px",
+                    "cursor": "pointer", "fontWeight": "bold",
+                }
+            ),
+        ], style={"textAlign": "center", "marginBottom": "12px"}),
+        html.Div(id="analisis-result", style={"padding": "12px", "backgroundColor": "#F5F5F0",
+            "borderRadius": "8px", "border": "1px solid #e5e7eb", "minHeight": "50px"}),
     ], style=CONTENT_STYLE),
 ])
 
@@ -270,14 +290,6 @@ def render_nav_bar(module, page):
                 "cursor": "pointer", "fontWeight": "bold" if active else "normal",
             }
         ))
-    buttons.append(html.Button("   Analizar con IA",
-        id="btn-single-analysis",
-        style={
-            "backgroundColor": GOLD, "color": DARKGRAY, "border": f"1px solid {GOLD}",
-            "fontSize": "0.78rem", "padding": "6px 14px", "borderRadius": "6px",
-            "cursor": "pointer", "fontWeight": "bold", "marginLeft": "12px",
-        }
-    ))
     return html.Div([html.Div(buttons, style={"display": "flex", "flexWrap": "wrap"}), html.Hr(style={"margin": "12px 0"})])
 
 # ===== CANAL BAR CALLBACK (Pareto) =====
@@ -374,12 +386,12 @@ def render_page_content(module, page, filters, refresh_count, clear_count, paret
     State("store-module", "data"),
     State("store-page", "data"),
     State("store-filters", "data"),
-    State("store-api-opencode", "data"),
-    State("store-api-gemini", "data"),
+    State("store-api-key", "data"),
+    State("store-ai-model", "data"),
     State("store-pareto-canal", "data"),
     prevent_initial_call=True,
 )
-def generate_analysis_single(n_clicks, module, page, filters, opencode_key, gemini_key, pareto_canal):
+def generate_analysis_single(n_clicks, module, page, filters, api_key, ai_model, pareto_canal):
     import json
     module = str(module).strip().lower()
     if module not in MODULES: module = list(MODULES.keys())[0]
@@ -390,17 +402,18 @@ def generate_analysis_single(n_clicks, module, page, filters, opencode_key, gemi
     if not isinstance(filters, dict): filters = {}
 
     df = load_local(module)
-    if df.empty: return html.Div("Sin datos.", className="text-muted")
+    if df.empty: return html.Div("Sin datos. Sube un archivo primero.", className="text-muted")
     data = apply_filters(df, filters)
-    if data.empty: return html.Div("Sin resultados.", className="text-muted")
+    if data.empty: return html.Div("Sin resultados con estos filtros.", className="text-muted")
     if module == "pedidos" and page == "pareto" and pareto_canal != "TODOS":
         data = data[data["_canal"] == pareto_canal]
 
     result = None
-    if opencode_key:
-        result = generar_con_opencode(module, page, data, opencode_key)
-    if not result and gemini_key:
-        result = generar_con_gemini(module, page, data, gemini_key)
+    if ai_model == "opencode" and api_key:
+        result = generar_con_opencode(module, page, data, api_key)
+    elif ai_model == "gemini" and api_key:
+        result = generar_con_gemini(module, page, data, api_key)
+
     if not result:
         result = generar_analisis(module, page, data)
     return result
@@ -646,55 +659,43 @@ def update_dropdowns(_refresh, _clear, tipo):
 
 @callback(
     Output("api-status", "children"),
-    Output("store-api-opencode", "data"),
-    Output("store-api-gemini", "data"),
+    Output("store-api-key", "data"),
+    Output("store-ai-model", "data"),
     Input("btn-verify-api", "n_clicks"),
-    State("api-key-opencode", "value"),
-    State("api-key-gemini", "value"),
+    State("api-key-input", "value"),
+    State("ai-model-select", "value"),
     prevent_initial_call=True,
 )
-def verify_apis(n, opencode_key, gemini_key):
-    results = []
-    out_opencode = no_update
-    out_gemini = no_update
+def verify_model(n, api_key, model):
+    if not api_key or not api_key.strip():
+        return html.Div("Ingresa una API Key.", style={"color": AMBER}), no_update, no_update
     import requests
-
-    if opencode_key and opencode_key.strip():
+    key = api_key.strip()
+    if model == "opencode":
         try:
             resp = requests.post("https://api.opencode.ai/v1/chat/completions",
-                json={"model": "opencode", "messages": [{"role": "user", "content": "hola"}]},
-                headers={"Authorization": f"Bearer {opencode_key.strip()}"}, timeout=8)
+                json={"model": "opencode", "messages": [{"role":"user","content":"hi"}]},
+                headers={"Authorization": f"Bearer {key}"}, timeout=8)
             if resp.ok:
-                results.append(f"OpenCode OK")
-                out_opencode = opencode_key.strip()
-            elif resp.status_code == 401:
-                results.append(f"OpenCode: clave invalida")
-            else:
-                results.append(f"OpenCode: {resp.status_code}")
+                return html.Div("OpenCode verificado", style={"color": GREEN, "fontWeight":"bold"}), key, model
+            code = resp.status_code
+            return html.Div(f"Error {code}: {'clave invalida' if code==401 else 'servidor'}", style={"color": RED}), no_update, no_update
         except Exception:
-            results.append(f"OpenCode: sin conexion")
-    if gemini_key and gemini_key.strip():
+            return html.Div("Sin conexion con OpenCode", style={"color": RED}), no_update, no_update
+    elif model == "gemini":
         try:
             resp = requests.post(
                 "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent",
-                params={"key": gemini_key.strip()},
-                json={"contents": [{"parts": [{"text": "hola"}]}]}, timeout=8)
+                params={"key": key}, json={"contents":[{"parts":[{"text":"hi"}]}]}, timeout=8)
             if resp.ok:
-                results.append(f"Gemini OK")
-                out_gemini = gemini_key.strip()
-            elif resp.status_code == 400:
-                results.append(f"Gemini: clave invalida")
-            elif resp.status_code == 429:
-                results.append(f"Gemini: limite excedido")
-            else:
-                results.append(f"Gemini: {resp.status_code}")
+                return html.Div("Gemini verificado", style={"color": GREEN, "fontWeight":"bold"}), key, model
+            code = resp.status_code
+            msg = "clave invalida" if code == 400 else "limite excedido" if code == 429 else str(code)
+            return html.Div(f"Error {code}: {msg}", style={"color": RED}), no_update, no_update
         except Exception:
-            results.append(f"Gemini: sin conexion")
-    if not results:
-        return html.Div("Ingresa al menos una API Key.", style={"color": AMBER}), no_update, no_update
-    status = " | ".join(results)
-    color = GREEN if "OK" in status else AMBER
-    return html.Div(status, style={"color": color, "fontWeight": "bold"}), out_opencode, out_gemini
+            return html.Div("Sin conexion con Gemini", style={"color": RED}), no_update, no_update
+    else:
+        return html.Div("Modo local activado", style={"color": GRAY}), "", "local"
 
 
 # Navigation via pattern-matching buttons
