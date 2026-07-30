@@ -1,0 +1,19 @@
+version: "3.9"
+
+services:
+  dashboard:
+    build: .
+    container_name: interdoors-dashboard
+    ports:
+      - "8503:8503"
+    volumes:
+      - ./base:/app/base
+      - ./entrada:/app/entrada
+      - ./salida:/app/salida
+      - ./logs:/app/logs
+      - ./dashboard_data:/app/dashboard_data
+      - ./presupuesto por asesor.xlsx:/app/presupuesto por asesor.xlsx:ro
+    environment:
+      - PORT=8503
+      - FIREBASE_KEY_JSON=${FIREBASE_KEY_JSON:-}
+    restart: unless-stopped
