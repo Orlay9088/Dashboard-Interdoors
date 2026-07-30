@@ -560,13 +560,11 @@ def _render_content(module, page, filters, pareto_canal="TODOS"):
     canal_selector = None
     if module == "pedidos" and page == "pareto":
         canales = ["TODOS"] + sorted(data["_canal"].dropna().unique().tolist()) if "_canal" in data.columns else ["TODOS"]
-        short_ids = ["todos", "cnst", "dist", "expo"]
         canal_buttons = []
-        for i, c in enumerate(canales):
-            btn_id = short_ids[i] if i < len(short_ids) else f"c{i}"
+        for c in canales:
             active_canal = c == pareto_canal
             canal_buttons.append(html.Button(
-                c, id=f"pareto-canal-{btn_id}",
+                c, id={"type": "canal-btn", "name": c},
                 style={
                     "backgroundColor": BLUE if active_canal else "white",
                     "color": "white" if active_canal else GRAY,
@@ -715,24 +713,17 @@ def navigate_buttons(n_clicks):
 # Pareto canal selector callback
 @callback(
     Output("store-pareto-canal", "data"),
-    [Input("pareto-canal-todos", "n_clicks"),
-     Input("pareto-canal-cnst", "n_clicks"),
-     Input("pareto-canal-dist", "n_clicks"),
-     Input("pareto-canal-expo", "n_clicks")],
+    Input({"type": "canal-btn", "name": ALL}, "n_clicks"),
     prevent_initial_call=True,
 )
-def select_pareto_canal(*args):
+def select_pareto_canal(n_clicks):
+    import json
     ctx = dash.ctx
     if not ctx.triggered:
         return no_update
-    btn_id = ctx.triggered[0]["prop_id"].split(".")[0]
-    mapping = {
-        "pareto-canal-todos": "TODOS",
-        "pareto-canal-cnst": "CNST - CONSTRUCCION",
-        "pareto-canal-dist": "DIST - DISTRIBUCION",
-        "pareto-canal-expo": "EXPO - EXPORTACION",
-    }
-    return mapping.get(btn_id, "TODOS")
+    triggered = ctx.triggered[0]["prop_id"]
+    obj = json.loads(triggered.split(".")[0])
+    return obj["name"]
 
 
 if __name__ == "__main__":
