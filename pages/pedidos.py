@@ -103,12 +103,6 @@ def pagina_resumen(data):
     children.append(evol_table)
 
     children.append(html.Hr())
-    children.append(html.Div([
-        html.H6("Analisis Automatico", className="fw-bold", style={"color": NAVY}),
-        dbc.Button("Generar Analisis", id="btn-analisis-pedidos_resumen", color="secondary", size="sm", className="mb-2"),
-            html.Div(id="analisis-pedidos_resumen", className="small p-3",
-                 style={"backgroundColor": "#f8fafc", "borderRadius": "8px", "border": "1px solid #e2e8f0", "minHeight": "60px"}),
-    ], className="mt-4"))
 
     return children
 
@@ -155,12 +149,6 @@ def pagina_participacion(data):
     ], className="mb-3 g-3"))
 
     children.append(html.Hr())
-    children.append(html.Div([
-        html.H6("Analisis Automatico", className="fw-bold", style={"color": NAVY}),
-        dbc.Button("Generar Analisis", id="btn-analisis-pedidos_participacion", color="secondary", size="sm", className="mb-2"),
-            html.Div(id="analisis-pedidos_participacion", className="small p-3",
-                 style={"backgroundColor": "#f8fafc", "borderRadius": "8px", "border": "1px solid #e2e8f0", "minHeight": "60px"}),
-    ], className="mt-4"))
 
     return children
 
@@ -225,12 +213,6 @@ def pagina_pareto(data):
     ], className="mb-3 g-3"))
     children.append(table)
     children.append(html.Hr())
-    children.append(html.Div([
-        html.H6("Analisis Automatico", className="fw-bold", style={"color": NAVY}),
-        dbc.Button("Generar Analisis", id="btn-analisis-pedidos_pareto", color="secondary", size="sm", className="mb-2"),
-            html.Div(id="analisis-pedidos_pareto", className="small p-3",
-                 style={"backgroundColor": "#f8fafc", "borderRadius": "8px", "border": "1px solid #e2e8f0", "minHeight": "60px"}),
-    ], className="mt-4"))
     return children
 
 
@@ -383,12 +365,6 @@ def pagina_ranking(data):
     )
     children.append(table)
     children.append(html.Hr())
-    children.append(html.Div([
-        html.H6("Analisis Automatico", className="fw-bold", style={"color": NAVY}),
-        dbc.Button("Generar Analisis", id="btn-analisis-pedidos_ranking", color="secondary", size="sm", className="mb-2"),
-        html.Div(id="analisis-pedidos_ranking", className="small p-3",
-                 style={"backgroundColor": "#f8fafc", "borderRadius": "8px", "border": "1px solid #e2e8f0", "minHeight": "60px"}),
-    ], className="mt-4"))
     return children
 
 
@@ -416,12 +392,6 @@ def pagina_embudo(data):
         html.P([html.Strong(f"Tasa de cierre: {rate:.1f}% del valor total comprometido.")], className="mb-2"),
     ]))
     children.append(html.Hr())
-    children.append(html.Div([
-        html.H6("Analisis Automatico", className="fw-bold", style={"color": NAVY}),
-        dbc.Button("Generar Analisis", id="btn-analisis-pedidos_embudo", color="secondary", size="sm", className="mb-2"),
-            html.Div(id="analisis-pedidos_embudo", className="small p-3",
-                 style={"backgroundColor": "#f8fafc", "borderRadius": "8px", "border": "1px solid #e2e8f0", "minHeight": "60px"}),
-    ], className="mt-4"))
     return children
 
 
@@ -442,12 +412,6 @@ def pagina_heatmap(data):
 
     children.append(dbc.Row([dbc.Col(dcc.Graph(figure=fig), width=12)], className="mb-3"))
     children.append(html.Hr())
-    children.append(html.Div([
-        html.H6("Analisis Automatico", className="fw-bold", style={"color": NAVY}),
-        dbc.Button("Generar Analisis", id="btn-analisis-pedidos_heatmap", color="secondary", size="sm", className="mb-2"),
-            html.Div(id="analisis-pedidos_heatmap", className="small p-3",
-                 style={"backgroundColor": "#f8fafc", "borderRadius": "8px", "border": "1px solid #e2e8f0", "minHeight": "60px"}),
-    ], className="mt-4"))
     return children
 
 
@@ -481,11 +445,4 @@ def pagina_proyeccion(data):
     else:
         children.append(html.P("Se requieren al menos 3 meses de datos.", className="text-muted"))
 
-    children.append(html.Hr())
-    children.append(html.Div([
-        html.H6("Analisis Automatico", className="fw-bold", style={"color": NAVY}),
-        dbc.Button("Generar Analisis", id="btn-analisis-pedidos_proyeccion", color="secondary", size="sm", className="mb-2"),
-            html.Div(id="analisis-pedidos_proyeccion", className="small p-3",
-                 style={"backgroundColor": "#f8fafc", "borderRadius": "8px", "border": "1px solid #e2e8f0", "minHeight": "60px"}),
-    ], className="mt-4"))
     return children

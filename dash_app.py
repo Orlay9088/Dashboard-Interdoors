@@ -219,12 +219,88 @@ app.layout = html.Div([
     dcc.Store(id="store-tipo", data="pedidos"),
     dcc.Store(id="store-pareto-canal", data="TODOS"),
     build_sidebar(),
-    html.Div(id="page-content", children=[
-        html.H3("Cargando dashboard...", style={"textAlign": "center", "color": NAVY, "padding": "3rem"}),
+    html.Div([
+        html.Div(id="nav-bar"),
+        html.Div(id="canal-bar"),
+        html.Div(id="page-content"),
+        html.Hr(style={"margin": "16px 0"}),
+        html.Div(id="analisis-result", style={"padding": "12px", "backgroundColor": "#f8fafc",
+            "borderRadius": "8px", "border": "1px solid #e2e8f0", "minHeight": "50px"}),
     ], style=CONTENT_STYLE),
 ])
 
-# Main content renderer
+# ===== NAV BAR CALLBACK =====
+@callback(
+    Output("nav-bar", "children"),
+    Input("store-module", "data"),
+    Input("store-page", "data"),
+)
+def render_nav_bar(module, page):
+    module = str(module).strip().lower()
+    if module not in MODULES:
+        module = list(MODULES.keys())[0]
+    mod_info = MODULES[module]
+    if page not in mod_info["pages"]:
+        page = list(mod_info["pages"].keys())[0]
+    buttons = []
+    for pk, plabel in mod_info["pages"].items():
+        active = pk == page
+        buttons.append(html.Button(
+            plabel,
+            id={"type": "nav-btn", "page": pk},
+            style={
+                "backgroundColor": BLUE if active else "white",
+                "color": "white" if active else GRAY,
+                "border": f"1px solid {BLUE}", "fontSize": "0.78rem",
+                "padding": "6px 14px", "borderRadius": "6px",
+                "marginRight": "6px", "marginBottom": "4px",
+                "cursor": "pointer", "fontWeight": "bold" if active else "normal",
+            }
+        ))
+    buttons.append(html.Button("   Analizar",
+        id="btn-single-analysis",
+        style={
+            "backgroundColor": GREEN, "color": "white", "border": f"1px solid {GREEN}",
+            "fontSize": "0.78rem", "padding": "6px 14px", "borderRadius": "6px",
+            "cursor": "pointer", "fontWeight": "bold", "marginLeft": "12px",
+        }
+    ))
+    return html.Div([html.Div(buttons, style={"display": "flex", "flexWrap": "wrap"}), html.Hr(style={"margin": "12px 0"})])
+
+# ===== CANAL BAR CALLBACK (Pareto) =====
+@callback(
+    Output("canal-bar", "children"),
+    Input("store-module", "data"),
+    Input("store-page", "data"),
+    Input("store-pareto-canal", "data"),
+    Input("store-refresh", "data"),
+)
+def render_canal_bar(module, page, pareto_canal, _refresh):
+    if not (str(module).strip().lower() == "pedidos" and page == "pareto"):
+        return None
+    df = load_local("pedidos")
+    if df.empty:
+        return None
+    canales = ["TODOS"] + sorted(df["_canal"].dropna().unique().tolist()) if "_canal" in df.columns else ["TODOS"]
+    buttons = []
+    for c in canales:
+        active = c == pareto_canal
+        buttons.append(html.Button(c,
+            id={"type": "canal-btn", "name": c},
+            style={
+                "backgroundColor": BLUE if active else "white",
+                "color": "white" if active else GRAY,
+                "border": f"1px solid {BLUE}", "fontSize": "0.72rem",
+                "padding": "4px 10px", "borderRadius": "4px", "marginRight": "5px",
+                "cursor": "pointer", "fontWeight": "bold" if active else "normal",
+            }
+        ))
+    return html.Div([
+        html.Span("Canal: ", style={"fontSize": "0.78rem", "color": GRAY, "marginRight": "8px", "fontWeight": "500"}),
+        html.Span(buttons, style={"display": "inline-flex", "flexWrap": "wrap"}),
+    ], style={"marginBottom": "12px"})
+
+# ===== PAGE CONTENT CALLBACK =====
 @callback(
     Output("page-content", "children"),
     Input("store-module", "data"),
@@ -234,24 +310,87 @@ app.layout = html.Div([
     Input("store-clear", "data"),
     Input("store-pareto-canal", "data"),
 )
-def render_page_wrapper(module, page, filters, refresh_count, clear_count, pareto_canal):
+def render_page_content(module, page, filters, refresh_count, clear_count, pareto_canal):
     import json, traceback
+    module = str(module).strip().lower()
+    if module not in MODULES:
+        module = list(MODULES.keys())[0]
+    mod_info = MODULES[module]
+    if page not in mod_info["pages"]:
+        page = list(mod_info["pages"].keys())[0]
     if isinstance(filters, str):
-        try:
-            filters = json.loads(filters)
-        except:
-            filters = {}
+        try: filters = json.loads(filters)
+        except: filters = {}
     if not isinstance(filters, dict):
         filters = {}
+
+    df = load_local(module)
+    if df.empty:
+        return dmc.Alert([html.Div(f"No hay datos para {mod_info['label']}."),
+                         html.Div("Sube un archivo Excel en el panel lateral.", className="small mt-1")],
+                        title="Sin Datos", color="yellow", withCloseButton=True)
+    data = apply_filters(df, filters)
+    if data.empty:
+        return dmc.Alert("Filtros no devuelven resultados.", title="Sin resultados", color="yellow")
+
+    if module == "pedidos" and page == "pareto" and pareto_canal != "TODOS":
+        data = data[data["_canal"] == pareto_canal]
+
+    page_funcs = {
+        "pedidos": {"resumen":pagina_resumen,"participacion":pagina_participacion,"pareto":pagina_pareto,
+                    "ranking":pagina_ranking,"embudo":pagina_embudo,"heatmap":pagina_heatmap,"proyeccion":pagina_proyeccion},
+        "facturas": {"resumen_ventas":pagina_resumen_ventas,"margenes":pagina_margenes,
+                     "mix_producto":pagina_mix_producto,"precio_promedio":pagina_precio_promedio},
+        "inventario": {"resumen_stock":pagina_resumen_stock,"por_bodega":pagina_por_bodega,"criticos":pagina_criticos},
+    }
+    func = page_funcs.get(module, {}).get(page)
+    if not func:
+        return dmc.Alert(f"Pagina '{page}' no encontrada", title="Error", color="red")
     try:
-        return _render_content(module, page, filters, pareto_canal)
+        return html.Div(func(data))
     except Exception as e:
-        return dmc.Alert([
-            html.Div("Error de renderizado", style={"fontWeight": "bold"}),
-            html.Div(f"Module: {module} | Page: {page}", className="small mt-1"),
-            html.Div(str(e), className="small text-danger mt-1"),
-            html.Div(traceback.format_exc().replace("\n", "<br>"), style={"fontSize": "0.65rem", "fontFamily": "monospace", "maxHeight": "200px", "overflow": "auto", "marginTop": "8px"}),
-        ], title="Error Interno", color="red", withCloseButton=True)
+        return dmc.Alert([html.Div(f"Error: {module}/{page}", style={"fontWeight":"bold"}),
+                         html.Div(str(e), className="small text-muted mt-1"),
+                         html.Div(traceback.format_exc().replace("\n","<br>"), style={"fontSize":"0.6rem","maxHeight":"150px","overflow":"auto"})],
+                        title="Error de Pagina", color="red", withCloseButton=True)
+
+# ===== SINGLE ANALYSIS CALLBACK =====
+@callback(
+    Output("analisis-result", "children"),
+    Input("btn-single-analysis", "n_clicks"),
+    State("store-module", "data"),
+    State("store-page", "data"),
+    State("store-filters", "data"),
+    State("store-api-opencode", "data"),
+    State("store-api-gemini", "data"),
+    State("store-pareto-canal", "data"),
+    prevent_initial_call=True,
+)
+def generate_analysis_single(n_clicks, module, page, filters, opencode_key, gemini_key, pareto_canal):
+    import json
+    module = str(module).strip().lower()
+    if module not in MODULES: module = list(MODULES.keys())[0]
+    if page not in MODULES[module]["pages"]: page = list(MODULES[module]["pages"].keys())[0]
+    if isinstance(filters, str):
+        try: filters = json.loads(filters)
+        except: filters = {}
+    if not isinstance(filters, dict): filters = {}
+
+    df = load_local(module)
+    if df.empty: return html.Div("Sin datos.", className="text-muted")
+    data = apply_filters(df, filters)
+    if data.empty: return html.Div("Sin resultados.", className="text-muted")
+    if module == "pedidos" and page == "pareto" and pareto_canal != "TODOS":
+        data = data[data["_canal"] == pareto_canal]
+
+    result = None
+    if opencode_key:
+        result = generar_con_opencode(module, page, data, opencode_key)
+    if not result and gemini_key:
+        result = generar_con_gemini(module, page, data, gemini_key)
+    if not result:
+        result = generar_analisis(module, page, data)
+    return result
 
 # ============================================================
 # CALLBACKS
@@ -490,163 +629,6 @@ def update_dropdowns(_refresh, _clear, tipo):
 
 
 
-def _render_content(module, page, filters, pareto_canal="TODOS"):
-    import json
-    module = str(module).strip().lower()
-    if module not in MODULES:
-        module = list(MODULES.keys())[0]
-    if page not in MODULES[module]["pages"]:
-        page = list(MODULES[module]["pages"].keys())[0]
-    if isinstance(filters, str):
-        try:
-            filters = json.loads(filters)
-        except:
-            filters = {}
-    if not isinstance(filters, dict):
-        filters = {}
-
-    df = load_local(module)
-    if df.empty:
-        return dmc.Alert([
-            html.Div(f"No hay datos para {MODULES[module]['label']}.", style={"fontWeight": "bold"}),
-            html.Div(f"Sube un archivo Excel en el panel lateral.", className="small mt-1"),
-        ], title="Sin Datos", color="yellow", withCloseButton=True)
-
-    data = apply_filters(df, filters)
-    if data.empty:
-        return dmc.Alert("Filtros no devuelven resultados.", title="Sin resultados", color="yellow")
-
-    page_funcs = {
-        "pedidos": {
-            "resumen": pagina_resumen, "participacion": pagina_participacion,
-            "pareto": pagina_pareto, "ranking": pagina_ranking,
-            "embudo": pagina_embudo, "heatmap": pagina_heatmap,
-            "proyeccion": pagina_proyeccion,
-        },
-        "facturas": {
-            "resumen_ventas": pagina_resumen_ventas, "margenes": pagina_margenes,
-            "mix_producto": pagina_mix_producto, "precio_promedio": pagina_precio_promedio,
-        },
-        "inventario": {
-            "resumen_stock": pagina_resumen_stock, "por_bodega": pagina_por_bodega,
-            "criticos": pagina_criticos,
-        },
-    }
-    func = page_funcs.get(module, {}).get(page)
-    if not func:
-        return dmc.Alert(f"Pagina '{page}' no encontrada para '{module}'.", title="Error", color="red")
-
-    # Build nav + content
-    nav_buttons = []
-    for pk, plabel in MODULES[module]["pages"].items():
-        active = pk == page
-        nav_buttons.append(html.Button(
-            plabel,
-            id={"type": "nav-btn", "page": pk},
-            style={
-                "backgroundColor": BLUE if active else "white",
-                "color": "white" if active else GRAY,
-                "border": f"1px solid {BLUE}",
-                "fontSize": "0.78rem", "padding": "6px 14px",
-                "borderRadius": "6px", "marginRight": "6px", "marginBottom": "4px",
-                "cursor": "pointer",
-                "fontWeight": "bold" if active else "normal",
-            }
-        ))
-    nav = html.Div(nav_buttons, style={"marginBottom": "16px"})
-
-    # Pareto: filter by selected canal
-    render_data = data
-    canal_selector = None
-    if module == "pedidos" and page == "pareto":
-        canales = ["TODOS"] + sorted(data["_canal"].dropna().unique().tolist()) if "_canal" in data.columns else ["TODOS"]
-        canal_buttons = []
-        for c in canales:
-            active_canal = c == pareto_canal
-            canal_buttons.append(html.Button(
-                c, id={"type": "canal-btn", "name": c},
-                style={
-                    "backgroundColor": BLUE if active_canal else "white",
-                    "color": "white" if active_canal else GRAY,
-                    "border": f"1px solid {BLUE}", "fontSize": "0.72rem",
-                    "padding": "4px 10px", "borderRadius": "4px", "marginRight": "5px",
-                    "cursor": "pointer", "fontWeight": "bold" if active_canal else "normal",
-                }
-            ))
-        canal_selector = html.Div([
-            html.Span("Canal: ", style={"fontSize": "0.78rem", "color": GRAY, "marginRight": "8px", "fontWeight": "500"}),
-            html.Div(canal_buttons, style={"display": "inline-flex", "flexWrap": "wrap"})
-        ], style={"marginBottom": "12px"})
-        if pareto_canal != "TODOS":
-            render_data = data[data["_canal"] == pareto_canal]
-
-    try:
-        result = func(render_data)
-        elements = [nav, html.Hr(style={"margin": "0 0 16px 0"})]
-        if canal_selector:
-            elements.append(canal_selector)
-        elements.append(html.Div(result))
-        return html.Div(elements)
-    except Exception as e:
-        return dmc.Alert([
-            html.Div(f"Error al renderizar: {module}/{page}", style={"fontWeight": "bold"}),
-            html.Div(str(e), className="small text-muted mt-1"),
-        ], title="Error de Pagina", color="red", withCloseButton=True)
-
-
-
-
-ANALYSIS_BTN_IDS = [f"btn-analisis-{pk}" for pk in PAGE_ROUTES]
-ANALYSIS_OUTPUTS = [f"analisis-{pk}" for pk in PAGE_ROUTES]
-
-
-@callback(
-    [Output(oid, "children") for oid in ANALYSIS_OUTPUTS],
-    [Input(bid, "n_clicks") for bid in ANALYSIS_BTN_IDS],
-    State("store-filters", "data"),
-    State("store-module", "data"),
-    State("store-api-opencode", "data"),
-    State("store-api-gemini", "data"),
-    prevent_initial_call=True,
-)
-def generate_analysis(*args):
-    filters = args[len(ANALYSIS_BTN_IDS)]
-    import json
-    if isinstance(filters, str):
-        try:
-            filters = json.loads(filters)
-        except:
-            filters = {}
-    if not isinstance(filters, dict):
-        filters = {}
-    module = args[len(ANALYSIS_BTN_IDS) + 1]
-    opencode_key = args[len(ANALYSIS_BTN_IDS) + 2]
-    gemini_key = args[len(ANALYSIS_BTN_IDS) + 3]
-    ctx = dash.ctx
-    if not ctx.triggered:
-        return [no_update] * len(ANALYSIS_OUTPUTS)
-    triggered_id = ctx.triggered[0]["prop_id"].split(".")[0]
-    route = triggered_id.replace("btn-analisis-", "")
-    _, page = PAGE_ROUTES.get(route, ("pedidos", "resumen"))
-
-    try:
-        df = _load_cached(module)
-    except Exception:
-        return [no_update] * len(ANALYSIS_OUTPUTS)
-
-    data = apply_filters(df, filters)
-    result = None
-    if opencode_key:
-        result = generar_con_opencode(module, page, data, opencode_key)
-    if not result and gemini_key:
-        result = generar_con_gemini(module, page, data, gemini_key)
-    if not result:
-        result = generar_analisis(module, page, data)
-
-    outputs = [no_update] * len(ANALYSIS_OUTPUTS)
-    idx = list(PAGE_ROUTES.keys()).index(route)
-    outputs[idx] = result
-    return outputs
 
 
 @callback(

@@ -66,12 +66,6 @@ def pagina_resumen_stock(data):
     )
     children.append(table)
     children.append(html.Hr())
-    children.append(html.Div([
-        html.H6("Analisis Automatico", className="fw-bold", style={"color": NAVY}),
-        dbc.Button("Generar Analisis", id="btn-analisis-inventario_resumen_stock", color="secondary", size="sm", className="mb-2"),
-            html.Div(id="analisis-inventario_resumen_stock", className="small p-3",
-                 style={"backgroundColor": "#f8fafc", "borderRadius": "8px", "border": "1px solid #e2e8f0", "minHeight": "60px"}),
-    ], className="mt-4"))
     return children
 
 
@@ -117,12 +111,6 @@ def pagina_por_bodega(data):
     ], className="mb-3 g-3"))
 
     children.append(html.Hr())
-    children.append(html.Div([
-        html.H6("Analisis Automatico", className="fw-bold", style={"color": NAVY}),
-        dbc.Button("Generar Analisis", id="btn-analisis-inventario_por_bodega", color="secondary", size="sm", className="mb-2"),
-            html.Div(id="analisis-inventario_por_bodega", className="small p-3",
-                 style={"backgroundColor": "#f8fafc", "borderRadius": "8px", "border": "1px solid #e2e8f0", "minHeight": "60px"}),
-    ], className="mt-4"))
     return children
 
 
@@ -171,11 +159,4 @@ def pagina_criticos(data):
         criticos.append(html.P("Datos insuficientes para analisis de criticos.", className="text-muted"))
 
     children.extend(criticos)
-    children.append(html.Hr())
-    children.append(html.Div([
-        html.H6("Analisis Automatico", className="fw-bold", style={"color": NAVY}),
-        dbc.Button("Generar Analisis", id="btn-analisis-inventario_criticos", color="secondary", size="sm", className="mb-2"),
-            html.Div(id="analisis-inventario_criticos", className="small p-3",
-                 style={"backgroundColor": "#f8fafc", "borderRadius": "8px", "border": "1px solid #e2e8f0", "minHeight": "60px"}),
-    ], className="mt-4"))
     return children

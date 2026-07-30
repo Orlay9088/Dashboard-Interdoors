@@ -112,8 +112,8 @@ def fmt_p(valor):
 def fmt_pm(valor):
     if pd.isna(valor) or valor == 0:
         return "$ 0"
-    v = valor / 1e6
-    s = f"{abs(v):,.1f}".replace(",", "X").replace(".", ",").replace("X", ".")
+    v = round(valor / 1e6)
+    s = f"{abs(v):,}".replace(",", ".")
     return f"$ {s}M"
 
 def build_podium(rank_df, title, value_col, pct_col, extra_col=None):
