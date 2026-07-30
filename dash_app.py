@@ -270,10 +270,10 @@ def render_nav_bar(module, page):
                 "cursor": "pointer", "fontWeight": "bold" if active else "normal",
             }
         ))
-    buttons.append(html.Button("   Analizar",
+    buttons.append(html.Button("   Analizar con IA",
         id="btn-single-analysis",
         style={
-            "backgroundColor": GREEN, "color": "white", "border": f"1px solid {GREEN}",
+            "backgroundColor": GOLD, "color": DARKGRAY, "border": f"1px solid {GOLD}",
             "fontSize": "0.78rem", "padding": "6px 14px", "borderRadius": "6px",
             "cursor": "pointer", "fontWeight": "bold", "marginLeft": "12px",
         }
@@ -659,34 +659,42 @@ def verify_apis(n, opencode_key, gemini_key):
     out_gemini = no_update
     import requests
 
-    if opencode_key:
+    if opencode_key and opencode_key.strip():
         try:
             resp = requests.post("https://api.opencode.ai/v1/chat/completions",
-                json={"model": "gpt-4o", "messages": [{"role": "user", "content": "hi"}]},
-                headers={"Authorization": f"Bearer {opencode_key}"}, timeout=10)
+                json={"model": "opencode", "messages": [{"role": "user", "content": "hola"}]},
+                headers={"Authorization": f"Bearer {opencode_key.strip()}"}, timeout=8)
             if resp.ok:
-                results.append("OpenCode: OK")
-                out_opencode = opencode_key
+                results.append(f"OpenCode OK")
+                out_opencode = opencode_key.strip()
+            elif resp.status_code == 401:
+                results.append(f"OpenCode: clave invalida")
             else:
                 results.append(f"OpenCode: {resp.status_code}")
-        except Exception as e:
-            results.append(f"OpenCode: error")
-    if gemini_key:
+        except Exception:
+            results.append(f"OpenCode: sin conexion")
+    if gemini_key and gemini_key.strip():
         try:
             resp = requests.post(
                 "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent",
-                params={"key": gemini_key},
-                json={"contents": [{"parts": [{"text": "hi"}]}]}, timeout=10)
+                params={"key": gemini_key.strip()},
+                json={"contents": [{"parts": [{"text": "hola"}]}]}, timeout=8)
             if resp.ok:
-                results.append("Gemini: OK")
-                out_gemini = gemini_key
+                results.append(f"Gemini OK")
+                out_gemini = gemini_key.strip()
+            elif resp.status_code == 400:
+                results.append(f"Gemini: clave invalida")
+            elif resp.status_code == 429:
+                results.append(f"Gemini: limite excedido")
             else:
                 results.append(f"Gemini: {resp.status_code}")
-        except Exception as e:
-            results.append("Gemini: error")
+        except Exception:
+            results.append(f"Gemini: sin conexion")
     if not results:
         return html.Div("Ingresa al menos una API Key.", style={"color": AMBER}), no_update, no_update
-    return html.Div(" | ".join(results), style={"color": GREEN}), out_opencode, out_gemini
+    status = " | ".join(results)
+    color = GREEN if "OK" in status else AMBER
+    return html.Div(status, style={"color": color, "fontWeight": "bold"}), out_opencode, out_gemini
 
 
 # Navigation via pattern-matching buttons
