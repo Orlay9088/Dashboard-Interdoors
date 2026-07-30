@@ -241,10 +241,12 @@ app.layout = html.Div([
     dcc.Store(id="store-clear", data=0),
     dcc.Store(id="store-tipo", data="pedidos"),
     dcc.Store(id="store-pareto-canal", data="TODOS"),
+    dcc.Store(id="store-bodega-filter", data="TODOS"),
     build_sidebar(),
     html.Div([
         html.Div(id="nav-bar"),
         html.Div(id="canal-bar"),
+        html.Div(id="bodega-bar"),
         html.Div(id="page-content"),
         html.Hr(style={"margin": "16px 0"}),
         html.Div([
@@ -325,6 +327,59 @@ def render_canal_bar(module, page, pareto_canal, _refresh):
         html.Span(buttons, style={"display": "inline-flex", "flexWrap": "wrap"}),
     ], style={"marginBottom": "12px"})
 
+# ===== BODEGA BAR CALLBACK (Inventario) =====
+@callback(
+    Output("bodega-bar", "children"),
+    Input("store-module", "data"),
+    Input("store-page", "data"),
+    Input("store-bodega-filter", "data"),
+    Input("store-refresh", "data"),
+)
+def render_bodega_bar(module, page, bodega_filter, _refresh):
+    if str(module).strip().lower() != "inventario":
+        return None
+    df = load_local("inventario")
+    if df.empty or "_bodega" not in df.columns:
+        return None
+    bodegas = ["TODOS"] + sorted(df["_bodega"].dropna().unique().tolist())
+    buttons = []
+    for b in bodegas:
+        active = str(b) == str(bodega_filter)
+        label = str(b)
+        if len(label) > 8:
+            label = label[:8]
+        buttons.append(html.Button(label,
+            id={"type": "bodega-btn", "name": str(b)},
+            style={
+                "backgroundColor": GREEN if active else "white",
+                "color": "white" if active else GRAY,
+                "border": f"1px solid {GREEN}", "fontSize": "0.72rem",
+                "padding": "4px 10px", "borderRadius": "4px", "marginRight": "5px",
+                "cursor": "pointer", "fontWeight": "bold" if active else "normal",
+            }
+        ))
+    return html.Div([
+        html.Span("Bodega: ", style={"fontSize": "0.78rem", "color": GRAY, "marginRight": "8px", "fontWeight": "500"}),
+        html.Span(buttons, style={"display": "inline-flex", "flexWrap": "wrap"}),
+    ], style={"marginBottom": "12px"})
+
+# ===== BODEGA FILTER CALLBACK =====
+@callback(
+    Output("store-bodega-filter", "data"),
+    Input({"type": "bodega-btn", "name": ALL}, "n_clicks"),
+    State("store-bodega-filter", "data"),
+    prevent_initial_call=True,
+)
+def select_bodega(n_clicks, current):
+    import json
+    ctx = dash.ctx
+    if not ctx.triggered:
+        return no_update
+    triggered = ctx.triggered[0]["prop_id"]
+    obj = json.loads(triggered.split(".")[0])
+    name = obj["name"]
+    return name if name != str(current) else no_update
+
 # ===== PAGE CONTENT CALLBACK =====
 @callback(
     Output("page-content", "children"),
@@ -334,8 +389,9 @@ def render_canal_bar(module, page, pareto_canal, _refresh):
     Input("store-refresh", "data"),
     Input("store-clear", "data"),
     Input("store-pareto-canal", "data"),
+    Input("store-bodega-filter", "data"),
 )
-def render_page_content(module, page, filters, refresh_count, clear_count, pareto_canal):
+def render_page_content(module, page, filters, refresh_count, clear_count, pareto_canal, bodega_filter):
     import json, traceback
     module = str(module).strip().lower()
     if module not in MODULES:
@@ -360,6 +416,8 @@ def render_page_content(module, page, filters, refresh_count, clear_count, paret
 
     if module == "pedidos" and page == "pareto" and pareto_canal != "TODOS":
         data = data[data["_canal"] == pareto_canal]
+    if module == "inventario" and bodega_filter != "TODOS" and "_bodega" in data.columns:
+        data = data[data["_bodega"].astype(str) == str(bodega_filter)]
 
     page_funcs = {
         "pedidos": {"resumen":pagina_resumen,"participacion":pagina_participacion,"pareto":pagina_pareto,
