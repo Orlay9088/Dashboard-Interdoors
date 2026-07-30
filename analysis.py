@@ -10,12 +10,123 @@ def _company_context():
     return "Interdoors S.A.S., empresa colombiana con 30+ anos en carpinteria arquitectonica (puertas, muebles de cocina, banos, closets). Reportas a gerencia general con datos del ERP SIESA Enterprise."
 
 
+def _build_projection_data(tipo, page, data):
+    """Compute time-series and projection data for AI analysis."""
+    lines = []
+    vp = data["_valor"].sum() if "_valor" in data.columns else 0
+    if "_fecha" not in data.columns or data["_fecha"].isna().all():
+        return lines
+
+    evol = data.groupby(data["_fecha"].dt.to_period("M")).agg(
+        Valor=("_valor", "sum"),
+    ).reset_index().sort_values("_fecha")
+    if "_valor_sec" in data.columns:
+        evol_c = data.groupby(data["_fecha"].dt.to_period("M")).agg(
+            Comprometido=("_valor_sec", "sum"),
+        ).reset_index().sort_values("_fecha")
+        evol["Comprometido"] = evol_c["Comprometido"]
+
+    if len(evol) < 2:
+        return lines
+
+    lines.append("")
+    lines.append("--- DATOS DE TENDENCIA Y PROYECCION ---")
+
+    last_n = evol.tail(6)
+    lines.append("Evolucion mensual (millones COP, ultimos 6 meses):")
+    for _, r in last_n.iterrows():
+        v_m = round(r["Valor"] / 1e6)
+        c_m = round(r["Comprometido"] / 1e6) if "Comprometido" in r else 0
+        mes_str = str(r["_fecha"])
+        line = f"  {mes_str}: ${v_m}M"
+        if c_m > 0:
+            line += f" (comprometido: ${c_m}M)"
+        lines.append(line)
+
+    prom = evol["Valor"].mean()
+    best = evol.loc[evol["Valor"].idxmax()]
+    worst = evol.loc[evol["Valor"].idxmin()]
+    lines.append(f"Promedio mensual: {fmt_pm(prom)} | Mejor mes: {str(best['_fecha'])} ({fmt_pm(best['Valor'])}) | Peor: {str(worst['_fecha'])} ({fmt_pm(worst['Valor'])})")
+
+    if len(evol) >= 3:
+        coef = np.polyfit(range(len(evol)), evol["Valor"], 1)
+        r2 = np.corrcoef(range(len(evol)), evol["Valor"])[0, 1] ** 2
+        slope_m = round(coef[0] / 1e6, 1)
+        proy = np.polyval(coef, len(evol))
+        direction = "CRECIENTE" if coef[0] > 0 else "DECRECIENTE"
+
+        lines.append(f"Regresion lineal: pendiente = {'+' if coef[0]>0 else ''}{slope_m}M COP/mes, R² = {r2:.3f}")
+        strength = "fuerte" if r2 > 0.6 else "moderada" if r2 > 0.3 else "debil"
+        lines.append(f"Tendencia: {direction} ({strength}, R²={r2:.3f})")
+        lines.append(f"Proyeccion proximo mes: {fmt_pm(proy)}")
+
+        # 3-month projection
+        proy3 = np.polyval(coef, len(evol) + 2)
+        lines.append(f"Proyeccion en 3 meses: {fmt_pm(proy3)}")
+
+        # Compare with budget
+        try:
+            from budget import cargar_ptto_company
+            from config import RUTA_PRESUPUESTO_COMPANY
+            ptto = cargar_ptto_company(str(RUTA_PRESUPUESTO_COMPANY))
+            if ptto:
+                annual = sum(v.get("ppto", 0) for v in ptto.values() if isinstance(v, dict))
+                if annual > 0:
+                    proy_annual = np.polyval(coef, len(evol) + 5)
+                    pct = proy_annual / annual * 100
+                    lines.append(f"Presupuesto anual: {fmt_pm(annual)} | Proyeccion cierre: {fmt_pm(proy_annual)} ({pct:.1f}% del ppto)")
+                    if pct < 85:
+                        lines.append("   ALERTA: Proyeccion por debajo del 85% del presupuesto. Se requiere plan de aceleracion.")
+                    elif pct > 105:
+                        lines.append("   OPORTUNIDAD: Proyeccion supera el presupuesto en mas del 5%.")
+        except Exception:
+            pass
+
+    # Page-specific data
+    if tipo == "pedidos" and page in ("resumen", "participacion"):
+        if "_canal" in data.columns:
+            canales = data.groupby("_canal")["_valor"].sum().sort_values(ascending=False)
+            lines.append("")
+            lines.append("Distribucion por canal:")
+            for c, v in canales.items():
+                pct = v / vp * 100 if vp else 0
+                lines.append(f"  {c}: {fmt_pm(v)} ({pct:.1f}%)")
+
+    if tipo == "pedidos" and page == "pareto":
+        pg = data.groupby("_cliente")["_valor"].sum().sort_values(ascending=False)
+        lines.append("")
+        lines.append("Top 5 clientes (valor y concentracion):")
+        pg_acum = (pg.cumsum() / vp * 100) if vp else pd.Series()
+        for i, (cl, vl) in enumerate(pg.head(5).items()):
+            ac = pg_acum.iloc[i] if len(pg_acum) > i else 0
+            lines.append(f"  #{i+1} {cl[:30]}: {fmt_pm(vl)} ({vl/vp*100:.1f}%, acum {ac:.1f}%)")
+        h80 = (pg_acum <= 80).sum()
+        lines.append(f"Clientes para 80% del valor: {h80} de {len(pg)}")
+
+    if tipo == "pedidos" and page == "ranking":
+        rank = data.groupby("_vendedor").agg(Valor=("_valor", "sum")).reset_index().sort_values("Valor", ascending=False)
+        lines.append("")
+        lines.append("Top 5 asesores:")
+        for _, r in rank.head(5).iterrows():
+            lines.append(f"  {r['_vendedor'][:25]}: {fmt_pm(r['Valor'])} ({r['Valor']/vp*100:.1f}%)")
+        brecha = rank.iloc[0]["Valor"] / rank["Valor"].mean() if len(rank) > 1 and rank["Valor"].mean() > 0 else 1
+        lines.append(f"Brecha #1 vs promedio: {brecha:.1f}x {'(ALTA concentracion)' if brecha > 2 else ''}")
+
+    if tipo == "pedidos" and page == "embudo":
+        funnel = data.groupby("_estado")["_valor"].sum().sort_values(ascending=False)
+        lines.append("")
+        lines.append("Pipeline por estado:")
+        for est, val in funnel.items():
+            lines.append(f"  {est[:20]}: {fmt_pm(val)} ({val/vp*100:.1f}%)")
+
+    return lines
+
+
 def _build_analysis_prompt(tipo, page, data):
     ctx = _company_context()
     vp = data["_valor"].sum() if "_valor" in data.columns else 0
     n = len(data)
 
-    # Rich metrics block
     metrics = [f"- Valor total: {fmt_p(vp)} ({fmt_pm(vp)})", f"- Registros: {n:,}"]
 
     if "_fecha" in data.columns and data["_fecha"].notna().any():
@@ -85,6 +196,9 @@ def _build_analysis_prompt(tipo, page, data):
         "inventario": "Es inventario fisico en bodega. Incluye existencia, comprometido, disponible y valorizacion.",
     }.get(tipo, "")
 
+    projection = _build_projection_data(tipo, page, data)
+    proj_text = chr(10).join(projection) if projection else ""
+
     prompt = f"""ROL: Eres analista senior de inteligencia comercial. {ctx}
 
 NEGOCIO: {biz_context}
@@ -94,8 +208,16 @@ SECCION: {tipo.upper()} - {page.upper()}
 METRICAS DEL PERIODO:
 {chr(10).join(metrics)}
 
+{proj_text}
+
 PREGUNTAS A RESPONDER:
 {chr(10).join(questions)}
+
+PROYECCION Y RECOMENDACION GERENCIAL:
+Con base en los datos de tendencia y proyeccion, responde:
+1. Cual es el escenario mas probable para el cierre del periodo? (incluye numeros)
+2. Que 2 decisiones gerenciales concretas recomendarias HOY para mejorar los resultados?
+3. Que KPI requiere atencion inmediata y por que?
 
 INSTRUCCIONES:
 - Responde en ESPANOL.
@@ -103,17 +225,20 @@ INSTRUCCIONES:
 
 **Hallazgos Clave**
 * [hallazgo 1 con datos concretos]
-* [hallazgo 2 con datos concretos]
-* [hallazgo 3 con datos concretos]
+
+**Proyeccion**
+* [escenario mas probable con numeros y plazo]
 
 **Riesgos u Oportunidades**
 * [punto 1]
 * [punto 2]
 
-**Recomendacion**
-* [1 accion concreta y accionable para gerencia]
+**Decisiones Gerenciales**
+* [decision concreta 1]
+* [decision concreta 2]
 
-- NO uses bloques de codigo ```. Solo texto con * y **. Se breve y directo."""
+- Incluye DATOS NUMERICOS en cada punto (valores en COP, porcentajes, tendencias).
+- NO uses bloques de codigo ```. Solo texto con * y **. Se directo y accionable."""
 
     return prompt
 
