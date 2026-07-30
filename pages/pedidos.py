@@ -226,7 +226,7 @@ def pagina_ranking(data):
 
     tv = rank["Valor"].sum()
     rank["% Part"] = (rank["Valor"] / tv * 100).round(2) if tv else 0
-    rank["% Cumpl"] = rank.apply(lambda r: round(r["Comprometido"] / r["Valor"] * 100, 2) if r["Valor"] > 0 else 0, axis=1)
+    rank["% Cumpl"] = rank.apply(lambda r: round(r["Comprometido"] / r["Presupuesto"] * 100, 2) if r["Presupuesto"] > 0 else 0, axis=1)
 
     from budget import cargar_presupuesto_asesores, get_budget_for
     from config import RUTA_PRESUPUESTO_ASESORES

@@ -188,12 +188,16 @@ def kahoot_podium(rank_df):
                 "fontSize": "0.58rem", "textAlign": "center", "color": tx, "opacity": "0.8",
                 "marginBottom": "6px",
             }),
-            html.Div(f"Presup: {presup:.0f}%" if presup > 0 else "Sin presupuesto", style={
+            html.Div(f"Meta: {fmt_pm(r.get('Presupuesto', 0))}" if r.get("Presupuesto", 0) > 0 else "Sin meta", style={
                 "fontSize": "0.58rem", "fontWeight": "600", "textAlign": "center",
                 "color": tx, "marginBottom": "3px", "opacity": "0.85",
             }),
             dmc.Progress(value=progr, color=progr_color, size="xs",
                          style={"width": "70%", "margin": "0 auto"}),
+            html.Div(f"{presup:.0f}% cumplido" if presup > 0 else "", style={
+                "fontSize": "0.55rem", "fontWeight": "600", "textAlign": "center",
+                "color": tx, "marginTop": "2px", "opacity": "0.75",
+            }),
             html.Div(f"Cumpl: {r.get('% Cumpl', 0):.1f}%", style={
                 "fontSize": "0.58rem", "fontWeight": "600", "textAlign": "center",
                 "color": tx, "marginTop": "4px", "opacity": "0.85",
