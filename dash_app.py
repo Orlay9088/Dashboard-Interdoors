@@ -216,6 +216,7 @@ app.layout = html.Div([
     dcc.Store(id="store-refresh", data=0),
     dcc.Store(id="store-clear", data=0),
     dcc.Store(id="store-tipo", data="pedidos"),
+    dcc.Store(id="store-pareto-canal", data="TODOS"),
     build_sidebar(),
     html.Div(id="page-content", children=[
         html.H3("Cargando dashboard...", style={"textAlign": "center", "color": NAVY, "padding": "3rem"}),
@@ -230,8 +231,9 @@ app.layout = html.Div([
     Input("store-filters", "data"),
     Input("store-refresh", "data"),
     Input("store-clear", "data"),
+    Input("store-pareto-canal", "data"),
 )
-def render_page_wrapper(module, page, filters, refresh_count, clear_count):
+def render_page_wrapper(module, page, filters, refresh_count, clear_count, pareto_canal):
     import json
     if isinstance(filters, str):
         try:
@@ -240,7 +242,7 @@ def render_page_wrapper(module, page, filters, refresh_count, clear_count):
             filters = {}
     if not isinstance(filters, dict):
         filters = {}
-    return _render_content(module, page, filters)
+    return _render_content(module, page, filters, pareto_canal)
 
 # ============================================================
 # CALLBACKS
@@ -479,7 +481,7 @@ def update_dropdowns(_refresh, _clear, tipo):
 
 
 
-def _render_content(module, page, filters):
+def _render_content(module, page, filters, pareto_canal="TODOS"):
     import json
     module = str(module).strip().lower()
     if module not in MODULES:
@@ -525,7 +527,7 @@ def _render_content(module, page, filters):
     if not func:
         return dmc.Alert(f"Pagina '{page}' no encontrada para '{module}'.", title="Error", color="red")
 
-    # Navigation buttons
+    # Build nav + content
     nav_buttons = []
     for pk, plabel in MODULES[module]["pages"].items():
         active_style = {
@@ -545,9 +547,40 @@ def _render_content(module, page, filters):
         ))
     nav = html.Div(nav_buttons, style={"display": "flex", "flexWrap": "wrap", "marginBottom": "16px"})
 
+    # Pareto: filter by selected canal
+    render_data = data
+    canal_selector = None
+    if module == "pedidos" and page == "pareto":
+        canales = ["TODOS"] + sorted(data["_canal"].dropna().unique().tolist()) if "_canal" in data.columns else ["TODOS"]
+        short_ids = ["todos", "cnst", "dist", "expo"]
+        canal_buttons = []
+        for i, c in enumerate(canales):
+            btn_id = short_ids[i] if i < len(short_ids) else f"c{i}"
+            active_canal = c == pareto_canal
+            canal_buttons.append(html.Button(
+                c, id=f"pareto-canal-{btn_id}",
+                style={
+                    "backgroundColor": BLUE if active_canal else "white",
+                    "color": "white" if active_canal else GRAY,
+                    "border": f"1px solid {BLUE}", "fontSize": "0.72rem",
+                    "padding": "4px 10px", "borderRadius": "4px", "marginRight": "5px",
+                    "cursor": "pointer", "fontWeight": "bold" if active_canal else "normal",
+                }
+            ))
+        canal_selector = html.Div([
+            html.Span("Canal: ", style={"fontSize": "0.78rem", "color": GRAY, "marginRight": "8px", "fontWeight": "500"}),
+            html.Div(canal_buttons, style={"display": "inline-flex", "flexWrap": "wrap"})
+        ], style={"marginBottom": "12px"})
+        if pareto_canal != "TODOS":
+            render_data = data[data["_canal"] == pareto_canal]
+
     try:
-        result = func(data)
-        return html.Div([nav, html.Hr(style={"margin": "0 0 16px 0"}), html.Div(result)])
+        result = func(render_data)
+        elements = [nav, html.Hr(style={"margin": "0 0 16px 0"})]
+        if canal_selector:
+            elements.append(canal_selector)
+        elements.append(html.Div(result))
+        return html.Div(elements)
     except Exception as e:
         return dmc.Alert([
             html.Div(f"Error al renderizar: {module}/{page}", style={"fontWeight": "bold"}),
@@ -667,6 +700,29 @@ def navigate_pages(*args):
         return no_update
     btn_id = ctx.triggered[0]["prop_id"].split(".")[0]
     return btn_id.replace("nav-page-", "")
+
+
+# Pareto canal selector callback
+@callback(
+    Output("store-pareto-canal", "data"),
+    [Input("pareto-canal-todos", "n_clicks"),
+     Input("pareto-canal-cnst", "n_clicks"),
+     Input("pareto-canal-dist", "n_clicks"),
+     Input("pareto-canal-expo", "n_clicks")],
+    prevent_initial_call=True,
+)
+def select_pareto_canal(*args):
+    ctx = dash.ctx
+    if not ctx.triggered:
+        return no_update
+    btn_id = ctx.triggered[0]["prop_id"].split(".")[0]
+    mapping = {
+        "pareto-canal-todos": "TODOS",
+        "pareto-canal-cnst": "CNST - CONSTRUCCION",
+        "pareto-canal-dist": "DIST - DISTRIBUCION",
+        "pareto-canal-expo": "EXPO - EXPORTACION",
+    }
+    return mapping.get(btn_id, "TODOS")
 
 
 if __name__ == "__main__":
