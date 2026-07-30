@@ -6,6 +6,7 @@ import sys
 
 import dash
 from dash import dcc, html, Input, Output, State, callback, no_update
+from dash.dependencies import ALL
 import dash_bootstrap_components as dbc
 import dash_mantine_components as dmc
 import pandas as pd
@@ -536,19 +537,23 @@ def _render_content(module, page, filters, pareto_canal="TODOS"):
         return dmc.Alert(f"Pagina '{page}' no encontrada para '{module}'.", title="Error", color="red")
 
     # Build nav + content
-    options = [{"label": plabel, "value": pk} for pk, plabel in MODULES[module]["pages"].items()]
-    nav = dcc.RadioItems(
-        id="nav-radio",
-        options=options,
-        value=page,
-        inline=True,
-        labelStyle={"padding": "6px 14px", "marginRight": "6px", "marginBottom": "4px",
-                     "borderRadius": "6px", "border": "1px solid #e2e8f0",
-                     "fontSize": "0.78rem", "backgroundColor": "white", "color": GRAY,
-                     "display": "inline-block", "cursor": "pointer"},
-        style={"marginBottom": "16px"},
-    )
-    nav_style = html.Div([nav], style={"marginBottom": "16px"})
+    nav_buttons = []
+    for pk, plabel in MODULES[module]["pages"].items():
+        active = pk == page
+        nav_buttons.append(html.Button(
+            plabel,
+            id={"type": "nav-btn", "page": pk},
+            style={
+                "backgroundColor": BLUE if active else "white",
+                "color": "white" if active else GRAY,
+                "border": f"1px solid {BLUE}",
+                "fontSize": "0.78rem", "padding": "6px 14px",
+                "borderRadius": "6px", "marginRight": "6px", "marginBottom": "4px",
+                "cursor": "pointer",
+                "fontWeight": "bold" if active else "normal",
+            }
+        ))
+    nav = html.Div(nav_buttons, style={"marginBottom": "16px"})
 
     # Pareto: filter by selected canal
     render_data = data
@@ -579,7 +584,7 @@ def _render_content(module, page, filters, pareto_canal="TODOS"):
 
     try:
         result = func(render_data)
-        elements = [nav_style, html.Hr(style={"margin": "0 0 16px 0"})]
+        elements = [nav, html.Hr(style={"margin": "0 0 16px 0"})]
         if canal_selector:
             elements.append(canal_selector)
         elements.append(html.Div(result))
@@ -691,14 +696,20 @@ def verify_apis(n, opencode_key, gemini_key):
     return html.Div(" | ".join(results), style={"color": GREEN}), out_opencode, out_gemini
 
 
-# Navigation via radio buttons
+# Navigation via pattern-matching buttons
 @callback(
     Output("store-page", "data", allow_duplicate=True),
-    Input("nav-radio", "value"),
+    Input({"type": "nav-btn", "page": ALL}, "n_clicks"),
     prevent_initial_call=True,
 )
-def navigate_radio(value):
-    return value if value else no_update
+def navigate_buttons(n_clicks):
+    import json
+    ctx = dash.ctx
+    if not ctx.triggered:
+        return no_update
+    triggered = ctx.triggered[0]["prop_id"]
+    obj = json.loads(triggered.split(".")[0])
+    return obj["page"]
 
 
 # Pareto canal selector callback
