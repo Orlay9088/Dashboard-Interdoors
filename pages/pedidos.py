@@ -228,11 +228,16 @@ def pagina_ranking(data):
     rank["% Part"] = (rank["Valor"] / tv * 100).round(2) if tv else 0
 
     from budget import cargar_presupuesto_asesores, get_budget_for
-    from config import RUTA_PRESUPUESTO_ASESORES
+    from config import RUTA_PRESUPUESTO, RUTA_PRESUPUESTO_ASESORES
     try:
-        budgets = cargar_presupuesto_asesores(str(RUTA_PRESUPUESTO_ASESORES))
+        budgets = cargar_presupuesto_asesores(str(RUTA_PRESUPUESTO))
     except Exception:
         budgets = {}
+    if not budgets:
+        try:
+            budgets = cargar_presupuesto_asesores(str(RUTA_PRESUPUESTO_ASESORES))
+        except Exception:
+            budgets = {}
     rank["Presupuesto"] = rank["_vendedor"].apply(lambda x: get_budget_for(x, budgets))
     rank["% Presup"] = rank.apply(lambda r: round(r["Valor"] / r["Presupuesto"] * 100, 2) if r["Presupuesto"] > 0 else 0, axis=1)
     rank["% Cumpl"] = rank.apply(lambda r: round(r["Comprometido"] / r["Presupuesto"] * 100, 2) if r["Presupuesto"] > 0 else 0, axis=1)
