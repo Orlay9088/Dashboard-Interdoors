@@ -68,11 +68,28 @@ def pagina_resumen_stock(data):
         Comprometido=("_cantidad_pen", "sum"), Disponible=("_cantidad_com", "sum"),
     ).reset_index().sort_values("Valor", ascending=False)
 
+    n_bodegas = len(bodegas_data)
+    bodegas_data["_label"] = bodegas_data["_bodega"].apply(lambda x: f"Bod. {str(x)[:12]}")
+    subtitle = f"{n_bodegas} bodega{'s' if n_bodegas != 1 else ''}"
+
+    bar_width = max(0.4, min(0.8, 6.0 / max(n_bodegas, 1)))
+    tick_angle = 0 if n_bodegas <= 6 else -45
+
     fig_bodega = go.Figure()
-    fig_bodega.add_trace(go.Bar(x=bodegas_data["_bodega"].head(10), y=bodegas_data["Valor"] / 1e6,
-        name="Valor Total", marker_color=BLUE))
-    fig_bodega.update_layout(**fig_layout("Valorizacion por Bodega (millones $)", height=380))
-    fig_bodega.update_xaxes(tickangle=-45)
+    fig_bodega.add_trace(go.Bar(
+        x=bodegas_data["_label"],
+        y=bodegas_data["Valor"] / 1e6,
+        name="Valor Total",
+        marker_color=BLUE,
+        width=bar_width,
+        text=[fmt_pm(v) for v in bodegas_data["Valor"]],
+        textposition="outside",
+        textfont=dict(size=10, color=BLUE),
+        hovertemplate="<b>%{x}</b><br>Valor: %{text}<extra></extra>",
+    ))
+    fig_bodega.update_layout(**fig_layout(f"<b>Valorizacion por Bodega</b> — {subtitle}", height=400))
+    fig_bodega.update_xaxes(tickangle=tick_angle, automargin=True, tickfont=dict(size=10))
+    fig_bodega.update_yaxes(title="$ millones", automargin=True)
 
     top_productos = data.groupby(["_referencia", "_linea"]).agg(
         Valor=("_valor", "sum"), Existencia=("_cantidad", "sum"),
