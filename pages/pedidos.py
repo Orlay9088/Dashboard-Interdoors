@@ -82,7 +82,7 @@ def pagina_resumen(data):
               for _, r in evol.tail(12).iterrows()],
         style_table={"overflowX": "auto"},
         style_cell={"textAlign": "left", "padding": "4px 8px", "fontSize": "0.8rem"},
-        style_header={"fontWeight": "bold", "backgroundColor": "#f8fafc"},
+        style_header={"fontWeight": "bold", "backgroundColor": DARKGRAY, "color": "white", "border": "none"},
         page_size=12,
     )
 
@@ -100,8 +100,13 @@ def pagina_resumen(data):
         ]), width=6),
     ], className="mb-3 g-3"))
 
-    children.append(evol_table)
-
+    children.append(html.Details([
+        html.Summary("   Ver Evolucion Mensual (12 meses)", style={
+            "cursor": "pointer", "color": NAVY, "fontWeight": "600",
+            "fontSize": "0.85rem", "padding": "6px 0",
+        }),
+        html.Div(evol_table, style={"marginTop": "8px", "marginBottom": "8px"}),
+    ], open=False))
     children.append(html.Hr())
 
     return children
@@ -221,7 +226,7 @@ def pagina_pareto(data):
         data=pg.head(50).to_dict("records"),
         style_table={"overflowX": "auto"},
         style_cell={"textAlign": "left", "padding": "4px 8px", "fontSize": "0.8rem"},
-        style_header={"fontWeight": "bold", "backgroundColor": "#f8fafc"},
+        style_header={"fontWeight": "bold", "backgroundColor": DARKGRAY, "color": "white", "border": "none"},
         page_size=10,
     )
 
