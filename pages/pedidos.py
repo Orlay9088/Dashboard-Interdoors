@@ -3,10 +3,73 @@ import dash_bootstrap_components as dbc
 import dash_mantine_components as dmc
 import plotly.graph_objects as go
 import pandas as pd
+import numpy as np
 from pages.components import (
     section_title, kpi_card, fmt_p, fmt_pm, fig_layout,
-    NAVY, BLUE, AMBER, GREEN, RED, GRAY, DARKGRAY, GOLD, kahoot_podium,
+    NAVY, BLUE, AMBER, GREEN, RED, GRAY, DARKGRAY, GOLD, kahoot_podium, apply_filters,
 )
+
+
+def pagina_home(data):
+    from firebase_config import load_local
+
+    pedidos = data.copy()
+    facturas = load_local("facturas")
+    inventario = load_local("inventario")
+
+    vp = pedidos["_valor"].sum()
+    vc = pedidos["_valor_sec"].sum() if "_valor_sec" in pedidos.columns else 0
+    ped_count = pedidos["_documento"].nunique()
+    ped_clientes = pedidos["_cliente"].nunique()
+    ped_asesores = pedidos["_vendedor"].nunique()
+
+    vf = facturas["_valor"].sum() if not facturas.empty else 0
+    fact_count = facturas["_documento"].nunique() if not facturas.empty else 0
+    fact_costo = facturas["_costo"].sum() if not facturas.empty and "_costo" in facturas.columns else 0
+    mgn_pct = (vf - fact_costo) / vf * 100 if vf else 0
+
+    vi = inventario["_valor"].sum() if not inventario.empty else 0
+    inv_prod = inventario["_referencia"].nunique() if not inventario.empty else 0
+    inv_bod = inventario["_bodega"].nunique() if not inventario.empty and "_bodega" in inventario.columns else 0
+    inv_exist = inventario["_cantidad"].sum() if not inventario.empty else 0
+
+    children = [section_title("Dashboard Interdoors", "Resumen consolidado de todos los modulos")]
+
+    children.append(html.Div([
+        html.H6("PEDIDOS", className="fw-bold mb-3", style={"color": BLUE, "fontSize": "0.8rem", "letterSpacing": "1.5px", "textTransform": "uppercase"}),
+        dbc.Row([
+            dbc.Col(kpi_card("Valor Pendiente", fmt_p(vp), fmt_pm(vp), color=BLUE), width=3),
+            dbc.Col(kpi_card("Comprometido", fmt_p(vc), f"{(vc/vp*100):.1f}% cumplimiento" if vp else "0%", color=GREEN), width=3),
+            dbc.Col(kpi_card("Pedidos", f"{ped_count:,}", f"{ped_clientes} clientes", color=NAVY), width=3),
+            dbc.Col(kpi_card("Asesores", str(ped_asesores), "activos en el periodo", color=GRAY), width=3),
+        ], className="mb-3 g-3"),
+    ], style={"background": "white", "borderRadius": "12px", "padding": "16px 20px", "marginBottom": "16px",
+               "borderLeft": f"5px solid {BLUE}", "boxShadow": "0 1px 3px rgba(0,0,0,0.05)"}))
+
+    children.append(html.Div([
+        html.H6("FACTURACION", className="fw-bold mb-3", style={"color": GREEN, "fontSize": "0.8rem", "letterSpacing": "1.5px", "textTransform": "uppercase"}),
+        dbc.Row([
+            dbc.Col(kpi_card("Ventas Totales", fmt_p(vf), fmt_pm(vf), color=GREEN), width=3),
+            dbc.Col(kpi_card("Margen Global", f"{mgn_pct:.1f}%", f"Costo: {fmt_pm(fact_costo)}", color=GREEN if mgn_pct > 25 else AMBER), width=3),
+            dbc.Col(kpi_card("Facturas", f"{fact_count:,}" if fact_count else "-", "emitidas" if fact_count else "Sin datos", color=NAVY), width=3),
+            dbc.Col(kpi_card("Ticket Prom.", fmt_p(vf/fact_count) if fact_count else "-", "por factura" if fact_count else "", color=GRAY), width=3),
+        ], className="mb-3 g-3"),
+    ], style={"background": "white", "borderRadius": "12px", "padding": "16px 20px", "marginBottom": "16px",
+               "borderLeft": f"5px solid {GREEN}", "boxShadow": "0 1px 3px rgba(0,0,0,0.05)"}))
+
+    children.append(html.Div([
+        html.H6("INVENTARIO", className="fw-bold mb-3", style={"color": AMBER, "fontSize": "0.8rem", "letterSpacing": "1.5px", "textTransform": "uppercase"}),
+        dbc.Row([
+            dbc.Col(kpi_card("Valor Inventario", fmt_p(vi), fmt_pm(vi), color=AMBER), width=3),
+            dbc.Col(kpi_card("Productos", f"{inv_prod:,}" if inv_prod else "-", f"{inv_bod} bodegas" if inv_bod else "", color=NAVY), width=3),
+            dbc.Col(kpi_card("Existencia", f"{inv_exist:,.0f} und" if inv_exist else "-", "unidades totales" if inv_exist else "Sin datos", color=GRAY), width=3),
+            dbc.Col(kpi_card("Valor Prom.", fmt_p(vi/inv_prod) if inv_prod else "-", "por producto" if inv_prod else "", color=GRAY), width=3),
+        ], className="mb-3 g-3"),
+    ], style={"background": "white", "borderRadius": "12px", "padding": "16px 20px", "marginBottom": "16px",
+               "borderLeft": f"5px solid {AMBER}", "boxShadow": "0 1px 3px rgba(0,0,0,0.05)"}))
+
+    children.append(html.Hr())
+    return children
 
 
 def pagina_resumen(data):

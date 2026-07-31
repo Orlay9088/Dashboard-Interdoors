@@ -81,7 +81,7 @@ def section_title(title, sub=""):
         ], style={"display": "inline-block", "verticalAlign": "middle"}),
     ], className="mb-4")
 
-def kpi_card(label, value, sub="", color=None, icon=None):
+def kpi_card(label, value, sub="", color=None, icon=None, delta=None):
     if color is None:
         color = DARKGRAY
     if icon is None:
@@ -91,6 +91,14 @@ def kpi_card(label, value, sub="", color=None, icon=None):
                 icon = ico; break
         if icon is None:
             icon = ""
+    delta_html = ""
+    if delta is not None and isinstance(delta, (int, float)) and delta != 0:
+        arrow = "▲" if delta > 0 else "▼"
+        dcolor = GREEN if delta > 0 else RED
+        delta_html = html.Span(f" {arrow} {abs(delta):.1f}%", style={
+            "fontSize": "0.65rem", "color": dcolor, "fontWeight": "600",
+            "marginLeft": "6px", "verticalAlign": "middle",
+        })
     return html.Div([
         html.Div(style={
             "height": "3px", "background": color,
@@ -101,8 +109,11 @@ def kpi_card(label, value, sub="", color=None, icon=None):
             html.Span(label, style={"fontSize": "0.7rem", "textTransform": "uppercase",
                                      "color": GRAY, "fontWeight": "600", "letterSpacing": "0.5px"}),
         ], className="mb-2"),
-        html.Div(value, style={"fontSize": "1.6rem", "fontWeight": "bold",
-                                "color": color, "lineHeight": "1.2"}),
+        html.Div([
+            html.Span(value, style={"fontSize": "1.6rem", "fontWeight": "bold",
+                                     "color": color, "lineHeight": "1.2"}),
+            delta_html,
+        ]),
         html.Div(sub, style={"fontSize": "0.7rem", "color": SLATE, "marginTop": "4px"}) if sub else "",
     ], style={
         "background": "white", "borderRadius": "8px",
@@ -146,6 +157,12 @@ def apply_filters(data, filters_dict):
     estado = filters_dict.get("estado", "Todos")
     if estado and estado != "Todos" and "_estado" in d.columns:
         d = d[d["_estado"] == estado]
+    linea = filters_dict.get("linea", "Todos")
+    if linea and linea != "Todos" and "_linea" in d.columns:
+        d = d[d["_linea"] == linea]
+    sublinea = filters_dict.get("sublinea", "Todos")
+    if sublinea and sublinea != "Todos" and "_sublinea" in d.columns:
+        d = d[d["_sublinea"] == sublinea]
     return d
 
 # ============================================================

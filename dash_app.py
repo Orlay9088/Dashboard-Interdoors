@@ -21,7 +21,7 @@ from etl.processor import procesar as procesar_etl
 from firebase_config import try_load, try_save, is_cache_stale, mark_cache_fresh, get_metadata, load_local, clear_local_cache
 from analysis import generar_analisis, generar_con_gemini, generar_con_opencode
 from pages.pedidos import (
-    pagina_resumen, pagina_participacion, pagina_pareto,
+    pagina_home, pagina_resumen, pagina_participacion, pagina_pareto,
     pagina_ranking, pagina_embudo, pagina_heatmap, pagina_proyeccion,
 )
 from pages.facturas import (
@@ -66,6 +66,7 @@ server = app.server
 
 MODULES = {
     "pedidos": {"label": "PEDIDOS", "color": BLUE, "pages": {
+        "home": "Home",
         "resumen": "Resumen", "participacion": "Participacion",
         "pareto": "Pareto", "ranking": "Ranking", "embudo": "Embudo",
         "heatmap": "Heatmap", "proyeccion": "Proyeccion",
@@ -204,6 +205,16 @@ def build_sidebar():
         html.Div([
             html.Label("Estado", className="small mb-1 d-block", style={"color": "#cbd5e1", "fontWeight": "500"}),
             dcc.Dropdown(id="dropdown-estado", options=[], value="Todos", clearable=False,
+                style={"fontSize": "0.8rem"}, className="small-dropdown mb-0"),
+        ], style={"background": "rgba(255,255,255,0.04)", "borderRadius": "8px", "padding": "10px", "marginBottom": "8px"}),
+        html.Div([
+            html.Label("Linea", className="small mb-1 d-block", style={"color": "#cbd5e1", "fontWeight": "500"}),
+            dcc.Dropdown(id="dropdown-linea", options=[], value="Todos", clearable=False,
+                style={"fontSize": "0.8rem"}, className="small-dropdown mb-0"),
+        ], style={"background": "rgba(255,255,255,0.04)", "borderRadius": "8px", "padding": "10px", "marginBottom": "8px"}),
+        html.Div([
+            html.Label("Sublinea", className="small mb-1 d-block", style={"color": "#cbd5e1", "fontWeight": "500"}),
+            dcc.Dropdown(id="dropdown-sublinea", options=[], value="Todos", clearable=False,
                 style={"fontSize": "0.8rem"}, className="small-dropdown mb-0"),
         ], style={"background": "rgba(255,255,255,0.04)", "borderRadius": "8px", "padding": "10px", "marginBottom": "8px"}),
         html.Hr(style={"borderColor": "rgba(255,255,255,0.15)"}),
@@ -417,7 +428,7 @@ def render_page_content(module, page, filters, refresh_count, clear_count, paret
                 pass
 
         page_funcs = {
-            "pedidos": {"resumen":pagina_resumen,"participacion":pagina_participacion,"pareto":pagina_pareto,
+            "pedidos": {"home":pagina_home, "resumen":pagina_resumen,"participacion":pagina_participacion,"pareto":pagina_pareto,
                         "ranking":pagina_ranking,"embudo":pagina_embudo,"heatmap":pagina_heatmap,"proyeccion":pagina_proyeccion},
             "facturas": {"resumen_ventas":pagina_resumen_ventas,"margenes":pagina_margenes,
                          "mix_producto":pagina_mix_producto,"precio_promedio":pagina_precio_promedio},
@@ -655,14 +666,18 @@ def highlight_active_module(module, _refresh, _clear):
     Input("dropdown-asesor", "value"),
     Input("dropdown-canal", "value"),
     Input("dropdown-estado", "value"),
+    Input("dropdown-linea", "value"),
+    Input("dropdown-sublinea", "value"),
 )
-def update_filters(start, end, asesor, canal, estado):
+def update_filters(start, end, asesor, canal, estado, linea, sublinea):
     import json
     return json.dumps({
         "rango": [start, end],
         "asesor": asesor or "Todos",
         "canal": canal or "Todos",
         "estado": estado or "Todos",
+        "linea": linea or "Todos",
+        "sublinea": sublinea or "Todos",
     })
 
 
@@ -772,6 +787,8 @@ def update_sidebar_info(n, _clear):
     Output("dropdown-asesor", "options"),
     Output("dropdown-canal", "options"),
     Output("dropdown-estado", "options"),
+    Output("dropdown-linea", "options"),
+    Output("dropdown-sublinea", "options"),
     Input("store-refresh", "data"),
     Input("store-clear", "data"),
     Input("store-tipo", "data"),
@@ -779,14 +796,17 @@ def update_sidebar_info(n, _clear):
 def update_dropdowns(_refresh, _clear, tipo):
     try:
         df = _load_cached(tipo)
+        no_data = [{"label": "Sin datos", "value": "Todos"}]
         if df.empty:
-            return [{"label": "Sin datos", "value": "Todos"}], [{"label": "Sin datos", "value": "Todos"}], [{"label": "Sin datos", "value": "Todos"}]
+            return no_data, no_data, no_data, no_data, no_data
         asesores = [{"label": "Todos", "value": "Todos"}] + [{"label": a, "value": a} for a in sorted(df["_vendedor"].dropna().unique()) if a]
         canales = [{"label": "Todos", "value": "Todos"}] + [{"label": c, "value": c} for c in sorted(df["_canal"].dropna().unique()) if c]
         estados = [{"label": "Todos", "value": "Todos"}] + [{"label": e, "value": e} for e in sorted(df["_estado"].dropna().unique()) if e]
-        return asesores, canales, estados
+        lineas = [{"label": "Todos", "value": "Todos"}] + [{"label": l, "value": l} for l in sorted(df["_linea"].dropna().unique()) if str(l).strip()]
+        sublineas = [{"label": "Todos", "value": "Todos"}] + [{"label": s, "value": s} for s in sorted(df["_sublinea"].dropna().unique()) if str(s).strip()]
+        return asesores, canales, estados, lineas, sublineas
     except Exception:
-        return [{"label": "Sin conexion", "value": "Todos"}], [{"label": "Sin conexion", "value": "Todos"}], [{"label": "Sin conexion", "value": "Todos"}]
+        return no_data, no_data, no_data, no_data, no_data
 
 
 
