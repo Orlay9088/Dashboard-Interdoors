@@ -124,22 +124,27 @@ def build_sidebar():
         children.append(dbc.Button(
             [
                 html.Div([
-                    html.Span(f"  {mod['label']}", className="fw-bold",
-                              style={"fontSize": "0.95rem", "color": "white"}),
+                    html.Span(f"  {mod['label']}",
+                              id=f"mod-text-{key}",
+                              style={"fontSize": "0.95rem", "fontWeight": "bold", "color": "#94a3b8"}),
                 ]),
-                html.Div(id=f"mod-badge-{key}",
-                         style={"fontSize": "0.7rem", "color": "#94a3b8", "marginTop": "2px"}),
+                html.Div([
+                    html.Span(id=f"mod-dot-{key}", style={"fontSize": "0.65rem", "marginRight": "6px"}),
+                    html.Span(id=f"mod-badge-{key}",
+                              style={"fontSize": "0.7rem", "color": "#94a3b8"}),
+                ], style={"display": "flex", "alignItems": "center", "marginTop": "3px"}),
             ],
             id=f"mod-{key}",
             className="w-100 text-start",
             style={
-                "backgroundColor": "rgba(255,255,255,0.06)",
-                "border": "1px solid rgba(255,255,255,0.12)",
-                "borderLeft": f"4px solid {mod['color']}",
+                "backgroundColor": "rgba(255,255,255,0.03)",
+                "border": "1px solid rgba(255,255,255,0.06)",
+                "borderLeft": "4px solid rgba(255,255,255,0.2)",
                 "borderRadius": "8px",
                 "padding": "12px 14px",
                 "marginBottom": "10px",
-                "transition": "all 0.2s",
+                "transition": "all 0.3s",
+                "opacity": "0.6",
             },
         ))
 
@@ -572,26 +577,73 @@ def switch_module(*args):
     Output("mod-pedidos", "style"),
     Output("mod-facturas", "style"),
     Output("mod-inventario", "style"),
+    Output("mod-text-pedidos", "style"),
+    Output("mod-text-facturas", "style"),
+    Output("mod-text-inventario", "style"),
+    Output("mod-dot-pedidos", "children"),
+    Output("mod-dot-facturas", "children"),
+    Output("mod-dot-inventario", "children"),
+    Output("mod-badge-pedidos", "style"),
+    Output("mod-badge-facturas", "style"),
+    Output("mod-badge-inventario", "style"),
     Input("store-module", "data"),
+    Input("store-refresh", "data"),
+    Input("store-clear", "data"),
 )
-def highlight_active_module(module):
+def highlight_active_module(module, _refresh, _clear):
+    import pandas as pd
     BASE = {
         "borderRadius": "8px",
         "padding": "12px 14px",
         "marginBottom": "10px",
-        "transition": "all 0.2s",
+        "transition": "all 0.3s",
     }
     styles = {}
+    texts = {}
+    dots = {}
+    badges = {}
     for key, mod in MODULES.items():
         active = key == module
-        styles[f"mod-{key}"] = {
-            **BASE,
-            "backgroundColor": f"rgba(255,255,255,{0.18 if active else 0.06})",
-            "border": f"1px solid {mod['color']}",
-            "borderLeft": f"6px solid {mod['color']}",
-            "boxShadow": f"0 0 12px {mod['color']}22" if active else "none",
-        }
-    return styles["mod-pedidos"], styles["mod-facturas"], styles["mod-inventario"]
+        color = mod["color"]
+        if active:
+            styles[f"mod-{key}"] = {
+                **BASE,
+                "backgroundColor": f"rgba(255,255,255,0.15)",
+                "border": f"1px solid {color}",
+                "borderLeft": f"8px solid {color}",
+                "boxShadow": f"0 0 20px {color}44, inset 0 0 30px {color}10",
+                "opacity": "1",
+            }
+            texts[f"mod-text-{key}"] = {
+                "fontSize": "0.95rem", "fontWeight": "bold",
+                "color": "white",
+            }
+            dots[f"mod-dot-{key}"] = "●"
+            badges[f"mod-badge-{key}"] = {
+                "fontSize": "0.7rem", "color": color, "fontWeight": "bold",
+            }
+        else:
+            styles[f"mod-{key}"] = {
+                **BASE,
+                "backgroundColor": "rgba(255,255,255,0.03)",
+                "border": "1px solid rgba(255,255,255,0.06)",
+                "borderLeft": "4px solid rgba(255,255,255,0.15)",
+                "opacity": "0.55",
+            }
+            texts[f"mod-text-{key}"] = {
+                "fontSize": "0.95rem", "fontWeight": "normal",
+                "color": "#6B7280",
+            }
+            dots[f"mod-dot-{key}"] = ""
+            badges[f"mod-badge-{key}"] = {
+                "fontSize": "0.7rem", "color": "#64748b",
+            }
+    return (
+        styles["mod-pedidos"], styles["mod-facturas"], styles["mod-inventario"],
+        texts["mod-text-pedidos"], texts["mod-text-facturas"], texts["mod-text-inventario"],
+        dots["mod-dot-pedidos"], dots["mod-dot-facturas"], dots["mod-dot-inventario"],
+        badges["mod-badge-pedidos"], badges["mod-badge-facturas"], badges["mod-badge-inventario"],
+    )
 
 
 @callback(
