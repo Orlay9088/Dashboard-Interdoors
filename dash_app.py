@@ -625,18 +625,18 @@ def highlight_active_module(module, _refresh, _clear):
         else:
             styles[f"mod-{key}"] = {
                 **BASE,
-                "backgroundColor": "rgba(255,255,255,0.03)",
-                "border": "1px solid rgba(255,255,255,0.06)",
-                "borderLeft": "4px solid rgba(255,255,255,0.15)",
-                "opacity": "0.55",
+                "backgroundColor": "rgba(255,255,255,0.08)",
+                "border": "1px solid rgba(255,255,255,0.12)",
+                "borderLeft": f"4px solid {color}88",
+                "opacity": "0.85",
             }
             texts[f"mod-text-{key}"] = {
                 "fontSize": "0.95rem", "fontWeight": "normal",
-                "color": "#6B7280",
+                "color": "#94a3b8",
             }
             dots[f"mod-dot-{key}"] = ""
             badges[f"mod-badge-{key}"] = {
-                "fontSize": "0.7rem", "color": "#64748b",
+                "fontSize": "0.7rem", "color": "#94a3b8",
             }
     return (
         styles["mod-pedidos"], styles["mod-facturas"], styles["mod-inventario"],
