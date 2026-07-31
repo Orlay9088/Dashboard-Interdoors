@@ -569,6 +569,32 @@ def switch_module(*args):
 
 
 @callback(
+    Output("mod-pedidos", "style"),
+    Output("mod-facturas", "style"),
+    Output("mod-inventario", "style"),
+    Input("store-module", "data"),
+)
+def highlight_active_module(module):
+    BASE = {
+        "borderRadius": "8px",
+        "padding": "12px 14px",
+        "marginBottom": "10px",
+        "transition": "all 0.2s",
+    }
+    styles = {}
+    for key, mod in MODULES.items():
+        active = key == module
+        styles[f"mod-{key}"] = {
+            **BASE,
+            "backgroundColor": f"rgba(255,255,255,{0.18 if active else 0.06})",
+            "border": f"1px solid {mod['color']}",
+            "borderLeft": f"6px solid {mod['color']}",
+            "boxShadow": f"0 0 12px {mod['color']}22" if active else "none",
+        }
+    return styles["mod-pedidos"], styles["mod-facturas"], styles["mod-inventario"]
+
+
+@callback(
     Output("store-filters", "data"),
     Input("date-range", "start_date"),
     Input("date-range", "end_date"),

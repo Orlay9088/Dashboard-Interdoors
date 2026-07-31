@@ -1,12 +1,13 @@
 import os
 import json
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 import pandas as pd
 
 LOCAL_BASE = Path(__file__).parent / "base"
 COUNTER_FILE = LOCAL_BASE / ".sync_counter.json"
 CACHE_FILE = LOCAL_BASE / ".cache_meta.json"
+CLEANUP_FILE = LOCAL_BASE / ".cleanup_log.json"
 
 LOCAL_PARQUET = {
     "pedidos": LOCAL_BASE / "pedidos.parquet",
@@ -16,20 +17,22 @@ LOCAL_PARQUET = {
 LAST_FILES_JSON = LOCAL_BASE / ".last_files.json"
 
 MAX_SYNCS_PER_DAY = 3
+MAX_DOCS_PER_TYPE = 3
 CACHE_TTL_HOURS = 24
+BATCH_SIZE = 500
 
 
 def _load_json(path, default=None):
     if path.exists():
-        with open(path) as f:
+        with open(path, encoding="utf-8") as f:
             return json.load(f)
     return default if default is not None else {}
 
 
 def _save_json(path, data):
     LOCAL_BASE.mkdir(parents=True, exist_ok=True)
-    with open(path, "w") as f:
-        json.dump(data, f)
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False)
 
 
 def save_last_file(tipo, filename):
@@ -44,24 +47,15 @@ def get_last_files():
 
 def _load_counter():
     if COUNTER_FILE.exists():
-        with open(COUNTER_FILE) as f:
+        with open(COUNTER_FILE, encoding="utf-8") as f:
             return json.load(f)
     return {"date": "", "count": 0}
 
 
 def _save_counter(data):
     LOCAL_BASE.mkdir(parents=True, exist_ok=True)
-    with open(COUNTER_FILE, "w") as f:
+    with open(COUNTER_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f)
-
-
-def _firestore_ok():
-    today = str(date.today())
-    c = _load_counter()
-    if c.get("date") != today:
-        c = {"date": today, "count": 0}
-        _save_counter(c)
-    return c["count"] < MAX_SYNCS_PER_DAY
 
 
 def _use_firestore_sync():
@@ -136,23 +130,161 @@ def load_local(tipo):
 def try_save(df, tipo, filename=""):
     n = len(df)
     save_local(df, tipo)
-    _use_firestore_sync()
+    if _use_firestore_sync():
+        try:
+            save_to_firestore(df, tipo, filename)
+            daily_cleanup(tipo)
+        except Exception:
+            pass
     if filename:
         save_last_file(tipo, filename)
     return n
 
 
 def try_load(tipo):
-    return load_local(tipo), "local"
+    df = load_local(tipo)
+    if not df.empty:
+        return df, "local"
+    df = load_from_firestore(tipo)
+    if not df.empty:
+        return df, "firestore"
+    return pd.DataFrame(), "local"
+
+
+def save_to_firestore(df, tipo, filename=""):
+    """Guarda un DataFrame en Firestore particionado en batches de BATCH_SIZE filas."""
+    app, db = _firestore_client()
+    if not db:
+        return 0
+
+    n = len(df)
+    now_str = datetime.now().strftime("%Y%m%d_%H%M%S")
+    doc_id = f"upload_{now_str}"
+
+    # Documento principal con metadata
+    meta = {
+        "tipo": tipo,
+        "filename": filename,
+        "fecha": datetime.now().isoformat(),
+        "registros": n,
+        "columnas": list(df.columns),
+    }
+    db.collection(tipo).document(doc_id).set(meta)
+
+    # Subcoleccion records/ con batches
+    records_ref = db.collection(tipo).document(doc_id).collection("records")
+    for start in range(0, n, BATCH_SIZE):
+        batch_df = df.iloc[start:start + BATCH_SIZE]
+        batch_json = json.loads(batch_df.to_json(orient="records", date_format="iso", force_ascii=False))
+        batch_doc_id = f"b_{start // BATCH_SIZE:04d}"
+        records_ref.document(batch_doc_id).set({"data": batch_json})
+    return n
+
+
+def load_from_firestore(tipo):
+    """Carga el ultimo documento disponible del tipo desde Firestore."""
+    app, db = _firestore_client()
+    if not db:
+        return pd.DataFrame()
+
+    docs = (db.collection(tipo)
+            .order_by("fecha", direction="DESCENDING")
+            .limit(1)
+            .stream())
+
+    for doc in docs:
+        meta = doc.to_dict()
+        columnas = meta.get("columnas", [])
+        registros = meta.get("registros", 0)
+        if not registros or not columnas:
+            continue
+
+        records_list = (
+            db.collection(tipo).document(doc.id)
+            .collection("records")
+            .order_by("__name__")
+            .stream()
+        )
+
+        all_data = []
+        for rec_doc in records_list:
+            batch = rec_doc.to_dict().get("data", [])
+            all_data.extend(batch)
+
+        if all_data:
+            df = pd.DataFrame(all_data, columns=columnas)
+            if "_fecha" in df.columns:
+                df["_fecha"] = pd.to_datetime(df["_fecha"], errors="coerce")
+            return df
+    return pd.DataFrame()
+
+
+def should_cleanup_today():
+    """Verifica si ya se ejecuto la limpieza hoy."""
+    today = str(date.today())
+    log = _load_json(CLEANUP_FILE)
+    if log.get("date") != today:
+        log = {"date": today, "types_cleaned": []}
+        _save_json(CLEANUP_FILE, log)
+        return True
+    return False
+
+
+def daily_cleanup(tipo):
+    """Elimina todos los documentos del tipo excepto los ultimos MAX_DOCS_PER_TYPE."""
+    if not should_cleanup_today():
+        return 0
+
+    app, db = _firestore_client()
+    if not db:
+        return 0
+
+    docs = (db.collection(tipo)
+            .order_by("fecha", direction="DESCENDING")
+            .stream())
+
+    all_docs = list(docs)
+    if len(all_docs) <= MAX_DOCS_PER_TYPE:
+        return 0
+
+    deleted = 0
+    for doc in all_docs[MAX_DOCS_PER_TYPE:]:
+        _delete_doc_with_subcollections(db, tipo, doc.id)
+        deleted += 1
+
+    log = _load_json(CLEANUP_FILE)
+    cleaned = log.get("types_cleaned", [])
+    if tipo not in cleaned:
+        cleaned.append(tipo)
+    log["types_cleaned"] = cleaned
+    _save_json(CLEANUP_FILE, log)
+    return deleted
+
+
+def _delete_doc_with_subcollections(db, collection, doc_id):
+    """Elimina un documento y todas sus subcolecciones recursivamente."""
+    doc_ref = db.collection(collection).document(doc_id)
+
+    for sub in doc_ref.collections():
+        for sub_doc in sub.stream():
+            _delete_doc_with_subcollections(db, f"{collection}/{doc_id}/{sub.id}", sub_doc.id)
+
+    doc_ref.delete()
+
+
+def set_metadata(doc_id, data):
+    """Guarda metadata en la coleccion _metadata de Firestore."""
+    app, db = _firestore_client()
+    if db:
+        db.collection("_metadata").document(doc_id).set(data)
 
 
 def is_cache_stale():
     if not CACHE_FILE.exists():
         return True
     try:
-        with open(CACHE_FILE) as f:
+        with open(CACHE_FILE, encoding="utf-8") as f:
             meta = json.load(f)
-        from datetime import datetime
         ts = datetime.fromisoformat(meta["created"])
         return (datetime.now() - ts).total_seconds() > CACHE_TTL_HOURS * 3600
     except Exception:
@@ -161,8 +293,7 @@ def is_cache_stale():
 
 def mark_cache_fresh():
     LOCAL_BASE.mkdir(parents=True, exist_ok=True)
-    from datetime import datetime
-    with open(CACHE_FILE, "w") as f:
+    with open(CACHE_FILE, "w", encoding="utf-8") as f:
         json.dump({"created": datetime.now().isoformat()}, f)
 
 
@@ -170,10 +301,9 @@ def clear_local_cache():
     for path in LOCAL_PARQUET.values():
         if path.exists():
             path.unlink()
-    if COUNTER_FILE.exists():
-        COUNTER_FILE.unlink()
-    if CACHE_FILE.exists():
-        CACHE_FILE.unlink()
+    for f in [COUNTER_FILE, CACHE_FILE, CLEANUP_FILE]:
+        if f.exists():
+            f.unlink()
 
 
 def get_metadata():
@@ -186,7 +316,3 @@ def get_metadata():
     remaining = MAX_SYNCS_PER_DAY - counter.get("count", 0)
     info["syncs_remaining"] = max(0, remaining)
     return info
-
-
-def set_metadata(doc_id, data):
-    pass

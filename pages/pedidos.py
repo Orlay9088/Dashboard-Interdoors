@@ -286,8 +286,9 @@ def pagina_ranking(data):
 
     # Ranking table
     table = dash_table.DataTable(
-        columns=[{"name": c, "id": c} for c in ["#", "_vendedor", "Valor_total", "% Part", "% Presup", "Pedidos", "Clientes", "% Cumpl"]],
+        columns=[{"name": c, "id": c} for c in ["#", "_vendedor", "Valor_total", "Presupuesto", "% Part", "% Presup", "Pedidos", "Clientes", "% Cumpl"]],
         data=[{"#": r["#"], "_vendedor": r["_vendedor"], "Valor_total": fmt_p(r["Valor"]),
+               "Presupuesto": fmt_p(r["Presupuesto"]) if r["Presupuesto"] > 0 else "-",
                "% Part": f"{r['% Part']:.1f}%",
                "% Presup": f"{r['% Presup']:.1f}%" if r["Presupuesto"] > 0 else "-",
                "Pedidos": f"{int(r['Pedidos']):,}",

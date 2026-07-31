@@ -8,14 +8,18 @@ CARPETA_ASESORES = PROYECTO / "salida" / "asesores"
 CARPETA_GERENCIA = PROYECTO / "salida" / "gerencia"
 CARPETA_DASHBOARD = PROYECTO / "dashboard_data"
 CARPETA_LOGS = PROYECTO / "logs"
-CARPETA_REPORTES_SIESA = Path(r"C:\Users\Usuario\Desktop\Proyectos Activos\Reportes\Reportes de ventas - Pedidos")
+CARPETA_ACTIVOS = Path("/mnt/c/Users/USUARIO/Desktop/Proyectos Activos")
+if not CARPETA_ACTIVOS.exists():
+    CARPETA_ACTIVOS = Path(r"C:\Users\USUARIO\Desktop\Proyectos Activos")
+
+CARPETA_REPORTES_SIESA = CARPETA_ACTIVOS / "Reportes" / "Reportes de ventas - Pedidos"
 
 ARCHIVO_BASE = CARPETA_BASE / "Base_Maestra_Pedidos.parquet"
 ARCHIVO_LOG = CARPETA_LOGS / "procesamiento.log"
 
 RUTA_PRESUPUESTO = PROYECTO / "presupuesto por asesor.xlsx"
-RUTA_PRESUPUESTO_ASESORES = Path(r"C:\Users\Usuario\Desktop\Proyectos Activos\presupuesto por asesor.xlsx")
-RUTA_PRESUPUESTO_COMPANY = Path(r"C:\Users\Usuario\Desktop\Proyectos Activos\Ptto 2026 (1).xlsx")
+RUTA_PRESUPUESTO_ASESORES = CARPETA_ACTIVOS / "presupuesto por asesor.xlsx"
+RUTA_PRESUPUESTO_COMPANY = CARPETA_ACTIVOS / "Ptto 2026 (1).xlsx"
 
 HOJA_SIESA = "Tabla principal"
 

@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 import re
 from pathlib import Path
 
@@ -15,6 +16,8 @@ MES_MAP = {m: i+1 for i, m in enumerate(MONTHS_ES)}
 def _parse_valor(raw):
     if pd.isna(raw):
         return 0
+    if isinstance(raw, (int, float, np.number)):
+        return float(raw)
     s = str(raw).strip()
     s = re.sub(r"[^\d.,\-]", "", s)
     s = s.replace(".", "").replace(",", ".")
@@ -33,7 +36,7 @@ def cargar_presupuesto_asesores(ruta):
     for idx, (mes_col, val_col) in enumerate(col_pairs):
         name = ASESOR_NAMES[idx] if idx < len(ASESOR_NAMES) else f"Asesor_{idx}"
         advisor_budget = {"meses": {}, "anual": 0}
-        for r in range(4, 16):
+        for r in range(4, 17):
             mes_raw = df.iloc[r, mes_col]
             val_raw = df.iloc[r, val_col]
             if pd.isna(mes_raw):
@@ -79,10 +82,22 @@ def cargar_ptto_company(ruta):
 def get_budget_for(name, budgets):
     if not budgets:
         return 0
-    words = set(name.upper().split())
-    for budget_name in budgets:
-        budget_words = set(budget_name.upper().split())
-        if budget_words.issubset(words):
+    name = str(name).strip()
+    if not name:
+        return 0
+    name_upper = name.upper()
+    name_words = set(name_upper.split())
+    for budget_name in sorted(budgets, key=lambda x: -len(x)):
+        bn_upper = budget_name.upper()
+        if bn_upper == name_upper:
+            return budgets[budget_name]["anual"]
+        bn_words = set(bn_upper.split())
+        if bn_words.issubset(name_words):
+            return budgets[budget_name]["anual"]
+        if name_words.issubset(bn_words):
+            return budgets[budget_name]["anual"]
+        common = bn_words & name_words
+        if len(common) >= 2 and len(common) >= len(bn_words) * 0.7:
             return budgets[budget_name]["anual"]
     return 0
 
@@ -90,9 +105,19 @@ def get_budget_for(name, budgets):
 def get_monthly_budget(name, mes, budgets):
     if not budgets:
         return 0
-    words = set(name.upper().split())
-    for budget_name in budgets:
-        budget_words = set(budget_name.upper().split())
-        if budget_words.issubset(words):
+    name = str(name).strip()
+    if not name:
+        return 0
+    name_upper = name.upper()
+    name_words = set(name_upper.split())
+    for budget_name in sorted(budgets, key=lambda x: -len(x)):
+        bn_upper = budget_name.upper()
+        if bn_upper == name_upper:
+            return budgets[budget_name]["meses"].get(mes, 0)
+        bn_words = set(bn_upper.split())
+        if bn_words.issubset(name_words) or name_words.issubset(bn_words):
+            return budgets[budget_name]["meses"].get(mes, 0)
+        common = bn_words & name_words
+        if len(common) >= 2 and len(common) >= len(bn_words) * 0.7:
             return budgets[budget_name]["meses"].get(mes, 0)
     return 0
