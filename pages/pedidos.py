@@ -109,38 +109,63 @@ def pagina_resumen(data):
 
 def pagina_participacion(data):
     vp = data["_valor"].sum()
-    children = [section_title("Participacion Comercial", "Distribucion por canal, asesor y linea")]
+    n_canales = data["_canal"].nunique() if "_canal" in data.columns else 0
+    n_asesores = data["_vendedor"].nunique()
+    n_lineas = data["_linea"].nunique() if "_linea" in data.columns else 0
+    n_clientes = data["_cliente"].nunique()
 
-    canales = data.groupby("_canal").agg(
-        Valor=("_valor", "sum"),
-    ).reset_index().sort_values("Valor", ascending=False)
+    canal_top = data.groupby("_canal")["_valor"].sum().idxmax() if "_canal" in data.columns else "N/A"
+
+    children = [section_title("Participacion Comercial", f"{n_canales} canales | {n_asesores} asesores | {n_lineas} lineas | {n_clientes} clientes")]
+
+    kpi_row = dbc.Row([
+        dbc.Col(kpi_card("Valor Total", fmt_p(vp), fmt_pm(vp), color=BLUE), width=3),
+        dbc.Col(kpi_card("Canales", str(n_canales), f"Principal: {canal_top[:18]}", color=NAVY), width=3),
+        dbc.Col(kpi_card("Asesores", str(n_asesores), f"Promedio: {fmt_pm(vp/n_asesores) if n_asesores else 0}", color=GRAY), width=3),
+        dbc.Col(kpi_card("Lineas", str(n_lineas), "Diversidad de portafolio", color=GREEN), width=3),
+    ], className="mb-4 g-3")
+    children.append(kpi_row)
+
+    canales = data.groupby("_canal").agg(Valor=("_valor", "sum")).reset_index().sort_values("Valor", ascending=False)
     canales["%"] = (canales["Valor"] / vp * 100).round(2)
 
-    fig_canal = go.Figure(go.Pie(labels=canales["_canal"], values=canales["Valor"],
-        hole=0.4, textinfo="label+percent", marker=dict(colors=[BLUE, GREEN, "#f59e0b", RED, "#8b5cf6"])))
-    fig_canal.update_layout(**fig_layout("Por Canal", height=380))
+    fig_canal = go.Figure(go.Pie(
+        labels=canales["_canal"], values=canales["Valor"],
+        hole=0.45, textinfo="label+percent",
+        marker=dict(colors=[BLUE, GREEN, "#f59e0b", RED, "#8b5cf6"], line=dict(color="white", width=2)),
+        hovertemplate="<b>%{label}</b><br>%{value:$,.0f}<br>%{percent}<extra></extra>",
+    ))
+    fig_canal.add_annotation(text=fmt_pm(vp), x=0.5, y=0.5, showarrow=False,
+        font=dict(size=16, color=DARKGRAY, family="Segoe UI"), xref="paper", yref="paper")
+    fig_canal.update_layout(**fig_layout("Por Canal", height=370))
 
-    asesores = data.groupby("_vendedor").agg(
-        Valor=("_valor", "sum"),
-    ).reset_index().sort_values("Valor", ascending=False)
+    asesores = data.groupby("_vendedor").agg(Valor=("_valor", "sum"), Pedidos=("_documento", "nunique")).reset_index().sort_values("Valor", ascending=False)
     asesores["%"] = (asesores["Valor"] / vp * 100).round(2)
+    top_ase = asesores.head(12)
+    fig_ase = go.Figure(go.Bar(
+        x=top_ase["Valor"] / 1e6, y=top_ase["_vendedor"], orientation="h",
+        marker_color=[GOLD if i == 0 else BLUE for i in range(len(top_ase))],
+        text=[f"{(r['%'])}% · {r['Pedidos']} ped" for _, r in top_ase.iterrows()],
+        textposition="outside", textfont=dict(size=9, color=GRAY),
+        hovertemplate="<b>%{y}</b><br>$%{x:.1f}M<br>%{text}<extra></extra>",
+    ))
+    fig_ase.update_layout(**fig_layout("Top Asesores (millones $)", height=370))
+    fig_ase.update_xaxes(title="$ millones")
+    fig_ase.update_yaxes(automargin=True, autorange="reversed")
 
-    fig_ase = go.Figure(go.Bar(x=asesores["_vendedor"].head(10), y=asesores["Valor"].head(10) / 1e6,
-        marker_color=BLUE, text=[f"{r:.1f}%" for r in asesores["%"].head(10)], textposition="outside"))
-    fig_ase.update_layout(**fig_layout("Top 10 Asesores (millones $)", height=380))
-    fig_ase.update_xaxes(tickangle=-45, tickfont=dict(size=9))
-    fig_ase.update_yaxes(automargin=True)
-
-    lineas = data.groupby("_linea").agg(
-        Valor=("_valor", "sum"),
-    ).reset_index().sort_values("Valor", ascending=False)
+    lineas = data.groupby("_linea").agg(Valor=("_valor", "sum"), Pedidos=("_documento", "nunique")).reset_index().sort_values("Valor", ascending=False)
     lineas["%"] = (lineas["Valor"] / vp * 100).round(2)
-
-    fig_lin = go.Figure(go.Bar(x=lineas["_linea"].head(10), y=lineas["Valor"].head(10) / 1e6,
-        marker_color=GREEN, text=[f"{r:.1f}%" for r in lineas["%"].head(10)], textposition="outside"))
-    fig_lin.update_layout(**fig_layout("Top 10 Lineas (millones $)", height=380))
-    fig_lin.update_xaxes(tickangle=-45, tickfont=dict(size=9))
-    fig_lin.update_yaxes(automargin=True)
+    top_lin = lineas.head(12)
+    fig_lin = go.Figure(go.Bar(
+        x=top_lin["Valor"] / 1e6, y=top_lin["_linea"], orientation="h",
+        marker_color=[GREEN if i > 0 else "#0C8E82" for i in range(len(top_lin))],
+        text=[f"{r['%']:.1f}% · {r['Pedidos']} ped" for _, r in top_lin.iterrows()],
+        textposition="outside", textfont=dict(size=9, color=GRAY),
+        hovertemplate="<b>%{y}</b><br>$%{x:.1f}M<br>%{text}<extra></extra>",
+    ))
+    fig_lin.update_layout(**fig_layout("Top Lineas (millones $)", height=370))
+    fig_lin.update_xaxes(title="$ millones")
+    fig_lin.update_yaxes(automargin=True, autorange="reversed")
 
     children.append(dbc.Row([
         dbc.Col(dcc.Graph(figure=fig_canal), width=4),
@@ -148,7 +173,19 @@ def pagina_participacion(data):
         dbc.Col(dcc.Graph(figure=fig_lin), width=4),
     ], className="mb-3 g-3"))
 
-    children.append(html.Hr())
+    canal_table = dash_table.DataTable(
+        columns=[{"name": "Canal", "id": "_canal"}, {"name": "Valor", "id": "Valor"}, {"name": "%", "id": "%"}],
+        data=[{"_canal": r["_canal"], "Valor": fmt_p(r["Valor"]), "%": f"{r['%']:.1f}%"} for _, r in canales.iterrows()],
+        style_table={"overflowX": "auto"},
+        style_cell={"textAlign": "left", "padding": "5px 10px", "fontSize": "0.78rem", "fontFamily": "Segoe UI, Arial, sans-serif"},
+        style_header={"fontWeight": "bold", "backgroundColor": DARKGRAY, "color": "white"},
+        page_size=10,
+    )
+    children.append(html.Div([
+        html.H6("● Distribucion por Canal", className="fw-bold mb-2", style={"color": NAVY, "fontSize": "0.85rem"}),
+        canal_table,
+        html.Hr(),
+    ]))
 
     return children
 
@@ -365,80 +402,273 @@ def pagina_ranking(data):
 
 
 def pagina_embudo(data):
-    children = [section_title("Embudo de Pedidos", "Pipeline de estados")]
+    vp = data["_valor"].sum()
+    vc = data["_valor_sec"].sum() if "_valor_sec" in data.columns else 0
+    total_pedidos = data["_documento"].nunique()
 
     funnel = data.groupby("_estado").agg(
         Valor=("_valor", "sum"), Pedidos=("_documento", "nunique"),
     ).reset_index().sort_values("Valor", ascending=False)
-
-    fig = go.Figure(go.Funnel(
-        y=funnel["_estado"], x=funnel["Valor"] / 1e6,
-        text=[f"${v/1e6:.1f}M<br>{p} pedidos" for v, p in zip(funnel["Valor"], funnel["Pedidos"])],
-        textposition="inside", textinfo="text",
-        marker=dict(color=[BLUE, GREEN, AMBER, RED, GRAY][:len(funnel)]),
-    ))
-    fig.update_layout(**fig_layout("Pipeline de Pedidos (millones $)", height=380))
-
     total = funnel["Valor"].sum()
-    comp = funnel[funnel["_estado"].str.contains("Comprometido", na=False)]["Valor"].sum()
+    funnel["%"] = (funnel["Valor"] / total * 100).round(2) if total else 0
+
+    comp = funnel[funnel["_estado"].str.contains("Comprometido|Cumplid|Cerrad|Despac", na=False, case=False)]["Valor"].sum()
     rate = comp / total * 100 if total else 0
 
+    estados_n = len(funnel)
+
+    children = [section_title("Embudo de Pedidos", f"{estados_n} estados | Tasa cierre: {rate:.1f}%")]
+
+    kpi_row = dbc.Row([
+        dbc.Col(kpi_card("Pipeline Total", fmt_p(vp), f"{total_pedidos:,} pedidos", color=BLUE), width=3),
+        dbc.Col(kpi_card("Comprometido", fmt_p(comp), fmt_pm(comp), color=GREEN), width=3),
+        dbc.Col(kpi_card("Tasa de Cierre", f"{rate:.1f}%", f"Pendiente: {fmt_pm(vp-comp)}", color=GREEN if rate > 50 else AMBER), width=3),
+        dbc.Col(kpi_card("Estados", str(estados_n), f"Valor prom: {fmt_pm(total/estados_n)}" if estados_n else "", color=GRAY), width=3),
+    ], className="mb-4 g-3")
+    children.append(kpi_row)
+
+    funnel_colors = [BLUE, GREEN, AMBER, RED, "#8b5cf6", GRAY, "#ec4899", "#14b8a6"]
+    fig = go.Figure(go.Funnel(
+        y=funnel["_estado"], x=funnel["Valor"] / 1e6,
+        text=[f"${v/1e6:.1f}M" + (f"<br>{p} pedidos" if p else "") for v, p in zip(funnel["Valor"], funnel["Pedidos"])],
+        textposition="auto", textinfo="text",
+        textfont=dict(size=11, color="white"),
+        marker=dict(color=funnel_colors[:len(funnel)], line=dict(color="white", width=1)),
+        connector=dict(fillcolor="white", line=dict(color="#e2e8f0", width=1)),
+    ))
+    fig.update_layout(**fig_layout("Pipeline de Pedidos (millones $)", height=420,
+        margin=dict(t=45, b=20, l=80, r=40)))
+
     children.append(dbc.Row([dbc.Col(dcc.Graph(figure=fig), width=12)], className="mb-3"))
+
+    funnel_table = dash_table.DataTable(
+        columns=[{"name": "Estado", "id": "_estado"}, {"name": "Valor", "id": "Valor"},
+                 {"name": "%", "id": "%"}, {"name": "Pedidos", "id": "Pedidos"}],
+        data=[{"_estado": r["_estado"], "Valor": f"${r['Valor']/1e6:,.1f}M",
+               "%": f"{r['%']:.1f}%", "Pedidos": f"{int(r['Pedidos']):,}"}
+              for _, r in funnel.iterrows()],
+        style_table={"overflowX": "auto"},
+        style_cell={"textAlign": "left", "padding": "6px 12px", "fontSize": "0.8rem", "fontFamily": "Segoe UI, Arial, sans-serif"},
+        style_header={"fontWeight": "bold", "backgroundColor": DARKGRAY, "color": "white"},
+        style_data_conditional=[
+            {"if": {"filter_query": "{_estado} contains 'Comprometido'"},
+             "backgroundColor": "#F0FFF0", "fontWeight": "bold"},
+        ],
+        page_size=20,
+    )
     children.append(html.Div([
-        html.P([html.Strong(f"Tasa de cierre: {rate:.1f}% del valor total comprometido.")], className="mb-2"),
+        html.H6("● Detalle por Estado", className="fw-bold mb-2", style={"color": NAVY, "fontSize": "0.85rem"}),
+        funnel_table,
+        html.Hr(),
     ]))
-    children.append(html.Hr())
+
     return children
 
 
 def pagina_heatmap(data):
-    children = [section_title("Heatmap de Rendimiento", "Actividad por asesor y mes")]
+    n_asesores = data["_vendedor"].nunique()
+    n_meses = data["_fecha"].dt.to_period("M").nunique() if "_fecha" in data.columns else 0
+    vp = data["_valor"].sum()
+
+    children = [section_title("Heatmap de Rendimiento", f"{n_asesores} asesores × {n_meses} meses | {fmt_pm(vp)} total")]
 
     heat = data.copy()
     heat["Mes_Anio"] = heat["_fecha"].dt.to_period("M").astype(str)
     pivot = heat.pivot_table(index="_vendedor", columns="Mes_Anio", values="_valor", aggfunc="sum").fillna(0)
 
+    pivot["_total"] = pivot.sum(axis=1)
+    pivot = pivot.sort_values("_total", ascending=False)
+    pivot_display = pivot.drop(columns=["_total"])
+
+    total_row = pd.DataFrame([pivot_display.sum(axis=0).values], columns=pivot_display.columns, index=["TOTAL"])
+
+    pivot_with_total = pd.concat([pivot_display, total_row])
+
+    text_matrix = []
+    for idx in pivot_with_total.index:
+        row_text = []
+        for col in pivot_with_total.columns:
+            v = pivot_with_total.loc[idx, col]
+            if v == 0:
+                row_text.append("")
+            else:
+                row_text.append(f"${v/1e6:.1f}M")
+        text_matrix.append(row_text)
+
+    base_colorscale = [
+        [0.0, "#f0f4ff"],
+        [0.3, "#93c5fd"],
+        [0.6, "#3b82f6"],
+        [0.85, "#1e40af"],
+        [1.0, "#0c1d5c"],
+    ]
+
+    y_labels = list(pivot_with_total.index)
     fig = go.Figure(go.Heatmap(
-        z=pivot.values, x=list(pivot.columns), y=list(pivot.index),
-        colorscale="Blues", text=[[f"${v/1e6:.1f}M" for v in row] for row in pivot.values],
-        texttemplate="%{text}", textfont={"size": 9},
+        z=pivot_with_total.values,
+        x=list(pivot_with_total.columns),
+        y=y_labels,
+        colorscale=base_colorscale,
+        text=text_matrix,
+        texttemplate="%{text}",
+        textfont=dict(size=8, color=DARKGRAY),
+        hovertemplate="<b>%{y}</b><br>%{x}: %{text}<extra></extra>",
+        xgap=2, ygap=2,
     ))
-    fig.update_layout(**fig_layout("Valor por Asesor y Mes (millones $)", height=420))
-    fig.update_xaxes(tickangle=-45)
+
+    chart_h = max(350, min(650, len(y_labels) * 28))
+    fig.update_layout(**fig_layout("Valor por Asesor y Mes (millones $)", height=chart_h,
+        margin=dict(t=45, b=50, l=100, r=30)))
+    fig.update_xaxes(tickangle=-45, tickfont=dict(size=9), side="top")
+    fig.update_yaxes(tickfont=dict(size=9, family="Segoe UI"), automargin=True)
+    fig.add_hline(y=len(y_labels) - 1.5, line=dict(color=DARKGRAY, width=2, dash="dot"))
 
     children.append(dbc.Row([dbc.Col(dcc.Graph(figure=fig), width=12)], className="mb-3"))
-    children.append(html.Hr())
+
+    top_asesores = (
+        heat.groupby("_vendedor")["_valor"].sum().sort_values(ascending=False)
+    )
+    summary_data = []
+    for name, val in top_asesores.items():
+        pct = val / vp * 100 if vp else 0
+        summary_data.append({
+            "Asesor": str(name), "Valor Total": fmt_p(val), "% Part": f"{pct:.1f}%",
+            "Valor Prom Mensual": fmt_p(val / n_meses) if n_meses else "-",
+        })
+    summary_table = dash_table.DataTable(
+        columns=[{"name": "Asesor", "id": "Asesor"}, {"name": "Valor Total", "id": "Valor Total"},
+                 {"name": "% Part", "id": "% Part"}, {"name": "Prom. Mensual", "id": "Valor Prom Mensual"}],
+        data=summary_data,
+        style_table={"overflowX": "auto"},
+        style_cell={"textAlign": "left", "padding": "5px 10px", "fontSize": "0.78rem", "fontFamily": "Segoe UI, Arial, sans-serif"},
+        style_header={"fontWeight": "bold", "backgroundColor": DARKGRAY, "color": "white"},
+        page_size=20,
+    )
+    children.append(html.Div([
+        html.H6("● Resumen por Asesor", className="fw-bold mb-2", style={"color": NAVY, "fontSize": "0.85rem"}),
+        summary_table,
+        html.Hr(),
+    ]))
+
     return children
 
 
 def pagina_proyeccion(data):
     import numpy as np
-    children = [section_title("Proyeccion de Cierre", "Tendencia y estimacion")]
+    if "_fecha" not in data.columns or data["_fecha"].isna().all():
+        return [section_title("Proyeccion de Cierre", "Sin datos"), html.P("No hay fechas disponibles.", className="text-muted")]
 
     evol = data.groupby(data["_fecha"].dt.to_period("M")).agg(
         Valor=("_valor", "sum"),
-    ).reset_index()
+    ).reset_index().sort_values("_fecha")
     evol["Periodo"] = range(len(evol))
 
-    if len(evol) >= 3:
-        coef = np.polyfit(evol["Periodo"], evol["Valor"], 1)
-        trend = np.poly1d(coef)
-        evol["Tendencia"] = trend(evol["Periodo"])
-        proy = trend(len(evol))
+    if "_valor_sec" in data.columns:
+        evol_c = data.groupby(data["_fecha"].dt.to_period("M"))["_valor_sec"].sum().reset_index()
+        evol_c = evol_c.rename(columns={"_valor_sec": "Comprometido"}).sort_values("_fecha")
+        evol["Comprometido"] = evol_c["Comprometido"].values
 
-        fig = go.Figure()
-        fig.add_trace(go.Bar(x=evol["_fecha"].astype(str), y=evol["Valor"] / 1e6, name="Real",
-            marker_color=BLUE))
-        fig.add_trace(go.Scatter(x=evol["_fecha"].astype(str), y=evol["Tendencia"] / 1e6,
-            name="Tendencia", mode="lines", line=dict(width=3, color=RED, dash="dash")))
-        fig.update_layout(**fig_layout("Proyeccion de Cierre (millones $)", height=380))
-        fig.update_xaxes(tickangle=-45)
+    if len(evol) < 3:
+        return [section_title("Proyeccion de Cierre", "Datos insuficientes"),
+                html.P(f"Se requieren al menos 3 meses. Hay {len(evol)}.", className="text-muted")]
 
-        children.append(dbc.Row([dbc.Col(dcc.Graph(figure=fig), width=12)], className="mb-3"))
-        children.append(html.Div([
-            html.H5(f"Proyeccion: {fmt_p(proy)}", className="fw-bold", style={"color": NAVY}),
-        ], className="text-center mb-4"))
-    else:
-        children.append(html.P("Se requieren al menos 3 meses de datos.", className="text-muted"))
+    n_meses = len(evol)
+    coef = np.polyfit(evol["Periodo"], evol["Valor"], 1)
+    trend = np.poly1d(coef)
+    evol["Tendencia"] = trend(evol["Periodo"])
+
+    residuos = evol["Valor"] - evol["Tendencia"]
+    std_err = np.std(residuos)
+
+    proy_next = trend(n_meses)
+    proy_low = trend(n_meses) - 1.28 * std_err
+    proy_high = trend(n_meses) + 1.28 * std_err
+
+    evol["MM3"] = evol["Valor"].rolling(3, min_periods=1).mean()
+    growth_rate = (coef[0] / evol["Valor"].mean() * 100) if evol["Valor"].mean() > 0 else 0
+
+    presup_anual = 0
+    try:
+        from budget import cargar_ptto_company
+        from config import RUTA_PRESUPUESTO_COMPANY
+        ptto = cargar_ptto_company(str(RUTA_PRESUPUESTO_COMPANY))
+        presup_anual = sum(v.get("ppto", 0) for v in ptto.values() if isinstance(v, dict))
+    except Exception:
+        presup_anual = 0
+
+    proy_annual = trend(len(evol) + 5) if len(evol) >= 6 else proy_next * 12
+    ppto_pct = (proy_annual / presup_anual * 100) if presup_anual else 0
+
+    title_sub = f"{n_meses} meses | {'Crecimiento' if growth_rate > 0 else 'Decrecimiento'} {growth_rate:+.1f}%/mes"
+    children = [section_title("Proyeccion de Cierre", title_sub)]
+
+    kpi_row = dbc.Row([
+        dbc.Col(kpi_card("Proyeccion Prox. Mes", fmt_pm(proy_next), f"Rango: {fmt_pm(proy_low)} – {fmt_pm(proy_high)}",
+            color=GREEN if growth_rate > 0 else RED), width=3),
+        dbc.Col(kpi_card("Tendencia", f"{growth_rate:+.1f}%/mes", f"R²={np.corrcoef(evol['Periodo'], evol['Valor'])[0,1]**2:.3f}",
+            color=BLUE), width=3),
+        dbc.Col(kpi_card("Proy. Anual", fmt_pm(proy_annual), f"vs Ppto: {ppto_pct:.1f}%" if presup_anual else "Sin presupuesto anual",
+            color=GREEN if ppto_pct >= 85 else AMBER if ppto_pct >= 60 else RED), width=3),
+        dbc.Col(kpi_card("Volatilidad", fmt_pm(std_err), f"{std_err/proy_next*100:.1f}% de la proyeccion" if proy_next else "",
+            color=GRAY), width=3),
+    ], className="mb-4 g-3")
+    children.append(kpi_row)
+
+    fig = go.Figure()
+    fig.add_trace(go.Bar(x=evol["_fecha"].astype(str), y=evol["Valor"] / 1e6,
+        name="Real", marker_color=BLUE, opacity=0.85,
+        hovertemplate="<b>%{x}</b><br>Real: $%{y:.1f}M<extra></extra>"))
+
+    if "Comprometido" in evol.columns:
+        fig.add_trace(go.Bar(x=evol["_fecha"].astype(str), y=evol["Comprometido"] / 1e6,
+            name="Comprometido", marker_color=GREEN, opacity=0.7,
+            hovertemplate="<b>%{x}</b><br>Comprometido: $%{y:.1f}M<extra></extra>"))
+
+    fig.add_trace(go.Scatter(x=evol["_fecha"].astype(str), y=evol["Tendencia"] / 1e6,
+        name="Tendencia lineal", mode="lines", line=dict(width=2, color=RED, dash="dash"),
+        hovertemplate="<b>%{x}</b><br>Tendencia: $%{y:.1f}M<extra></extra>"))
+
+    fig.add_trace(go.Scatter(x=evol["_fecha"].astype(str), y=evol["MM3"] / 1e6,
+        name="Media movil 3M", mode="lines+markers", line=dict(width=2, color=AMBER),
+        marker=dict(size=4), hovertemplate="<b>%{x}</b><br>MM3: $%{y:.1f}M<extra></extra>"))
+
+    prox_periodo = f"Prox"
+    fig.add_trace(go.Scatter(x=[prox_periodo], y=[proy_next / 1e6],
+        mode="markers", name="Proyeccion", marker=dict(size=14, color=RED, symbol="diamond"),
+        hovertemplate="Proyeccion: $%{y:.1f}M<extra></extra>"))
+
+    fig.add_trace(go.Scatter(x=[prox_periodo, prox_periodo],
+        y=[proy_low / 1e6, proy_high / 1e6],
+        mode="lines", name="Rango 80%", line=dict(width=6, color="rgba(233, 97, 75, 0.25)"),
+        hoverinfo="skip"))
+
+    fig.update_layout(**fig_layout("Proyeccion de Cierre (millones $)", height=420,
+        legend=dict(orientation="h", y=1.12, x=0.5, xanchor="center", font=dict(size=9))))
+    fig.update_xaxes(tickangle=-45, tickfont=dict(size=9))
+    fig.update_yaxes(title="$ millones", automargin=True)
+
+    children.append(dbc.Row([dbc.Col(dcc.Graph(figure=fig), width=12)], className="mb-3"))
+
+    evol_table = dash_table.DataTable(
+        columns=[{"name": "Mes", "id": "Mes"}, {"name": "Valor", "id": "Valor"},
+                 {"name": "MM3", "id": "MM3"}, {"name": "Tendencia", "id": "Tendencia"},
+                 {"name": "Crec.", "id": "Crec"}],
+        data=[{
+            "Mes": str(r["_fecha"]),
+            "Valor": fmt_pm(r["Valor"]),
+            "MM3": fmt_pm(r["MM3"]),
+            "Tendencia": fmt_pm(r["Tendencia"]),
+            "Crec": f"{((r['Valor']/evol['Valor'].shift(1).iloc[i] - 1)*100):+.1f}%" if i > 0 and evol['Valor'].iloc[i-1] > 0 else "-"
+        } for i, (_, r) in enumerate(evol.iterrows())],
+        style_table={"overflowX": "auto"},
+        style_cell={"textAlign": "left", "padding": "5px 10px", "fontSize": "0.78rem", "fontFamily": "Segoe UI, Arial, sans-serif"},
+        style_header={"fontWeight": "bold", "backgroundColor": DARKGRAY, "color": "white"},
+        page_size=20,
+    )
+    children.append(html.Div([
+        html.H6("● Evolucion Mensual", className="fw-bold mb-2", style={"color": NAVY, "fontSize": "0.85rem"}),
+        evol_table,
+        html.Hr(),
+    ]))
 
     return children
