@@ -6,7 +6,7 @@ import pandas as pd
 import numpy as np
 from pages.components import (
     section_title, kpi_card, fmt_p, fmt_pm, fig_layout,
-    NAVY, BLUE, AMBER, GREEN, RED, GRAY, DARKGRAY, GOLD, kahoot_podium, apply_filters,
+    NAVY, BLUE, AMBER, GREEN, RED, GRAY, DARKGRAY, GOLD, kahoot_podium, apply_filters, graph_png,
 )
 
 
@@ -150,7 +150,7 @@ def pagina_resumen(data):
     )
 
     children.append(dbc.Row([
-        dbc.Col(dcc.Graph(figure=fig_evol), width=6),
+        dbc.Col(graph_png(figure=fig_evol), width=6),
         dbc.Col(html.Div([
             html.H6("Indicadores Clave", className="fw-bold", style={"color": NAVY}),
             html.Ul([
@@ -159,7 +159,7 @@ def pagina_resumen(data):
                 html.Li(f"Cumplimiento general: {cumpl_val:.1f}%"),
             ], className="small"),
             html.Hr(),
-            dcc.Graph(figure=fig_asesores, style={"height": "300px"}),
+            graph_png(figure=fig_asesores, style={"height": "300px"}),
         ]), width=6),
     ], className="mb-3 g-3"))
 
@@ -236,9 +236,9 @@ def pagina_participacion(data):
     fig_lin.update_yaxes(automargin=True, autorange="reversed")
 
     children.append(dbc.Row([
-        dbc.Col(dcc.Graph(figure=fig_canal), width=4),
-        dbc.Col(dcc.Graph(figure=fig_ase), width=4),
-        dbc.Col(dcc.Graph(figure=fig_lin), width=4),
+        dbc.Col(graph_png(figure=fig_canal), width=4),
+        dbc.Col(graph_png(figure=fig_ase), width=4),
+        dbc.Col(graph_png(figure=fig_lin), width=4),
     ], className="mb-3 g-3"))
 
     canal_table = dash_table.DataTable(
@@ -313,7 +313,7 @@ def pagina_pareto(data):
 
     children = [section_title("Pareto de Clientes", "Analisis de concentracion")]
     children.append(dbc.Row([
-        dbc.Col(dcc.Graph(figure=fig, style={"height": "460px"}), width=8),
+        dbc.Col(graph_png(figure=fig, style={"height": "460px"}), width=8),
         dbc.Col(top10, width=4),
     ], className="mb-3 g-3"))
     children.append(table)
@@ -391,7 +391,7 @@ def pagina_ranking(data):
         margin=dict(t=40, b=20, l=20, r=50)))
     fig.update_xaxes(title="$ millones", showgrid=True, gridcolor="#e2e8f0")
     fig.update_yaxes(automargin=True, tickfont=dict(size=10), autorange="reversed")
-    children.append(dbc.Row([dbc.Col(dcc.Graph(figure=fig), width=12)], className="mb-3"))
+    children.append(dbc.Row([dbc.Col(graph_png(figure=fig), width=12)], className="mb-3"))
 
     table_data = []
     for _, r in rank.iterrows():
@@ -507,7 +507,7 @@ def pagina_embudo(data):
     fig.update_layout(**fig_layout("Pipeline de Pedidos (millones $)", height=420,
         margin=dict(t=45, b=20, l=80, r=40)))
 
-    children.append(dbc.Row([dbc.Col(dcc.Graph(figure=fig), width=12)], className="mb-3"))
+    children.append(dbc.Row([dbc.Col(graph_png(figure=fig), width=12)], className="mb-3"))
 
     funnel_table = dash_table.DataTable(
         columns=[{"name": "Estado", "id": "_estado"}, {"name": "Valor", "id": "Valor"},
@@ -591,7 +591,7 @@ def pagina_heatmap(data):
     fig.update_yaxes(tickfont=dict(size=9, family="Segoe UI"), automargin=True)
     fig.add_hline(y=len(y_labels) - 1.5, line=dict(color=DARKGRAY, width=2, dash="dot"))
 
-    children.append(dbc.Row([dbc.Col(dcc.Graph(figure=fig), width=12)], className="mb-3"))
+    children.append(dbc.Row([dbc.Col(graph_png(figure=fig), width=12)], className="mb-3"))
 
     top_asesores = (
         heat.groupby("_vendedor")["_valor"].sum().sort_values(ascending=False)
@@ -715,7 +715,7 @@ def pagina_proyeccion(data):
     fig.update_xaxes(tickangle=-45, tickfont=dict(size=9))
     fig.update_yaxes(title="$ millones", automargin=True)
 
-    children.append(dbc.Row([dbc.Col(dcc.Graph(figure=fig), width=12)], className="mb-3"))
+    children.append(dbc.Row([dbc.Col(graph_png(figure=fig), width=12)], className="mb-3"))
 
     evol_table = dash_table.DataTable(
         columns=[{"name": "Mes", "id": "Mes"}, {"name": "Valor", "id": "Valor"},

@@ -3,7 +3,7 @@ import dash_bootstrap_components as dbc
 import dash_mantine_components as dmc
 import plotly.graph_objects as go
 import plotly.express as px
-from pages.components import section_title, kpi_card, fmt_p, fmt_pm, fig_layout, NAVY, BLUE, GREEN, AMBER, RED, GRAY, DARKGRAY, GOLD
+from pages.components import section_title, kpi_card, fmt_p, fmt_pm, fig_layout, NAVY, BLUE, GREEN, AMBER, RED, GRAY, DARKGRAY, GOLD, graph_png
 
 
 def pagina_resumen_ventas(data):
@@ -68,8 +68,8 @@ def pagina_resumen_ventas(data):
     fig_vend.update_yaxes(automargin=True, tickfont=dict(size=10), autorange="reversed")
 
     children.append(dbc.Row([
-        dbc.Col(dcc.Graph(figure=fig_evol), width=6),
-        dbc.Col(dcc.Graph(figure=fig_vend), width=6),
+        dbc.Col(graph_png(figure=fig_evol), width=6),
+        dbc.Col(graph_png(figure=fig_vend), width=6),
     ], className="mb-3 g-3"))
 
     evol_table = dash_table.DataTable(
@@ -145,8 +145,8 @@ def pagina_margenes(data):
     fig_vend.update_yaxes(automargin=True, tickfont=dict(size=10), autorange="reversed")
 
     children.append(dbc.Row([
-        dbc.Col(dcc.Graph(figure=fig_canal), width=6),
-        dbc.Col(dcc.Graph(figure=fig_vend), width=6),
+        dbc.Col(graph_png(figure=fig_canal), width=6),
+        dbc.Col(graph_png(figure=fig_vend), width=6),
     ], className="mb-3 g-3"))
 
     canal_table = dash_table.DataTable(
@@ -221,8 +221,8 @@ def pagina_mix_producto(data):
     fig_bar.update_yaxes(automargin=True, tickfont=dict(size=10), autorange="reversed")
 
     children.append(dbc.Row([
-        dbc.Col(dcc.Graph(figure=fig_treemap), width=6),
-        dbc.Col(dcc.Graph(figure=fig_bar), width=6),
+        dbc.Col(graph_png(figure=fig_treemap), width=6),
+        dbc.Col(graph_png(figure=fig_bar), width=6),
     ], className="mb-3 g-3"))
 
     mix_table = dash_table.DataTable(
@@ -286,7 +286,7 @@ def pagina_precio_promedio(data):
     fig.update_xaxes(tickangle=-45, tickfont=dict(size=9))
     fig.update_yaxes(title="$ pesos", automargin=True)
 
-    children.append(dbc.Row([dbc.Col(dcc.Graph(figure=fig), width=12)], className="mb-3"))
+    children.append(dbc.Row([dbc.Col(graph_png(figure=fig), width=12)], className="mb-3"))
 
     precio_table = dash_table.DataTable(
         columns=[{"name": "Linea", "id": "_linea"}, {"name": "Valor", "id": "Valor"},

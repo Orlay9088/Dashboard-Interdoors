@@ -221,6 +221,8 @@ def build_sidebar():
 
         dbc.Button("Refrescar datos", id="refresh-data", color="light", size="sm", className="w-100 mb-1 text-dark"),
         dbc.Button("Limpiar datos", id="clear-data", color="danger", size="sm", className="w-100 mb-1"),
+        dbc.Button("   Descargar CSV", id="btn-download-csv", color="success", size="sm", className="w-100 mb-1"),
+        dcc.Download(id="download-data"),
         html.Div(id="clear-status", style={"fontSize": "0.8rem", "minHeight": "1.5rem"}),
         html.Hr(style={"borderColor": "rgba(255,255,255,0.15)"}),
 
@@ -734,6 +736,48 @@ def process_upload(n_clicks, contents, filename, refresh_count, active_module):
             html.Div("Error procesando archivo", style={"color": RED, "fontWeight": "bold"}),
             html.Div(str(e), className="small", style={"color": "#f87171"}),
         ]), no_update, no_update, no_update, no_update
+
+
+
+
+@callback(
+    Output("download-data", "data"),
+    Input("btn-download-csv", "n_clicks"),
+    State("store-module", "data"),
+    State("store-filters", "data"),
+    State("store-pareto-canal", "data"),
+    State("store-bodega-filter", "data"),
+    prevent_initial_call=True,
+)
+def download_csv(n, module, filters, pareto_canal, bodega_filter):
+    import json, io
+    if not n:
+        return no_update
+    try:
+        if isinstance(filters, str):
+            try: filters = json.loads(filters)
+            except: filters = {}
+        if not isinstance(filters, dict):
+            filters = {}
+        df = load_local(module)
+        if df.empty:
+            return no_update
+        data = apply_filters(df, filters)
+        if data.empty:
+            return no_update
+        if module == "pedidos" and pareto_canal and pareto_canal != "TODOS":
+            data = data[data["_canal"] == pareto_canal]
+        if module == "inventario" and bodega_filter and bodega_filter != "[]" and "_bodega" in data.columns:
+            try:
+                selected = json.loads(bodega_filter)
+                if selected:
+                    data = data[data["_bodega"].astype(str).isin(selected)]
+            except: pass
+        buffer = io.StringIO()
+        data.to_csv(buffer, index=False, encoding="utf-8-sig")
+        return dict(content=buffer.getvalue(), filename=f"dashboard_{module}.csv")
+    except Exception:
+        return no_update
 
 
 @callback(

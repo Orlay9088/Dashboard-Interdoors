@@ -3,7 +3,7 @@ import dash_bootstrap_components as dbc
 import dash_mantine_components as dmc
 import plotly.graph_objects as go
 import plotly.express as px
-from pages.components import section_title, kpi_card, fmt_p, fmt_pm, fig_layout, NAVY, BLUE, GREEN, AMBER, RED, GRAY, DARKGRAY, GOLD
+from pages.components import section_title, kpi_card, fmt_p, fmt_pm, fig_layout, NAVY, BLUE, GREEN, AMBER, RED, GRAY, DARKGRAY, GOLD, graph_png
 
 
 def pagina_resumen_stock(data):
@@ -103,8 +103,8 @@ def pagina_resumen_stock(data):
     fig_prod.update_xaxes(tickangle=-45)
 
     children.append(dbc.Row([
-        dbc.Col(dcc.Graph(figure=fig_bodega), width=6),
-        dbc.Col(dcc.Graph(figure=fig_prod), width=6),
+        dbc.Col(graph_png(figure=fig_bodega), width=6),
+        dbc.Col(graph_png(figure=fig_prod), width=6),
     ], className="mb-3 g-3"))
 
     table = dash_table.DataTable(
@@ -177,8 +177,8 @@ def pagina_por_bodega(data):
     fig_sun.update_layout(**fig_layout("Distribucion de Valor por Bodega", height=380))
 
     children.append(dbc.Row([
-        dbc.Col(dcc.Graph(figure=fig_barras), width=6),
-        dbc.Col(dcc.Graph(figure=fig_sun), width=6),
+        dbc.Col(graph_png(figure=fig_barras), width=6),
+        dbc.Col(graph_png(figure=fig_sun), width=6),
     ], className="mb-3 g-3"))
 
     table = dash_table.DataTable(
@@ -247,7 +247,7 @@ def pagina_criticos(data):
         fig_crit.update_xaxes(tickangle=-45, tickfont=dict(size=9))
         fig_crit.update_yaxes(title="$ millones", automargin=True)
 
-        children.append(dbc.Row([dbc.Col(dcc.Graph(figure=fig_crit), width=12)], className="mb-3"))
+        children.append(dbc.Row([dbc.Col(graph_png(figure=fig_crit), width=12)], className="mb-3"))
 
         criticos.append(html.H6("● Alto Compromiso (>80%)", className="fw-bold", style={"color": RED, "fontSize": "0.85rem"}))
         criticos.append(dash_table.DataTable(

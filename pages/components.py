@@ -3,6 +3,25 @@ import dash_bootstrap_components as dbc
 import dash_mantine_components as dmc
 import pandas as pd
 
+def graph_png(figure, className=None, style=None):
+    return dcc.Graph(
+        figure=figure,
+        className=className,
+        style=style,
+        config={
+            "displayModeBar": True,
+            "modeBarButtonsToAdd": ["toImage"],
+            "toImageButtonOptions": {
+                "format": "png",
+                "filename": "grafico_interdoors",
+                "height": 900,
+                "width": 1600,
+                "scale": 2,
+            },
+            "displaylogo": False,
+        },
+    )
+
 # ============================================================
 # INTERDOORS BRAND COLORS (Manual de Marca ID 2025)
 # ============================================================
