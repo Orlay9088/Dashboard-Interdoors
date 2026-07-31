@@ -17,11 +17,11 @@ def pagina_home(data):
     facturas = load_local("facturas")
     inventario = load_local("inventario")
 
-    vp = pedidos["_valor"].sum()
-    vc = pedidos["_valor_sec"].sum() if "_valor_sec" in pedidos.columns else 0
-    ped_count = pedidos["_documento"].nunique()
-    ped_clientes = pedidos["_cliente"].nunique()
-    ped_asesores = pedidos["_vendedor"].nunique()
+    vp = pedidos["_valor"].sum() if not pedidos.empty else 0
+    vc = pedidos["_valor_sec"].sum() if not pedidos.empty and "_valor_sec" in pedidos.columns else 0
+    ped_count = pedidos["_documento"].nunique() if not pedidos.empty else 0
+    ped_clientes = pedidos["_cliente"].nunique() if not pedidos.empty else 0
+    ped_asesores = pedidos["_vendedor"].nunique() if not pedidos.empty else 0
 
     vf = facturas["_valor"].sum() if not facturas.empty else 0
     fact_count = facturas["_documento"].nunique() if not facturas.empty else 0
@@ -35,41 +35,47 @@ def pagina_home(data):
 
     children = [section_title("Dashboard Interdoors", "Resumen consolidado de todos los modulos")]
 
-    children.append(html.Div([
-        html.H6("PEDIDOS", className="fw-bold mb-3", style={"color": BLUE, "fontSize": "0.8rem", "letterSpacing": "1.5px", "textTransform": "uppercase"}),
-        dbc.Row([
-            dbc.Col(kpi_card("Valor Pendiente", fmt_p(vp), fmt_pm(vp), color=BLUE), width=3),
-            dbc.Col(kpi_card("Comprometido", fmt_p(vc), f"{(vc/vp*100):.1f}% cumplimiento" if vp else "0%", color=GREEN), width=3),
-            dbc.Col(kpi_card("Pedidos", f"{ped_count:,}", f"{ped_clientes} clientes", color=NAVY), width=3),
-            dbc.Col(kpi_card("Asesores", str(ped_asesores), "activos en el periodo", color=GRAY), width=3),
-        ], className="mb-3 g-3"),
-    ], style={"background": "white", "borderRadius": "12px", "padding": "16px 20px", "marginBottom": "16px",
-               "borderLeft": f"5px solid {BLUE}", "boxShadow": "0 1px 3px rgba(0,0,0,0.05)"}))
+    children.append(_home_block("PEDIDOS", BLUE, [
+        ("Valor Pendiente", fmt_p(vp), fmt_pm(vp)),
+        ("Comprometido", fmt_p(vc), f"{(vc/vp*100):.1f}% cumplimiento" if vp else "0%"),
+        ("Pedidos", f"{ped_count:,}", f"{ped_clientes} clientes"),
+        ("Asesores", str(ped_asesores), "activos en el periodo"),
+    ], pedidos.empty))
 
-    children.append(html.Div([
-        html.H6("FACTURACION", className="fw-bold mb-3", style={"color": GREEN, "fontSize": "0.8rem", "letterSpacing": "1.5px", "textTransform": "uppercase"}),
-        dbc.Row([
-            dbc.Col(kpi_card("Ventas Totales", fmt_p(vf), fmt_pm(vf), color=GREEN), width=3),
-            dbc.Col(kpi_card("Margen Global", f"{mgn_pct:.1f}%", f"Costo: {fmt_pm(fact_costo)}", color=GREEN if mgn_pct > 25 else AMBER), width=3),
-            dbc.Col(kpi_card("Facturas", f"{fact_count:,}" if fact_count else "-", "emitidas" if fact_count else "Sin datos", color=NAVY), width=3),
-            dbc.Col(kpi_card("Ticket Prom.", fmt_p(vf/fact_count) if fact_count else "-", "por factura" if fact_count else "", color=GRAY), width=3),
-        ], className="mb-3 g-3"),
-    ], style={"background": "white", "borderRadius": "12px", "padding": "16px 20px", "marginBottom": "16px",
-               "borderLeft": f"5px solid {GREEN}", "boxShadow": "0 1px 3px rgba(0,0,0,0.05)"}))
+    children.append(_home_block("FACTURACION", GREEN, [
+        ("Ventas Totales", fmt_p(vf), fmt_pm(vf)),
+        ("Margen Global", f"{mgn_pct:.1f}%", f"Costo: {fmt_pm(fact_costo)}"),
+        ("Facturas", f"{fact_count:,}" if fact_count else "-", "emitidas" if fact_count else "Sin datos"),
+        ("Ticket Prom.", fmt_p(vf/fact_count) if fact_count else "-", "por factura" if fact_count else ""),
+    ], facturas.empty))
 
-    children.append(html.Div([
-        html.H6("INVENTARIO", className="fw-bold mb-3", style={"color": AMBER, "fontSize": "0.8rem", "letterSpacing": "1.5px", "textTransform": "uppercase"}),
-        dbc.Row([
-            dbc.Col(kpi_card("Valor Inventario", fmt_p(vi), fmt_pm(vi), color=AMBER), width=3),
-            dbc.Col(kpi_card("Productos", f"{inv_prod:,}" if inv_prod else "-", f"{inv_bod} bodegas" if inv_bod else "", color=NAVY), width=3),
-            dbc.Col(kpi_card("Existencia", f"{inv_exist:,.0f} und" if inv_exist else "-", "unidades totales" if inv_exist else "Sin datos", color=GRAY), width=3),
-            dbc.Col(kpi_card("Valor Prom.", fmt_p(vi/inv_prod) if inv_prod else "-", "por producto" if inv_prod else "", color=GRAY), width=3),
-        ], className="mb-3 g-3"),
-    ], style={"background": "white", "borderRadius": "12px", "padding": "16px 20px", "marginBottom": "16px",
-               "borderLeft": f"5px solid {AMBER}", "boxShadow": "0 1px 3px rgba(0,0,0,0.05)"}))
+    children.append(_home_block("INVENTARIO", AMBER, [
+        ("Valor Inventario", fmt_p(vi), fmt_pm(vi)),
+        ("Productos", f"{inv_prod:,}" if inv_prod else "-", f"{inv_bod} bodegas" if inv_bod else ""),
+        ("Existencia", f"{inv_exist:,.0f} und" if inv_exist else "-", "unidades totales" if inv_exist else "Sin datos"),
+        ("Valor Prom.", fmt_p(vi/inv_prod) if inv_prod else "-", "por producto" if inv_prod else ""),
+    ], inventario.empty))
 
     children.append(html.Hr())
     return children
+
+
+def _home_block(title, color, kpis, is_empty):
+    if is_empty:
+        return html.Div([
+            html.H6(title, className="fw-bold mb-2", style={"color": color, "fontSize": "0.8rem", "letterSpacing": "1.5px", "textTransform": "uppercase"}),
+            html.P("Sin datos. Sube un archivo Excel en el panel lateral.", style={"color": GRAY, "fontSize": "0.8rem", "fontStyle": "italic"}),
+        ], style={"background": "white", "borderRadius": "12px", "padding": "16px 20px", "marginBottom": "16px",
+                   "borderLeft": f"5px solid {color}", "boxShadow": "0 1px 3px rgba(0,0,0,0.05)"})
+
+    return html.Div([
+        html.H6(title, className="fw-bold mb-3", style={"color": color, "fontSize": "0.8rem", "letterSpacing": "1.5px", "textTransform": "uppercase"}),
+        dbc.Row([
+            dbc.Col(kpi_card(name, val, sub, color=(color if i == 0 else NAVY if i == 1 else GRAY)), width=3)
+            for i, (name, val, sub) in enumerate(kpis)
+        ], className="mb-3 g-3"),
+    ], style={"background": "white", "borderRadius": "12px", "padding": "16px 20px", "marginBottom": "16px",
+               "borderLeft": f"5px solid {color}", "boxShadow": "0 1px 3px rgba(0,0,0,0.05)"})
 
 
 def pagina_resumen(data):
@@ -98,7 +104,7 @@ def pagina_resumen(data):
         dbc.Col(kpi_card("Promedio x Cliente", fmt_p(promedio_cliente), fmt_pm(promedio_cliente), color=GRAY), width=3),
         dbc.Col(kpi_card("Promedio x Pedido", fmt_p(promedio_pedido), fmt_pm(promedio_pedido), color=GRAY), width=3),
         dbc.Col(kpi_card("Cumplimiento", f"{vc/vp*100:.2f}%" if vp else "0%", f"{fmt_p(vc)} comprometido", color=GREEN), width=3),
-        dbc.Col(kpi_card("Construccion", f"{data[data['_canal']=='CNST - CONSTRUCCION']['_valor'].sum()/vp*100:.2f}%" if vp else "0%", "% del total", color=AMBER), width=3),
+        dbc.Col(kpi_card("Construccion", f"{data[data['_canal'].str.contains('CNST|CONSTR', case=False, na=False)]['_valor'].sum()/vp*100:.2f}%" if vp else "0%", "% del total", color=AMBER), width=3),
     ], className="mb-4 g-3")
     children.append(kpi2)
 
@@ -132,7 +138,7 @@ def pagina_resumen(data):
     fig_asesores.update_xaxes(title="$ millones")
     fig_asesores.update_yaxes(automargin=True, tickfont=dict(size=10))
 
-    part_const = (data[data["_canal"] == "CNST - CONSTRUCCION"]["_valor"].sum() / vp * 100) if vp else 0
+    part_const = (data[data["_canal"].str.contains("CNST|CONSTR", case=False, na=False)]["_valor"].sum() / vp * 100) if vp else 0
     top3 = data.groupby("_cliente")["_valor"].sum().sort_values(ascending=False)
     top3_pct = (top3.iloc[:3].sum() / vp * 100) if vp and len(top3) > 0 else 0
     cumpl_val = (vc / vp * 100) if vp else 0
@@ -412,15 +418,6 @@ def pagina_ranking(data):
         }
         table_data.append(row)
 
-    def _cumpl_color(cumpl, ppto):
-        if ppto <= 0:
-            return GRAY
-        if cumpl >= 100:
-            return GREEN
-        if cumpl >= 70:
-            return AMBER
-        return RED
-
     table = dash_table.DataTable(
         columns=[{"name": c, "id": c} for c in ["#", "_vendedor", "Valor_total", "Presupuesto", "% Part", "% Presup", "Pedidos", "Clientes", "% Cumpl"]],
         data=table_data,
@@ -462,7 +459,6 @@ def pagina_ranking(data):
         ],
         page_size=20,
         sort_action="native",
-        style_as_list_view=True,
     )
     children.append(table)
     children.append(html.Hr())

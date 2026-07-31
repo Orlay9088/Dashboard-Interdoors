@@ -147,7 +147,7 @@ def pagina_por_bodega(data):
         dbc.Col(kpi_card("Total Bodegas", str(n_bodegas), f"Todas activas", color=BLUE), width=3),
         dbc.Col(kpi_card("Valor Total", fmt_p(valor_total), fmt_pm(valor_total), color=NAVY), width=3),
         dbc.Col(kpi_card("Bodega TOP", f"Bod.{bodega_top}", fmt_pm(panorama.iloc[0]["Valor"]) if not panorama.empty else "-", color=GOLD), width=3),
-        dbc.Col(kpi_card("Productos", f"{panorama['Productos'].sum():,}" if not panorama.empty else "-", f"{int(panorama['Existencia'].sum()):,} unidades", color=GRAY), width=3),
+        dbc.Col(kpi_card("Productos", f"{data['_referencia'].nunique():,}", f"{int(panorama['Existencia'].sum()):,} unidades", color=GRAY), width=3),
     ], className="mb-4 g-3")
     children.append(kpi_row)
 
@@ -204,9 +204,12 @@ def pagina_por_bodega(data):
 
 
 def pagina_criticos(data):
+    data = data.copy()
     n_criticos_comp = 0
     n_bajo_stock = 0
     vp = data["_valor"].sum()
+    criticos_comp = pd.DataFrame()
+    bajo_stock_data = pd.DataFrame()
 
     if "_cantidad_com" in data.columns and "_cantidad" in data.columns:
         data["_ratio_comp"] = data["_cantidad_com"] / data["_cantidad"].replace(0, 1) * 100

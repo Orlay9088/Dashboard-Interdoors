@@ -78,12 +78,14 @@ PLOTLY_TEMPLATE = dict(
 )
 
 def fig_layout(title="", height=400, **overrides):
-    layout = dict(
-        title=dict(text=title, font=dict(size=14, color=DARKGRAY), x=0.02, y=0.97),
-        height=height, margin=dict(t=40, b=50, l=80, r=40),
-        hovermode="x unified", autosize=True,
-    )
-    layout.update(PLOTLY_TEMPLATE["layout"])
+    from copy import deepcopy
+    layout = {}
+    layout.update(deepcopy(PLOTLY_TEMPLATE["layout"]))
+    layout.update({
+        "title": dict(text=title, font=dict(size=14, color=DARKGRAY), x=0.02, y=0.97),
+        "height": height, "margin": dict(t=40, b=50, l=80, r=40),
+        "hovermode": "x unified", "autosize": True,
+    })
     layout.update(overrides)
     return layout
 

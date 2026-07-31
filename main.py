@@ -295,7 +295,7 @@ def generar_informe_gerencia(df):
     vc_total = df["V.COMPROMETIDO"].sum()
 
     # Participacion construccion
-    mask_cnst = df["CANAL DISTRIBUCION"] == "CNST - CONSTRUCCION"
+    mask_cnst = df["CANAL DISTRIBUCION"].str.contains("CNST|CONSTR", case=False, na=False)
     part_const = (df[mask_cnst]["Valor pendiente subtotal"].sum() / vp_total * 100) if vp_total else 0
 
     with pd.ExcelWriter(CARPETA_GERENCIA / "Informe_Gerencia.xlsx", engine="openpyxl") as w:
@@ -392,7 +392,7 @@ def preparar_dashboard(df):
     df.to_parquet(CARPETA_DASHBOARD / "datos_completos.parquet", index=False)
     df.to_csv(CARPETA_DASHBOARD / "datos_completos.csv", index=False, encoding="utf-8-sig")
 
-    mask_cnst = df["CANAL DISTRIBUCION"] == "CNST - CONSTRUCCION"
+    mask_cnst = df["CANAL DISTRIBUCION"].str.contains("CNST|CONSTR", case=False, na=False)
     agg = {"Cant. pedida": "sum", "Cant. comprom.": "sum",
            "Cant. pendiente": "sum", "Valor pendiente subtotal": "sum",
            "V.COMPROMETIDO": "sum"}

@@ -266,7 +266,10 @@ app.layout = html.Div([
         html.Div(id="nav-bar"),
         html.Div(id="canal-bar"),
         html.Div(id="bodega-bar"),
-        html.Div(id="page-content"),
+        dcc.Loading(
+            html.Div(id="page-content"),
+            type="circle", color=BLUE,
+        ),
         html.Hr(style={"margin": "16px 0"}),
         html.Div([
             html.Button("   Analizar con IA   ",
@@ -324,7 +327,7 @@ def render_nav_bar(module, page):
 def render_canal_bar(module, page, pareto_canal, _refresh):
     if not (str(module).strip().lower() == "pedidos" and page == "pareto"):
         return None
-    df = load_local("pedidos")
+    df = _load_cached("pedidos")
     if df.empty:
         return None
     canales = ["TODOS"] + sorted(df["_canal"].dropna().unique().tolist()) if "_canal" in df.columns else ["TODOS"]
@@ -355,7 +358,7 @@ def render_canal_bar(module, page, pareto_canal, _refresh):
 def render_bodega_bar(module, _refresh):
     if str(module).strip().lower() != "inventario":
         return None
-    df = load_local("inventario")
+    df = _load_cached("inventario")
     if df.empty or "_bodega" not in df.columns:
         return None
     bodega_options = [{"label": f"Bodega {str(b)}", "value": str(b)}
@@ -411,7 +414,7 @@ def render_page_content(module, page, filters, refresh_count, clear_count, paret
         if not isinstance(filters, dict):
             filters = {}
 
-        df = load_local(module)
+        df = _load_cached(module)
         if df.empty:
             return dmc.Alert([html.Div(f"No hay datos para {mod_info['label']}."),
                              html.Div("Sube un archivo Excel en el panel lateral.", className="small mt-1")],
@@ -475,7 +478,7 @@ def generate_analysis_single(n_clicks, module, page, filters, api_key, ai_model,
         except: filters = {}
     if not isinstance(filters, dict): filters = {}
 
-    df = load_local(module)
+    df = _load_cached(module)
     if df.empty: return html.Div("Sin datos. Sube un archivo primero.", className="text-muted")
     data = apply_filters(df, filters)
     if data.empty: return html.Div("Sin resultados con estos filtros.", className="text-muted")
@@ -505,7 +508,7 @@ def generate_analysis_single(n_clicks, module, page, filters, api_key, ai_model,
 def update_module_badges(_refresh, _clear):
     results = []
     for key in MODULES:
-        df = load_local(key)
+        df = _load_cached(key)
         if not df.empty:
             results.append(f"{len(df):,} reg")
         else:
@@ -545,7 +548,7 @@ def reload_module(n, module, count):
     if module not in MODULES:
         return html.Div("Modulo invalido.", style={"color": RED}), no_update
     _clear_cache(module)
-    df = load_local(module)
+    df = _load_cached(module)
     if df.empty:
         return html.Div("No hay datos guardados. Sube un archivo primero.", style={"color": AMBER}), no_update
     return html.Div(f"Recargado: {len(df):,} registros.", style={"color": GREEN}), count + 1
@@ -761,7 +764,7 @@ def download_csv(n, module, filters, pareto_canal, bodega_filter):
             except: filters = {}
         if not isinstance(filters, dict):
             filters = {}
-        df = load_local(module)
+        df = _load_cached(module)
         if df.empty:
             return no_update
         data = apply_filters(df, filters)
@@ -814,7 +817,7 @@ def refresh_data(n, count):
 def update_sidebar_info(n, _clear):
     info = []
     for tipo in ["pedidos", "facturas", "inventario"]:
-        df = load_local(tipo)
+        df = _load_cached(tipo)
         if not df.empty:
             info.append(f"{tipo}: {len(df):,}")
     meta = get_metadata()

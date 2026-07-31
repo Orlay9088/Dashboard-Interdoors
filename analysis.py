@@ -352,12 +352,12 @@ def _analisis_pedidos(page, data):
     if page == "resumen":
         part_cnst = 0
         if "_canal" in data.columns:
-            mask = data["_canal"] == "CNST - CONSTRUCCION"
+            mask = data["_canal"].str.contains("CNST|CONSTR", case=False, na=False)
             part_cnst = data.loc[mask, "_valor"].sum() / vp * 100 if vp else 0
         top3 = data.groupby("_cliente")["_valor"].sum().sort_values(ascending=False)
         top3_pct = top3.iloc[:3].sum() / vp * 100 if vp and len(top3) > 0 else 0
         meses = data["_fecha"].dt.to_period("M").nunique() if "_fecha" in data.columns else 0
-        return html.Div(id="local-analysis", children=[
+        return html.Div(children=[
             html.P([html.Strong("   Resumen Ejecutivo")], style={"color": DARKGRAY}, className="fw-bold mb-2"),
             html.Ul([
                 html.Li(f"Valor total de {fmt_p(vp)} en {pedidos:,} pedidos de {clientes} clientes, {asesores} asesores."),
@@ -369,7 +369,7 @@ def _analisis_pedidos(page, data):
         ])
     elif page == "participacion":
         canales = data["_canal"].nunique() if "_canal" in data.columns else 0
-        return html.Div(id="local-analysis", children=[html.P([html.Strong("   Participacion Comercial")], style={"color": DARKGRAY}, className="fw-bold mb-2"), html.Ul([
+        return html.Div(children=[html.P([html.Strong("   Participacion Comercial")], style={"color": DARKGRAY}, className="fw-bold mb-2"), html.Ul([
             html.Li(f"Distribucion en {canales} canales de venta."),
             html.Li(f"{asesores} asesores con actividad en el periodo."),
             html.Li(f"Valor promedio por asesor: {fmt_p(vp / asesores) if asesores else 0}."),
@@ -379,7 +379,7 @@ def _analisis_pedidos(page, data):
         pg_acum = (pg.cumsum() / vp * 100) if vp else pd.Series()
         hasta_80 = (pg_acum <= 80).sum()
         top3 = pg.head(3).sum() / vp * 100 if vp else 0
-        return html.Div(id="local-analysis", children=[html.P([html.Strong("   Analisis Pareto")], style={"color": DARKGRAY}, className="fw-bold mb-2"), html.Ul([
+        return html.Div(children=[html.P([html.Strong("   Analisis Pareto")], style={"color": DARKGRAY}, className="fw-bold mb-2"), html.Ul([
             html.Li(f"{clientes} clientes activos en el periodo."),
             html.Li(f"Se requieren {hasta_80} clientes para alcanzar el 80%."),
             html.Li(f"Top 3 concentran {top3:.1f}% del valor."),
@@ -388,18 +388,18 @@ def _analisis_pedidos(page, data):
     elif page == "ranking":
         rank = data.groupby("_vendedor").agg(Valor=("_valor", "sum")).reset_index().sort_values("Valor", ascending=False)
         top = rank.iloc[0] if not rank.empty else None
-        return html.Div(id="local-analysis", children=[html.P([html.Strong("   Ranking de Asesores")], style={"color": DARKGRAY}, className="fw-bold mb-2"), html.Ul([
+        return html.Div(children=[html.P([html.Strong("   Ranking de Asesores")], style={"color": DARKGRAY}, className="fw-bold mb-2"), html.Ul([
             html.Li(f"#1 {top['_vendedor']}: {fmt_p(top['Valor'])}." if top is not None else "Sin datos."),
             html.Li(f"Total: {len(rank)} asesores activos."),
             html.Li(f"Promedio: {fmt_p(vp / asesores) if asesores else 0} por asesor."),
         ], style={"paddingLeft": "1.2rem"})])
     elif page == "embudo":
-        return html.Div(id="local-analysis", children=[html.P([html.Strong("   Embudo de Pedidos")], style={"color": DARKGRAY}, className="fw-bold mb-2"), html.Ul([
+        return html.Div(children=[html.P([html.Strong("   Embudo de Pedidos")], style={"color": DARKGRAY}, className="fw-bold mb-2"), html.Ul([
             html.Li(f"Tasa de cierre: {cumpl:.1f}% del valor total."),
             html.Li(f"Valor pendiente: {fmt_p(vp - vc)} por comprometer."),
         ], style={"paddingLeft": "1.2rem"})])
     elif page == "heatmap":
-        return html.Div(id="local-analysis", children=[html.P([html.Strong("   Heatmap de Rendimiento")], style={"color": DARKGRAY}, className="fw-bold mb-2"), html.Ul([
+        return html.Div(children=[html.P([html.Strong("   Heatmap de Rendimiento")], style={"color": DARKGRAY}, className="fw-bold mb-2"), html.Ul([
             html.Li(f"{asesores} asesores con desempeno registrado."),
             html.Li(f"Valor total distribuido: {fmt_p(vp)}."),
         ], style={"paddingLeft": "1.2rem"})])
@@ -408,7 +408,7 @@ def _analisis_pedidos(page, data):
         coef = np.polyfit(range(len(evol)), evol["Valor"], 1) if len(evol) >= 3 else [0, 0]
         proy = np.polyval(coef, len(evol)) if len(evol) >= 3 else 0
         direction = "creciente" if coef[0] > 0 else "decreciente"
-        return html.Div(id="local-analysis", children=[html.P([html.Strong("   Proyeccion de Cierre")], style={"color": DARKGRAY}, className="fw-bold mb-2"), html.Ul([
+        return html.Div(children=[html.P([html.Strong("   Proyeccion de Cierre")], style={"color": DARKGRAY}, className="fw-bold mb-2"), html.Ul([
             html.Li(f"Tendencia {direction} (pendiente: {coef[0]/1e6:.1f}M/mes)."),
             html.Li(f"Proyeccion proximo mes: {fmt_p(proy)}."),
         ], style={"paddingLeft": "1.2rem"})])
@@ -423,7 +423,7 @@ def _analisis_facturas(page, data):
     costo = data["_costo"].sum() if "_costo" in data.columns else 0
     margen_pct = (ventas - costo) / ventas * 100 if ventas else 0
     ticket = ventas / facturas if facturas else 0
-    return html.Div(id="local-analysis", children=[html.P([html.Strong("   Analisis de Facturacion")], style={"color": DARKGRAY}, className="fw-bold mb-2"), html.Ul([
+    return html.Div(children=[html.P([html.Strong("   Analisis de Facturacion")], style={"color": DARKGRAY}, className="fw-bold mb-2"), html.Ul([
         html.Li(f"Ventas totales: {fmt_p(ventas)} en {facturas:,} facturas ({clientes} clientes)."),
         html.Li(f"Ticket promedio: {fmt_p(ticket)}. Margen global: {margen_pct:.1f}%."),
         html.Li(f"Equipo de {vendedores} vendedores activos."),
@@ -438,7 +438,7 @@ def _analisis_inventario(page, data):
     existencia = data["_cantidad"].sum() if "_cantidad" in data.columns else 0
     disponible = data["_cantidad_com"].sum() if "_cantidad_com" in data.columns else 0
     comprometido = data["_cantidad_pen"].sum() if "_cantidad_pen" in data.columns else 0
-    return html.Div(id="local-analysis", children=[html.P([html.Strong("   Analisis de Inventario")], style={"color": DARKGRAY}, className="fw-bold mb-2"), html.Ul([
+    return html.Div(children=[html.P([html.Strong("   Analisis de Inventario")], style={"color": DARKGRAY}, className="fw-bold mb-2"), html.Ul([
         html.Li(f"Valor total inventariado: {fmt_p(valor_total)} en {productos:,} referencias."),
         html.Li(f"Distribuido en {bodegas} bodegas con {existencia:,.0f} unidades."),
         html.Li(f"Disponible: {disponible:,.0f} und. Comprometido: {comprometido:,.0f} und."),
@@ -449,7 +449,7 @@ def _analisis_inventario(page, data):
 def _analisis_generico(data):
     n = len(data)
     cols = [c for c in data.columns if not c.startswith("_")]
-    return html.Div(id="local-analysis", children=[html.P([html.Strong("   Analisis Exploratorio")], style={"color": DARKGRAY}, className="fw-bold mb-2"), html.Ul([
+    return html.Div(children=[html.P([html.Strong("   Analisis Exploratorio")], style={"color": DARKGRAY}, className="fw-bold mb-2"), html.Ul([
         html.Li(f"Dataset con {n:,} registros y {len(cols)} columnas."),
         html.Li(f"Columnas: {', '.join(cols[:10])}"),
     ], style={"paddingLeft": "1.2rem"})])
