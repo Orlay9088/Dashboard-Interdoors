@@ -558,6 +558,8 @@ def show_file_name(filename):
 @callback(
     Output("store-module", "data"),
     Output("store-page", "data"),
+    Output("file-name", "children"),
+    Output("upload-status", "children"),
     Input("mod-pedidos", "n_clicks"),
     Input("mod-facturas", "n_clicks"),
     Input("mod-inventario", "n_clicks"),
@@ -566,11 +568,11 @@ def show_file_name(filename):
 def switch_module(*args):
     ctx = dash.ctx
     if not ctx.triggered:
-        return no_update, no_update
+        return no_update, no_update, no_update, no_update
     mod_id = ctx.triggered[0]["prop_id"].split(".")[0]
     module = mod_id.replace("mod-", "")
     first_page = list(MODULES[module]["pages"].keys())[0]
-    return module, first_page
+    return module, first_page, "", ""
 
 
 @callback(
