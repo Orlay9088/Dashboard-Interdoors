@@ -117,13 +117,25 @@ def save_local(df, tipo):
     path = LOCAL_PARQUET.get(tipo)
     if path:
         df.to_parquet(path, index=False)
+        try:
+            pd.read_parquet(path)
+        except Exception:
+            pass
     return path
 
 
-def load_local(tipo):
+def load_local(tipo, retries=3):
+    import time
     path = LOCAL_PARQUET.get(tipo)
-    if path and path.exists():
-        return pd.read_parquet(path)
+    for _ in range(retries):
+        if path and path.exists():
+            try:
+                df = pd.read_parquet(path)
+                if not df.empty:
+                    return df
+            except Exception:
+                pass
+        time.sleep(0.1)
     return pd.DataFrame()
 
 

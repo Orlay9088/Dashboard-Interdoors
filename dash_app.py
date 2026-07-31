@@ -3,6 +3,7 @@ import traceback
 from datetime import datetime
 from pathlib import Path
 import sys
+import time
 
 import dash
 from dash import dcc, html, Input, Output, State, callback, no_update
@@ -717,6 +718,7 @@ def process_upload(n_clicks, contents, filename, refresh_count, active_module):
         df_proc = procesar_etl(df_norm)
         n_reg = try_save(df_proc, tipo, filename)
         _clear_cache(tipo)
+        time.sleep(0.1)
 
         if tipo not in MODULES:
             tipo = str(active_module).strip().lower()
