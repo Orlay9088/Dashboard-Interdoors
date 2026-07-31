@@ -153,7 +153,7 @@ def apply_filters(data, filters_dict):
 # ============================================================
 def kahoot_podium(rank_df):
     top3 = rank_df.head(3).reset_index(drop=True)
-    bg_colors = ["#B8BCC8", "#F3C615", "#CD7F32"]   # Plata, Oro, Cobre
+    bg_colors = ["#B8BCC8", "#F3C615", "#CD7F32"]
     dk_colors = ["#6A6F7A", "#9A7400", "#8B4513"]
     tx_colors = ["white", DARKGRAY, "white"]
     orders = [1, 0, 2]
@@ -164,65 +164,76 @@ def kahoot_podium(rank_df):
         r = top3.iloc[orders[i]]
         initials = "".join([w[0] for w in str(r["_vendedor"]).split()[:2]]).upper()
         bg, dk, tx = bg_colors[i], dk_colors[i], tx_colors[i]
-        margin_top = "-40px" if orders[i] == 0 else "0px"
+        margin_top = "-30px" if orders[i] == 0 else "0px"
 
         presup = r.get("% Presup", 0)
         progr = min(100, max(0, presup))
         progr_color = GREEN if progr >= 100 else AMBER if progr >= 70 else RED
+        has_ppto = r.get("Presupuesto", 0) > 0
 
         card = html.Div([
-            dmc.Badge(labels[i], variant="filled", color="dark",
-                      style={"position": "absolute", "top": "6px", "right": "6px", "fontSize": "0.6rem"}),
-            dmc.Avatar(initials, radius="xl", size="sm",
-                       style={"backgroundColor": dk, "color": "white", "marginBottom": "6px"}),
+            html.Div(labels[i], style={
+                "position": "absolute", "top": "8px", "right": "10px",
+                "fontSize": "0.75rem", "fontWeight": "900", "color": dk,
+                "opacity": "0.6",
+            }),
+            dmc.Avatar(initials, radius="xl", size="lg",
+                       style={"backgroundColor": dk, "color": "white", "marginBottom": "8px"}),
             html.Div(str(r["_vendedor"]), style={
-                "fontSize": "0.62rem", "fontWeight": "700", "textAlign": "center",
-                "color": tx, "lineHeight": "1.1", "wordBreak": "break-word",
-                "minHeight": "28px", "marginBottom": "4px",
+                "fontSize": "0.75rem", "fontWeight": "700", "textAlign": "center",
+                "color": tx, "lineHeight": "1.2", "marginBottom": "6px",
+                "minHeight": "30px",
             }),
             html.Div(fmt_pm(r["Valor"]), style={
-                "fontSize": "0.95rem", "fontWeight": "900", "textAlign": "center",
-                "color": tx, "marginBottom": "1px",
+                "fontSize": "1.2rem", "fontWeight": "900", "textAlign": "center",
+                "color": tx, "marginBottom": "2px",
             }),
-            html.Div(f"{r.get('% Part', 0):.1f}% part.", style={
-                "fontSize": "0.58rem", "textAlign": "center", "color": tx, "opacity": "0.8",
-                "marginBottom": "6px",
+            html.Div(f"{r.get('% Part', 0):.1f}% del total", style={
+                "fontSize": "0.65rem", "textAlign": "center", "color": tx,
+                "opacity": "0.8", "marginBottom": "8px",
             }),
-            html.Div(f"Meta: {fmt_pm(r.get('Presupuesto', 0))}" if r.get("Presupuesto", 0) > 0 else "Sin meta", style={
-                "fontSize": "0.58rem", "fontWeight": "600", "textAlign": "center",
-                "color": tx, "marginBottom": "3px", "opacity": "0.85",
+            html.Div(f"Meta: {fmt_pm(r.get('Presupuesto', 0))}" if has_ppto else "Sin meta", style={
+                "fontSize": "0.68rem", "fontWeight": "600", "textAlign": "center",
+                "color": tx, "marginBottom": "5px", "opacity": "0.85",
             }),
-            dmc.Progress(value=progr, color=progr_color, size="xs",
-                         style={"width": "70%", "margin": "0 auto"}),
-            html.Div(f"{presup:.0f}% cumplido" if presup > 0 else "", style={
-                "fontSize": "0.55rem", "fontWeight": "600", "textAlign": "center",
-                "color": tx, "marginTop": "2px", "opacity": "0.75",
+            dmc.Progress(value=progr, color=progr_color, size="md",
+                         style={"width": "75%", "margin": "0 auto", "marginBottom": "4px"}),
+            html.Div(f"Alcance: {presup:.0f}%" if has_ppto else "", style={
+                "fontSize": "0.62rem", "fontWeight": "700", "textAlign": "center",
+                "color": tx, "marginBottom": "4px", "opacity": "0.85",
             }),
-            html.Div(f"Cumpl: {r.get('% Cumpl', 0):.1f}%", style={
-                "fontSize": "0.58rem", "fontWeight": "600", "textAlign": "center",
-                "color": tx, "marginTop": "4px", "opacity": "0.85",
+            html.Div(f"Comprometido: {r.get('% Cumpl', 0):.1f}%" if has_ppto else "Sin datos", style={
+                "fontSize": "0.65rem", "fontWeight": "600", "textAlign": "center",
+                "color": tx, "opacity": "0.85",
             }),
         ], style={
             "position": "relative",
-            "width": "155px", "minHeight": "210px",
+            "width": "190px", "minHeight": "240px",
             "background": bg, "color": tx,
-            "borderRadius": "10px",
-            "padding": "14px 8px 12px 8px",
+            "borderRadius": "12px",
+            "padding": "16px 10px 14px 10px",
             "display": "flex", "flexDirection": "column",
             "alignItems": "center",
-            "boxShadow": "0 2px 10px rgba(0,0,0,0.07)",
+            "boxShadow": f"0 4px 20px rgba(0,0,0,0.12), 0 1px 3px rgba(0,0,0,0.08)",
             "marginTop": margin_top,
             "transition": "transform 0.2s, box-shadow 0.2s",
-            "borderBottom": f"3px solid {dk}",
+            "borderBottom": f"4px solid {dk}",
         })
         cards.append(card)
 
     return html.Div([
+        html.Div([
+            html.Span("● ", style={"color": GOLD, "fontSize": "0.8rem"}),
+            html.Span("TOP 3 ASESORES", style={
+                "fontSize": "0.7rem", "fontWeight": "700", "color": GRAY,
+                "letterSpacing": "1.5px", "textTransform": "uppercase",
+            }),
+        ], style={"textAlign": "center", "marginBottom": "8px"}),
         html.Div(cards, style={
             "display": "flex", "justifyContent": "center",
-            "alignItems": "flex-end", "gap": "10px",
-            "padding": "20px 0 10px 0",
+            "alignItems": "flex-end", "gap": "14px",
+            "padding": "10px 0 6px 0",
         }),
-    ], style={"margin": "8px 0 16px 0"})
+    ], style={"margin": "10px 0 20px 0"})
 
 

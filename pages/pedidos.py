@@ -217,8 +217,6 @@ def pagina_pareto(data):
 
 
 def pagina_ranking(data):
-    children = [section_title("Ranking de Asesores", "Comparativa de rendimiento")]
-
     rank = data[~data["_vendedor"].isin(["VENTAS CORPORATIVAS", "VENTAS INTERNACIONALES"])].groupby("_vendedor").agg(
         Valor=("_valor", "sum"), Pedidos=("_documento", "nunique"),
         Clientes=("_cliente", "nunique"), Comprometido=("_valor_sec", "sum"),
@@ -239,74 +237,127 @@ def pagina_ranking(data):
         except Exception:
             budgets = {}
     rank["Presupuesto"] = rank["_vendedor"].apply(lambda x: get_budget_for(x, budgets))
+    has_budgets = rank["Presupuesto"].sum() > 0
     rank["% Presup"] = rank.apply(lambda r: round(r["Valor"] / r["Presupuesto"] * 100, 2) if r["Presupuesto"] > 0 else 0, axis=1)
     rank["% Cumpl"] = rank.apply(lambda r: round(r["Comprometido"] / r["Presupuesto"] * 100, 2) if r["Presupuesto"] > 0 else 0, axis=1)
     rank.insert(0, "#", range(1, len(rank) + 1))
 
-    # Kahoot-style podium with flip cards
-    top3 = rank.head(3)
-    children.append(kahoot_podium(top3))
-
-    presup_total = rank["Presupuesto"].sum()
-
-    # Summary KPI row
+    n_asesores = len(rank)
     presup_total = rank["Presupuesto"].sum()
     presup_pct = (tv / presup_total * 100) if presup_total else 0
     presup_color = GREEN if presup_pct >= 100 else AMBER if presup_pct >= 70 else RED
+    promedio = tv / n_asesores if n_asesores else 0
+    brecha = (rank["Valor"].iloc[0] / promedio) if promedio > 0 else 1
+    meta_str = f"Meta total: {fmt_pm(presup_total)}" if presup_total else "Sin metas cargadas"
+    title_sub = f"{n_asesores} asesores | {meta_str}"
+
+    children = [section_title("Ranking de Asesores", title_sub)]
+
+    top3 = rank.head(3)
+    children.append(kahoot_podium(top3))
+
     kpi_row = dbc.Row([
-        dbc.Col(kpi_card("Asesores Activos", f"{len(rank)}", "", color=BLUE), width=3),
+        dbc.Col(kpi_card("Asesores Activos", f"{n_asesores}", f"Brecha #1 vs prom: {brecha:.1f}x", color=BLUE), width=3),
         dbc.Col(kpi_card("Valor Total", fmt_p(tv), fmt_pm(tv), color=NAVY), width=3),
-        dbc.Col(kpi_card("vs Presupuesto", f"{presup_pct:.1f}%", f"Meta: {fmt_pm(presup_total)}" if presup_total else "Sin datos", color=presup_color), width=3),
-        dbc.Col(kpi_card("Cumpl. Prom.", f"{rank['% Cumpl'].mean():.1f}%", f"Top 3: {rank.head(3)['% Part'].sum():.1f}%", color=GREEN if rank['% Cumpl'].mean() > 50 else AMBER), width=3),
+        dbc.Col(kpi_card("vs Presupuesto", f"{presup_pct:.1f}%" if has_budgets else "-", f"Meta: {fmt_pm(presup_total)}" if presup_total else "Sin datos", color=presup_color), width=3),
+        dbc.Col(kpi_card("Cumpl. Prom.", f"{rank['% Cumpl'].mean():.1f}%" if has_budgets else "-", f"Top 3: {rank.head(3)['% Part'].sum():.1f}%", color=GREEN if rank['% Cumpl'].mean() > 50 else AMBER), width=3),
     ], className="mb-4 g-3")
     children.append(kpi_row)
 
-    # Bar chart - all sellers sorted desc
+    top_show = rank.head(min(20, len(rank)))
+    chart_n = len(top_show)
     fig = go.Figure()
-    top_show = rank.head(10)
     fig.add_trace(go.Bar(
         x=top_show["Valor"] / 1e6,
         y=top_show["_vendedor"],
         orientation="h",
         marker=dict(
-            color=[BLUE if i > 0 else "#FFD700" for i in range(len(top_show))],
+            color=[GOLD if i == 0 else BLUE for i in range(chart_n)],
             line=dict(color="white", width=1),
         ),
         text=[fmt_pm(v) for v in top_show["Valor"]],
         textposition="outside",
+        textfont=dict(size=10, color=GRAY),
         hovertemplate="<b>%{y}</b><br>Valor: %{text}<br>Participacion: %{customdata}%<extra></extra>",
         customdata=top_show["% Part"].tolist(),
     ))
-    fig.update_layout(**fig_layout("Top 10 Asesores por Valor (millones $)", height=380,
-        margin=dict(t=40, b=20, l=20, r=40)))
+    chart_h = max(320, min(700, chart_n * 28))
+    fig.update_layout(**fig_layout(f"Top {chart_n} Asesores por Valor (millones $)", height=chart_h,
+        margin=dict(t=40, b=20, l=20, r=50)))
     fig.update_xaxes(title="$ millones", showgrid=True, gridcolor="#e2e8f0")
-    fig.update_yaxes(automargin=True, tickfont=dict(size=10))
-
+    fig.update_yaxes(automargin=True, tickfont=dict(size=10), autorange="reversed")
     children.append(dbc.Row([dbc.Col(dcc.Graph(figure=fig), width=12)], className="mb-3"))
 
-    # Ranking table
+    table_data = []
+    for _, r in rank.iterrows():
+        cumpl_pct = r["% Cumpl"]
+        has_ppto = r["Presupuesto"] > 0
+        row = {
+            "#": r["#"],
+            "_vendedor": r["_vendedor"],
+            "Valor_total": fmt_p(r["Valor"]),
+            "Presupuesto": fmt_p(r["Presupuesto"]) if has_ppto else "-",
+            "% Part": f"{r['% Part']:.1f}%",
+            "% Presup": f"{r['% Presup']:.1f}%" if has_ppto else "-",
+            "Pedidos": f"{int(r['Pedidos']):,}",
+            "Clientes": f"{int(r['Clientes'])}",
+            "% Cumpl": f"{cumpl_pct:.1f}%" if has_ppto else "-",
+            "_cumpl_num": cumpl_pct if has_ppto else -1,
+            "_presup_num": r["Presupuesto"],
+        }
+        table_data.append(row)
+
+    def _cumpl_color(cumpl, ppto):
+        if ppto <= 0:
+            return GRAY
+        if cumpl >= 100:
+            return GREEN
+        if cumpl >= 70:
+            return AMBER
+        return RED
+
     table = dash_table.DataTable(
         columns=[{"name": c, "id": c} for c in ["#", "_vendedor", "Valor_total", "Presupuesto", "% Part", "% Presup", "Pedidos", "Clientes", "% Cumpl"]],
-        data=[{"#": r["#"], "_vendedor": r["_vendedor"], "Valor_total": fmt_p(r["Valor"]),
-               "Presupuesto": fmt_p(r["Presupuesto"]) if r["Presupuesto"] > 0 else "-",
-               "% Part": f"{r['% Part']:.1f}%",
-               "% Presup": f"{r['% Presup']:.1f}%" if r["Presupuesto"] > 0 else "-",
-               "Pedidos": f"{int(r['Pedidos']):,}",
-               "Clientes": f"{int(r['Clientes'])}", "% Cumpl": f"{r['% Cumpl']:.1f}%"}
-              for _, r in rank.iterrows()],
+        data=table_data,
         style_table={"overflowX": "auto"},
-        style_cell={"textAlign": "left", "padding": "4px 8px", "fontSize": "0.75rem"},
-        style_header={"fontWeight": "bold", "backgroundColor": "#f8fafc"},
+        style_cell={"textAlign": "left", "padding": "6px 10px", "fontSize": "0.75rem", "fontFamily": "Segoe UI, Arial, sans-serif"},
+        style_header={"fontWeight": "bold", "backgroundColor": DARKGRAY, "color": "white", "border": "none"},
         style_data_conditional=[
-            {"if": {"filter_query": "{#} = 1", "column_id": "#"},
-             "backgroundColor": "#FFF8E1", "fontWeight": "bold"},
-            {"if": {"filter_query": "{#} = 2", "column_id": "#"},
-             "backgroundColor": "#F5F5F5", "fontWeight": "bold"},
-            {"if": {"filter_query": "{#} = 3", "column_id": "#"},
-             "backgroundColor": "#FFF0E0", "fontWeight": "bold"},
+            {
+                "if": {"filter_query": "{#} = 1"},
+                "backgroundColor": "#FFF8E1", "fontWeight": "bold",
+                "borderLeft": f"4px solid {GOLD}",
+            },
+            {
+                "if": {"filter_query": "{#} = 2"},
+                "backgroundColor": "#F8FAFC", "fontWeight": "bold",
+                "borderLeft": "4px solid #B8BCC8",
+            },
+            {
+                "if": {"filter_query": "{#} = 3"},
+                "backgroundColor": "#FFF5EC", "fontWeight": "bold",
+                "borderLeft": "4px solid #CD7F32",
+            },
+            {
+                "if": {"filter_query": "{_cumpl_num} >= 100", "column_id": "% Cumpl"},
+                "color": GREEN, "fontWeight": "bold",
+            },
+            {
+                "if": {"filter_query": "{_cumpl_num} >= 70 && {_cumpl_num} < 100", "column_id": "% Cumpl"},
+                "color": "#E5A100", "fontWeight": "bold",
+            },
+            {
+                "if": {"filter_query": "{_cumpl_num} >= 0 && {_cumpl_num} < 70", "column_id": "% Cumpl"},
+                "color": RED, "fontWeight": "bold",
+            },
+            {
+                "if": {"filter_query": "{_cumpl_num} < 0", "column_id": "% Cumpl"},
+                "color": GRAY,
+            },
         ],
-        page_size=15,
+        page_size=20,
         sort_action="native",
+        style_as_list_view=True,
     )
     children.append(table)
     children.append(html.Hr())
