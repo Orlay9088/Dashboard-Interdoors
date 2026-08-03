@@ -41,7 +41,7 @@ _cache_timestamps = {}
 def _load_cached(module):
     now = time.time()
     last_load = _cache_timestamps.get(module, 0)
-    if (now - last_load) > (CACHE_TTL_HOURS * 3600):
+    if (now - last_load) > (24 * 3600):
         _data_cache.pop(module, None)
     if module in _data_cache and _data_cache[module] is not None:
         return _data_cache[module].copy()
