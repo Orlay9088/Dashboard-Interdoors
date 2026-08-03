@@ -231,20 +231,23 @@ def load_from_firestore(tipo):
     return pd.DataFrame()
 
 
-def should_cleanup_today():
-    """Verifica si ya se ejecuto la limpieza hoy."""
-    today = str(date.today())
+def should_cleanup_now():
+    """Verifica si pasaron 10 minutos desde la ultima limpieza."""
     log = _load_json(CLEANUP_FILE)
-    if log.get("date") != today:
-        log = {"date": today, "types_cleaned": []}
-        _save_json(CLEANUP_FILE, log)
+    last = log.get("last_cleanup", "")
+    if not last:
         return True
-    return False
+    try:
+        last_dt = datetime.fromisoformat(last)
+        return (datetime.now() - last_dt).total_seconds() > 600
+    except Exception:
+        return True
 
 
 def daily_cleanup(tipo):
-    """Elimina todos los documentos del tipo excepto los ultimos MAX_DOCS_PER_TYPE."""
-    if not should_cleanup_today():
+    """Elimina todos los documentos del tipo excepto los ultimos MAX_DOCS_PER_TYPE.
+       Ejecuta la limpieza cada 10 minutos maximo."""
+    if not should_cleanup_now():
         return 0
 
     app, db = _firestore_client()
@@ -264,12 +267,7 @@ def daily_cleanup(tipo):
         _delete_doc_with_subcollections(db, tipo, doc.id)
         deleted += 1
 
-    log = _load_json(CLEANUP_FILE)
-    cleaned = log.get("types_cleaned", [])
-    if tipo not in cleaned:
-        cleaned.append(tipo)
-    log["types_cleaned"] = cleaned
-    _save_json(CLEANUP_FILE, log)
+    _save_json(CLEANUP_FILE, {"last_cleanup": datetime.now().isoformat()})
     return deleted
 
 
