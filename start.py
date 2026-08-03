@@ -1,8 +1,7 @@
 import os
-import sys
 
 port = int(os.environ.get("PORT", 8503))
-workers = int(os.environ.get("WORKERS", "4"))
+workers = int(os.environ.get("WEB_CONCURRENCY", "1"))
 
 if os.environ.get("RENDER") or os.environ.get("PRODUCTION"):
     from dash_app import server
@@ -25,7 +24,8 @@ if os.environ.get("RENDER") or os.environ.get("PRODUCTION"):
         "bind": f"0.0.0.0:{port}",
         "workers": workers,
         "threads": 2,
-        "timeout": 120,
+        "timeout": 30,
+        "preload_app": False,
         "loglevel": "info",
     }).run()
 else:
