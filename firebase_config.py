@@ -9,6 +9,7 @@ COUNTER_FILE = LOCAL_BASE / ".sync_counter.json"
 CACHE_FILE = LOCAL_BASE / ".cache_meta.json"
 CLEANUP_FILE = LOCAL_BASE / ".cleanup_log.json"
 META_FILE = LOCAL_BASE / ".upload_meta.json"
+SKIP_FIRESTORE_FILE = LOCAL_BASE / ".skip_firestore"
 
 LOCAL_PARQUET = {
     "pedidos": LOCAL_BASE / "pedidos.parquet",
@@ -143,6 +144,8 @@ def try_save(df, tipo, filename=""):
     n = len(df)
     save_local(df, tipo)
     save_upload_meta(tipo, filename, n)
+    if SKIP_FIRESTORE_FILE.exists():
+        SKIP_FIRESTORE_FILE.unlink()
     if _use_firestore_sync():
         try:
             save_to_firestore(df, tipo, filename)
@@ -158,6 +161,8 @@ def try_load(tipo):
     df = load_local(tipo)
     if not df.empty:
         return df, "local"
+    if SKIP_FIRESTORE_FILE.exists():
+        return pd.DataFrame(), "local"
     df = load_from_firestore(tipo)
     if not df.empty:
         return df, "firestore"
@@ -320,6 +325,7 @@ def clear_local_cache():
     for f in [COUNTER_FILE, CACHE_FILE, CLEANUP_FILE, META_FILE]:
         if f.exists():
             f.unlink()
+    SKIP_FIRESTORE_FILE.touch()
 
 
 def save_upload_meta(tipo, filename, records):
