@@ -780,6 +780,7 @@ def refresh_data(n, count):
     Input("store-clear", "data"),
 )
 def update_sidebar_info(n, _clear):
+    from firebase_config import get_upload_age_hours
     info = []
     for tipo in ["pedidos", "facturas", "inventario"]:
         df = _load_cached(tipo)
@@ -794,6 +795,18 @@ def update_sidebar_info(n, _clear):
     else:
         lines.append(html.Div("Sin datos. Sube un archivo.", style={"color": AMBER}))
     lines.append(html.Div(sync_info, className="small", style={"color": "#94a3b8"}))
+
+    alertas = []
+    for tipo in ["pedidos", "facturas", "inventario"]:
+        age = get_upload_age_hours(tipo)
+        if age is not None and age > 24:
+            dias = int(age / 24)
+            alertas.append(f"{tipo}: +{dias}d")
+    if alertas:
+        lines.append(html.Div(
+            f"   Datos desactualizados: {', '.join(alertas)}",
+            style={"color": RED, "fontWeight": "bold", "fontSize": "0.68rem", "marginTop": "6px", "lineHeight": "1.3"}
+        ))
     return html.Div(lines)
 
 

@@ -8,6 +8,7 @@ LOCAL_BASE = Path(__file__).parent / "base"
 COUNTER_FILE = LOCAL_BASE / ".sync_counter.json"
 CACHE_FILE = LOCAL_BASE / ".cache_meta.json"
 CLEANUP_FILE = LOCAL_BASE / ".cleanup_log.json"
+META_FILE = LOCAL_BASE / ".upload_meta.json"
 
 LOCAL_PARQUET = {
     "pedidos": LOCAL_BASE / "pedidos.parquet",
@@ -142,6 +143,7 @@ def load_local(tipo, retries=3):
 def try_save(df, tipo, filename=""):
     n = len(df)
     save_local(df, tipo)
+    save_upload_meta(tipo, filename, n)
     if _use_firestore_sync():
         try:
             save_to_firestore(df, tipo, filename)
@@ -154,12 +156,12 @@ def try_save(df, tipo, filename=""):
 
 
 def try_load(tipo):
-    df = load_local(tipo)
-    if not df.empty:
-        return df, "local"
     df = load_from_firestore(tipo)
     if not df.empty:
         return df, "firestore"
+    df = load_local(tipo)
+    if not df.empty:
+        return df, "local"
     return pd.DataFrame(), "local"
 
 
@@ -314,6 +316,31 @@ def clear_local_cache():
     for f in [COUNTER_FILE, CACHE_FILE, CLEANUP_FILE]:
         if f.exists():
             f.unlink()
+
+
+def save_upload_meta(tipo, filename, records):
+    """Guarda metadatos de cada upload para saber antiguedad de los datos."""
+    meta = _load_json(META_FILE, {})
+    meta[tipo] = {
+        "fecha": datetime.now().isoformat(),
+        "archivo": filename,
+        "registros": records,
+    }
+    _save_json(META_FILE, meta)
+
+
+def get_upload_age_hours(tipo):
+    """Devuelve cuantas horas pasaron desde el ultimo upload del tipo."""
+    meta = _load_json(META_FILE, {})
+    info = meta.get(tipo, {})
+    fecha_str = info.get("fecha", "")
+    if not fecha_str:
+        return None
+    try:
+        last_dt = datetime.fromisoformat(fecha_str)
+        return (datetime.now() - last_dt).total_seconds() / 3600
+    except Exception:
+        return None
 
 
 def get_metadata():
