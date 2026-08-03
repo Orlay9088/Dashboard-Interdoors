@@ -565,6 +565,7 @@ def reload_module(n, module, count):
     if df.empty:
         return html.Div("No hay datos guardados. Sube un archivo primero.", style={"color": AMBER}), no_update
     _data_cache[module] = df.copy()
+    _cache_timestamps[module] = time.time()
     return html.Div(f"Recargado: {len(df):,} registros.", style={"color": GREEN}), count + 1
 
 
@@ -717,7 +718,8 @@ def process_upload(n_clicks, contents, filename, refresh_count, active_module):
         df_proc = procesar_etl(df_norm)
         n_reg = try_save(df_proc, tipo, filename)
         _clear_cache(tipo)
-        time.sleep(0.1)
+        _data_cache[tipo] = df_proc.copy()
+        _cache_timestamps[tipo] = time.time()
 
         if tipo not in MODULES:
             tipo = str(active_module).strip().lower()
