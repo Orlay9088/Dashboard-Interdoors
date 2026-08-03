@@ -7,7 +7,6 @@ import pandas as pd
 LOCAL_BASE = Path(__file__).parent / "base"
 COUNTER_FILE = LOCAL_BASE / ".sync_counter.json"
 CACHE_FILE = LOCAL_BASE / ".cache_meta.json"
-CLEANUP_FILE = LOCAL_BASE / ".cleanup_log.json"
 META_FILE = LOCAL_BASE / ".upload_meta.json"
 SKIP_FIRESTORE_FILE = LOCAL_BASE / ".skip_firestore"
 
@@ -19,7 +18,6 @@ LOCAL_PARQUET = {
 LAST_FILES_JSON = LOCAL_BASE / ".last_files.json"
 
 MAX_SYNCS_PER_DAY = 3
-MAX_DOCS_PER_TYPE = 3
 CACHE_TTL_HOURS = 24
 
 
@@ -149,7 +147,6 @@ def try_save(df, tipo, filename=""):
     if _use_firestore_sync():
         try:
             save_to_firestore(df, tipo, filename)
-            daily_cleanup(tipo)
         except Exception:
             pass
     if filename:
@@ -182,15 +179,12 @@ def try_load(tipo):
 
 
 def save_to_firestore(df, tipo, filename=""):
-    """Guarda un DataFrame completo en un solo documento de Firestore."""
+    """Sobrescribe el documento 'latest' en Firestore con los datos mas recientes."""
     app, db = _firestore_client()
     if not db:
         return 0
 
     n = len(df)
-    now_str = datetime.now().strftime("%Y%m%d_%H%M%S")
-    doc_id = f"upload_{now_str}"
-
     data_json = json.loads(df.to_json(orient="records", date_format="iso", force_ascii=False))
     meta = {
         "tipo": tipo,
@@ -200,109 +194,31 @@ def save_to_firestore(df, tipo, filename=""):
         "columnas": list(df.columns),
         "data": data_json,
     }
-    db.collection(tipo).document(doc_id).set(meta)
+    db.collection(tipo).document("latest").set(meta)
     return n
 
 
 def load_from_firestore(tipo):
-    """Carga el ultimo documento desde Firestore. 1 sola lectura."""
+    """Lee el documento 'latest' desde Firestore. 1 sola lectura directa."""
     app, db = _firestore_client()
     if not db:
         return pd.DataFrame()
 
-    docs = (db.collection(tipo)
-            .order_by("fecha", direction="DESCENDING")
-            .limit(1)
-            .stream())
-
-    for doc in docs:
+    try:
+        doc = db.collection(tipo).document("latest").get()
+        if not doc.exists:
+            return pd.DataFrame()
         meta = doc.to_dict()
         data = meta.get("data", [])
         columnas = meta.get("columnas", [])
-        registros = meta.get("registros", 0)
-        if not data and registros > 0:
-            # Fallback: formato antiguo con subcolecciones
-            return _load_from_firestore_legacy(db, tipo, doc.id, columnas)
         if data and columnas:
             df = pd.DataFrame(data, columns=columnas)
-            if "_fecha" in df.columns:
-                df["_fecha"] = pd.to_datetime(df["_fecha"], errors="coerce")
-            return df
-    return pd.DataFrame()
-
-
-def _load_from_firestore_legacy(db, tipo, doc_id, columnas):
-    """Fallback para documentos antiguos con subcoleccion records/."""
-    try:
-        records_list = (
-            db.collection(tipo).document(doc_id)
-            .collection("records")
-            .order_by("__name__")
-            .stream()
-        )
-        all_data = []
-        for rec_doc in records_list:
-            batch = rec_doc.to_dict().get("data", [])
-            all_data.extend(batch)
-        if all_data and columnas:
-            df = pd.DataFrame(all_data, columns=columnas)
             if "_fecha" in df.columns:
                 df["_fecha"] = pd.to_datetime(df["_fecha"], errors="coerce")
             return df
     except Exception:
         pass
     return pd.DataFrame()
-
-
-def should_cleanup_now():
-    """Verifica si pasaron 10 minutos desde la ultima limpieza."""
-    log = _load_json(CLEANUP_FILE)
-    last = log.get("last_cleanup", "")
-    if not last:
-        return True
-    try:
-        last_dt = datetime.fromisoformat(last)
-        return (datetime.now() - last_dt).total_seconds() > 600
-    except Exception:
-        return True
-
-
-def daily_cleanup(tipo):
-    """Elimina todos los documentos del tipo excepto los ultimos MAX_DOCS_PER_TYPE.
-       Ejecuta la limpieza cada 10 minutos maximo."""
-    if not should_cleanup_now():
-        return 0
-
-    app, db = _firestore_client()
-    if not db:
-        return 0
-
-    docs = (db.collection(tipo)
-            .order_by("fecha", direction="DESCENDING")
-            .stream())
-
-    all_docs = list(docs)
-    if len(all_docs) <= MAX_DOCS_PER_TYPE:
-        return 0
-
-    deleted = 0
-    for doc in all_docs[MAX_DOCS_PER_TYPE:]:
-        _delete_doc_with_subcollections(db, tipo, doc.id)
-        deleted += 1
-
-    _save_json(CLEANUP_FILE, {"last_cleanup": datetime.now().isoformat()})
-    return deleted
-
-
-def _delete_doc_with_subcollections(db, collection, doc_id):
-    """Elimina un documento y todas sus subcolecciones recursivamente."""
-    doc_ref = db.collection(collection).document(doc_id)
-
-    for sub in doc_ref.collections():
-        for sub_doc in sub.stream():
-            _delete_doc_with_subcollections(db, f"{collection}/{doc_id}/{sub.id}", sub_doc.id)
-
-    doc_ref.delete()
 
 
 def set_metadata(doc_id, data):
@@ -334,7 +250,7 @@ def clear_local_cache():
     for path in LOCAL_PARQUET.values():
         if path.exists():
             path.unlink()
-    for f in [COUNTER_FILE, CACHE_FILE, CLEANUP_FILE, META_FILE]:
+    for f in [COUNTER_FILE, CACHE_FILE, META_FILE]:
         if f.exists():
             f.unlink()
     SKIP_FIRESTORE_FILE.touch()
