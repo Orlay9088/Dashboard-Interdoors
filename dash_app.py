@@ -466,9 +466,10 @@ def render_page_content(module, page, filters, refresh_count, clear_count, paret
     State("store-api-key", "data"),
     State("store-ai-model", "data"),
     State("store-pareto-canal", "data"),
+    State("store-bodega-filter", "data"),
     prevent_initial_call=True,
 )
-def generate_analysis_single(n_clicks, module, page, filters, api_key, ai_model, pareto_canal):
+def generate_analysis_single(n_clicks, module, page, filters, api_key, ai_model, pareto_canal, bodega_filter):
     import json
     module = str(module).strip().lower()
     if module not in MODULES: module = list(MODULES.keys())[0]
@@ -484,6 +485,13 @@ def generate_analysis_single(n_clicks, module, page, filters, api_key, ai_model,
     if data.empty: return html.Div("Sin resultados con estos filtros.", className="text-muted")
     if module == "pedidos" and page == "pareto" and pareto_canal != "TODOS":
         data = data[data["_canal"] == pareto_canal]
+    if module == "inventario" and bodega_filter and bodega_filter != "[]" and "_bodega" in data.columns:
+        try:
+            selected = json.loads(bodega_filter)
+            if selected:
+                data = data[data["_bodega"].astype(str).isin(selected)]
+        except Exception:
+            pass
 
     result = None
     if ai_model == "opencode" and api_key:
@@ -577,6 +585,7 @@ def show_file_name(filename):
     Output("store-page", "data"),
     Output("file-name", "children"),
     Output("upload-status", "children"),
+    Output("analisis-result", "children"),
     Input("mod-pedidos", "n_clicks"),
     Input("mod-facturas", "n_clicks"),
     Input("mod-inventario", "n_clicks"),
@@ -585,11 +594,11 @@ def show_file_name(filename):
 def switch_module(*args):
     ctx = dash.ctx
     if not ctx.triggered:
-        return no_update, no_update, no_update, no_update
+        return no_update, no_update, no_update, no_update, no_update
     mod_id = ctx.triggered[0]["prop_id"].split(".")[0]
     module = mod_id.replace("mod-", "")
     first_page = list(MODULES[module]["pages"].keys())[0]
-    return module, first_page, "", ""
+    return module, first_page, "", "", ""
 
 
 @callback(
@@ -708,7 +717,7 @@ def process_upload(n_clicks, contents, filename, refresh_count, active_module):
     if not filename.endswith((".xlsx", ".xls")):
         return html.Div("Solo archivos Excel.", style={"color": RED}), no_update, no_update, no_update, no_update
     try:
-        content_type, content_string = contents.split(",")
+        content_type, content_string = contents.split(",", 1)
         decoded = base64.b64decode(content_string)
         CARPETA_ENTRADA.mkdir(parents=True, exist_ok=True)
         ruta = CARPETA_ENTRADA / filename
@@ -716,6 +725,12 @@ def process_upload(n_clicks, contents, filename, refresh_count, active_module):
             f.write(decoded)
 
         tipo, sheet = detectar_tipo(str(ruta))
+        if tipo == "generic":
+            return html.Div([
+                html.Div(f"No se pudo identificar el tipo de archivo", style={"color": RED, "fontWeight": "bold"}),
+                html.Div(f"Columnas encontradas no coinciden con pedidos, facturas ni inventario.", className="small", style={"color": "#f87171"}),
+                html.Div(f"Verifica que el archivo tenga las columnas requeridas.", className="small mt-1", style={"color": GRAY}),
+            ]), no_update, no_update, no_update, no_update
         df_raw = pd.read_excel(str(ruta), sheet_name=sheet)
         df_norm = normalizar(df_raw, tipo)
         df_proc = procesar_etl(df_norm)
@@ -766,10 +781,10 @@ def download_csv(n, module, filters, pareto_canal, bodega_filter):
             filters = {}
         df = _load_cached(module)
         if df.empty:
-            return no_update
+            return dict(content="Sin datos. Sube un archivo Excel primero.", filename="sin_datos.txt")
         data = apply_filters(df, filters)
         if data.empty:
-            return no_update
+            return dict(content="No hay datos con los filtros actuales.", filename="sin_resultados.txt")
         if module == "pedidos" and pareto_canal and pareto_canal != "TODOS":
             data = data[data["_canal"] == pareto_canal]
         if module == "inventario" and bodega_filter and bodega_filter != "[]" and "_bodega" in data.columns:
@@ -899,12 +914,13 @@ def verify_model(n, api_key, model):
         except Exception:
             return html.Div("Sin conexion con Gemini", style={"color": RED}), no_update, no_update
     else:
-        return html.Div("Modo local activado", style={"color": GRAY}), "", "local"
+        return html.Div("Modo local activado", style={"color": GRAY}), api_key if api_key and api_key.strip() else "", "local"
 
 
 # Navigation via pattern-matching buttons
 @callback(
     Output("store-page", "data", allow_duplicate=True),
+    Output("analisis-result", "children", allow_duplicate=True),
     Input({"type": "nav-btn", "page": ALL}, "n_clicks"),
     State("store-page", "data"),
     prevent_initial_call=True,
@@ -913,11 +929,13 @@ def navigate_buttons(n_clicks, current_page):
     import json
     ctx = dash.ctx
     if not ctx.triggered:
-        return no_update
+        return no_update, no_update
     triggered = ctx.triggered[0]["prop_id"]
     obj = json.loads(triggered.split(".")[0])
     page = obj["page"]
-    return page if page != current_page else no_update
+    if page == current_page:
+        return no_update, no_update
+    return page, ""
 
 
 # Pareto canal selector callback
