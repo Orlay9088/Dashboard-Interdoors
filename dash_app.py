@@ -238,6 +238,7 @@ app.layout = html.Div([
     dcc.Store(id="store-tipo", data="pedidos"),
     dcc.Store(id="store-pareto-canal", data="TODOS"),
     dcc.Store(id="store-bodega-filter", data="[]"),
+    dcc.Store(id="store-filtered-data", data=""),
     build_sidebar(),
     html.Div([
         html.Div(id="nav-bar"),
@@ -368,6 +369,7 @@ def select_bodega(selected):
 # ===== PAGE CONTENT CALLBACK =====
 @callback(
     Output("page-content", "children"),
+    Output("store-filtered-data", "data"),
     Input("store-module", "data"),
     Input("store-page", "data"),
     Input("store-filters", "data"),
@@ -395,10 +397,10 @@ def render_page_content(module, page, filters, refresh_count, clear_count, paret
         if df.empty:
             return dmc.Alert([html.Div(f"No hay datos para {mod_info['label']}."),
                              html.Div("Sube un archivo Excel en el panel lateral.", className="small mt-1")],
-                            title="Sin Datos", color="yellow", withCloseButton=True)
+                            title="Sin Datos", color="yellow", withCloseButton=True), ""
         data = apply_filters(df, filters)
         if data.empty:
-            return dmc.Alert("Filtros no devuelven resultados.", title="Sin resultados", color="yellow")
+            return dmc.Alert("Filtros no devuelven resultados.", title="Sin resultados", color="yellow"), ""
 
         if module == "pedidos" and page == "pareto" and pareto_canal != "TODOS":
             data = data[data["_canal"] == pareto_canal]
@@ -419,19 +421,20 @@ def render_page_content(module, page, filters, refresh_count, clear_count, paret
         }
         func = page_funcs.get(module, {}).get(page)
         if not func:
-            return dmc.Alert(f"Pagina no encontrada", title="Error", color="red")
+            return dmc.Alert(f"Pagina no encontrada", title="Error", color="red"), ""
         try:
-            return html.Div(func(data))
+            filtered_json = data.to_json(orient="records", date_format="iso", force_ascii=False)
+            return html.Div(func(data)), filtered_json
         except Exception as e:
             return dmc.Alert([html.Div(f"Error: {module}/{page}", style={"fontWeight":"bold"}),
                              html.Div(str(e), className="small text-muted mt-1"),
                              html.Div(traceback.format_exc().replace("\n","<br>"), style={"fontSize":"0.6rem","maxHeight":"150px","overflow":"auto"})],
-                            title="Error de Pagina", color="red", withCloseButton=True)
+                            title="Error de Pagina", color="red", withCloseButton=True), ""
     except Exception as e:
         return dmc.Alert([html.Div("ERROR GLOBAL", style={"fontWeight":"bold", "color": RED, "fontSize":"1.2rem"}),
                          html.Div(str(e), style={"fontSize":"0.7rem", "color": RED}),
                          html.Div(traceback.format_exc().replace("\n","<br>"), style={"fontSize":"0.55rem","maxHeight":"200px","overflow":"auto","fontFamily":"monospace"})],
-                        title="Error Critico en Dashboard", color="red", withCloseButton=True)
+                        title="Error Critico en Dashboard", color="red", withCloseButton=True), ""
 
 # ===== SINGLE ANALYSIS CALLBACK =====
 @callback(

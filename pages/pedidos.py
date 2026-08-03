@@ -14,8 +14,21 @@ def pagina_home(data):
     from firebase_config import load_local
 
     pedidos = data.copy()
-    facturas = load_local("facturas")
-    inventario = load_local("inventario")
+    try:
+        from dash_app import _data_cache
+        facturas = _data_cache.get("facturas")
+        inventario = _data_cache.get("inventario")
+    except Exception:
+        facturas = None
+        inventario = None
+    if facturas is None:
+        facturas = load_local("facturas")
+    else:
+        facturas = facturas.copy()
+    if inventario is None:
+        inventario = load_local("inventario")
+    else:
+        inventario = inventario.copy()
 
     vp = pedidos["_valor"].sum() if not pedidos.empty else 0
     vc = pedidos["_valor_sec"].sum() if not pedidos.empty and "_valor_sec" in pedidos.columns else 0
