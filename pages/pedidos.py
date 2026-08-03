@@ -426,7 +426,7 @@ def pagina_ranking(data):
 
     children = [section_title("Ranking de Asesores", title_sub)]
 
-    top3 = rank.head(3)
+    top3 = rank.head(min(3, len(rank)))
     children.append(kahoot_podium(top3))
 
     kpi_row = dbc.Row([

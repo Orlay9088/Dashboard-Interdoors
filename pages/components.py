@@ -4,11 +4,7 @@ import dash_mantine_components as dmc
 import pandas as pd
 
 def graph_png(figure, className=None, style=None, id=None):
-    return dcc.Graph(
-        id=id,
-        figure=figure,
-        className=className,
-        style=style,
+    props = dict(figure=figure, className=className, style=style,
         config={
             "displayModeBar": True,
             "modeBarButtonsToAdd": ["toImage"],
@@ -20,8 +16,10 @@ def graph_png(figure, className=None, style=None, id=None):
                 "scale": 2,
             },
             "displaylogo": False,
-        },
-    )
+        })
+    if id is not None:
+        props["id"] = id
+    return dcc.Graph(**props)
 
 # ============================================================
 # INTERDOORS BRAND COLORS (Manual de Marca ID 2025)
@@ -192,18 +190,28 @@ def apply_filters(data, filters_dict):
 # ============================================================
 def kahoot_podium(rank_df):
     top3 = rank_df.head(3).reset_index(drop=True)
+    n = len(top3)
+    if n == 0:
+        return None
     bg_colors = ["#B8BCC8", "#F3C615", "#CD7F32"]
     dk_colors = ["#6A6F7A", "#9A7400", "#8B4513"]
     tx_colors = ["white", DARKGRAY, "white"]
-    orders = [1, 0, 2]
     labels = ["#2", "#1", "#3"]
     cards = []
 
-    for i in range(3):
-        r = top3.iloc[orders[i]]
+    # Map from display position to data index, depending on count
+    if n == 1:
+        order_map = [(0, 0, "#1")]
+    elif n == 2:
+        order_map = [(0, 1, "#2"), (1, 0, "#1")]
+    else:
+        order_map = [(0, 1, "#2"), (1, 0, "#1"), (2, 2, "#3")]
+
+    for display_i, data_i, label in order_map:
+        r = top3.iloc[data_i]
         initials = "".join([w[0] for w in str(r["_vendedor"]).split()[:2]]).upper()
-        bg, dk, tx = bg_colors[i], dk_colors[i], tx_colors[i]
-        margin_top = "-30px" if orders[i] == 0 else "0px"
+        bg, dk, tx = bg_colors[display_i], dk_colors[display_i], tx_colors[display_i]
+        margin_top = "-30px" if data_i == 0 else "0px"
 
         presup = r.get("% Presup", 0)
         progr = min(100, max(0, presup))
@@ -211,7 +219,7 @@ def kahoot_podium(rank_df):
         has_ppto = r.get("Presupuesto", 0) > 0
 
         card = html.Div([
-            html.Div(labels[i], style={
+            html.Div(label, style={
                 "position": "absolute", "top": "8px", "right": "10px",
                 "fontSize": "0.75rem", "fontWeight": "900", "color": dk,
                 "opacity": "0.6",
