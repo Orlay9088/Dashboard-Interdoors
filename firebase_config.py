@@ -20,7 +20,6 @@ LAST_FILES_JSON = LOCAL_BASE / ".last_files.json"
 MAX_SYNCS_PER_DAY = 3
 MAX_DOCS_PER_TYPE = 3
 CACHE_TTL_HOURS = 24
-BATCH_SIZE = 500
 
 
 def _load_json(path, default=None):
@@ -166,7 +165,7 @@ def try_load(tipo):
 
 
 def save_to_firestore(df, tipo, filename=""):
-    """Guarda un DataFrame en Firestore particionado en batches de BATCH_SIZE filas."""
+    """Guarda un DataFrame completo en un solo documento de Firestore."""
     app, db = _firestore_client()
     if not db:
         return 0
@@ -175,28 +174,21 @@ def save_to_firestore(df, tipo, filename=""):
     now_str = datetime.now().strftime("%Y%m%d_%H%M%S")
     doc_id = f"upload_{now_str}"
 
-    # Documento principal con metadata
+    data_json = json.loads(df.to_json(orient="records", date_format="iso", force_ascii=False))
     meta = {
         "tipo": tipo,
         "filename": filename,
         "fecha": datetime.now().isoformat(),
         "registros": n,
         "columnas": list(df.columns),
+        "data": data_json,
     }
     db.collection(tipo).document(doc_id).set(meta)
-
-    # Subcoleccion records/ con batches
-    records_ref = db.collection(tipo).document(doc_id).collection("records")
-    for start in range(0, n, BATCH_SIZE):
-        batch_df = df.iloc[start:start + BATCH_SIZE]
-        batch_json = json.loads(batch_df.to_json(orient="records", date_format="iso", force_ascii=False))
-        batch_doc_id = f"b_{start // BATCH_SIZE:04d}"
-        records_ref.document(batch_doc_id).set({"data": batch_json})
     return n
 
 
 def load_from_firestore(tipo):
-    """Carga el ultimo documento disponible del tipo desde Firestore."""
+    """Carga el ultimo documento desde Firestore. 1 sola lectura."""
     app, db = _firestore_client()
     if not db:
         return pd.DataFrame()
@@ -208,28 +200,40 @@ def load_from_firestore(tipo):
 
     for doc in docs:
         meta = doc.to_dict()
+        data = meta.get("data", [])
         columnas = meta.get("columnas", [])
         registros = meta.get("registros", 0)
-        if not registros or not columnas:
-            continue
+        if not data and registros > 0:
+            # Fallback: formato antiguo con subcolecciones
+            return _load_from_firestore_legacy(db, tipo, doc.id, columnas)
+        if data and columnas:
+            df = pd.DataFrame(data, columns=columnas)
+            if "_fecha" in df.columns:
+                df["_fecha"] = pd.to_datetime(df["_fecha"], errors="coerce")
+            return df
+    return pd.DataFrame()
 
+
+def _load_from_firestore_legacy(db, tipo, doc_id, columnas):
+    """Fallback para documentos antiguos con subcoleccion records/."""
+    try:
         records_list = (
-            db.collection(tipo).document(doc.id)
+            db.collection(tipo).document(doc_id)
             .collection("records")
             .order_by("__name__")
             .stream()
         )
-
         all_data = []
         for rec_doc in records_list:
             batch = rec_doc.to_dict().get("data", [])
             all_data.extend(batch)
-
-        if all_data:
+        if all_data and columnas:
             df = pd.DataFrame(all_data, columns=columnas)
             if "_fecha" in df.columns:
                 df["_fecha"] = pd.to_datetime(df["_fecha"], errors="coerce")
             return df
+    except Exception:
+        pass
     return pd.DataFrame()
 
 
@@ -313,7 +317,7 @@ def clear_local_cache():
     for path in LOCAL_PARQUET.values():
         if path.exists():
             path.unlink()
-    for f in [COUNTER_FILE, CACHE_FILE, CLEANUP_FILE]:
+    for f in [COUNTER_FILE, CACHE_FILE, CLEANUP_FILE, META_FILE]:
         if f.exists():
             f.unlink()
 

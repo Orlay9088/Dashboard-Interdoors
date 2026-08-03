@@ -36,23 +36,28 @@ from pages.inventario import (
 # CACHE
 # ============================================================
 _data_cache = {}
+_cache_timestamps = {}
 
 def _load_cached(module):
-    if is_cache_stale():
-        _clear_cache()
-        mark_cache_fresh()
+    now = time.time()
+    last_load = _cache_timestamps.get(module, 0)
+    if (now - last_load) > (CACHE_TTL_HOURS * 3600):
+        _data_cache.pop(module, None)
     if module in _data_cache and _data_cache[module] is not None:
         return _data_cache[module].copy()
     df, backend = try_load(module)
     if not df.empty:
         _data_cache[module] = df.copy()
+        _cache_timestamps[module] = now
     return df
 
 def _clear_cache(module=None):
     if module:
         _data_cache.pop(module, None)
+        _cache_timestamps.pop(module, None)
     else:
         _data_cache.clear()
+        _cache_timestamps.clear()
 
 # ============================================================
 # APP SETUP
@@ -479,21 +484,48 @@ def generate_analysis_single(n_clicks, module, page, filters, api_key, ai_model,
 # CALLBACKS
 # ============================================================
 
-# Sidebar: update module badges with record counts
+# Sidebar: update module badges + sidebar info (merged to avoid double data loading)
 @callback(
-    [Output(f"mod-badge-{k}", "children") for k in MODULES],
+    [Output(f"mod-badge-{k}", "children") for k in MODULES] +
+    [Output("sidebar-info", "children")],
     Input("store-refresh", "data"),
     Input("store-clear", "data"),
 )
-def update_module_badges(_refresh, _clear):
-    results = []
-    for key in MODULES:
-        df = _load_cached(key)
+def update_badges_and_sidebar(_refresh, _clear):
+    from firebase_config import get_upload_age_hours
+    badges = []
+    info_lines = []
+    alertas = []
+
+    for tipo in ["pedidos", "facturas", "inventario"]:
+        df = _load_cached(tipo)
         if not df.empty:
-            results.append(f"{len(df):,} reg")
+            badges.append(f"{len(df):,} reg")
+            info_lines.append(f"{tipo}: {len(df):,}")
         else:
-            results.append("vacio")
-    return results
+            badges.append("vacio")
+        age = get_upload_age_hours(tipo)
+        if age is not None and age > 24:
+            alertas.append(f"{tipo}: +{int(age / 24)}d")
+
+    meta = get_metadata()
+    syncs = meta.get("syncs_remaining", 0)
+    sync_info = f"| Firestore: {syncs}/3" if syncs > 0 else "| Firestore: agotado"
+
+    sidebar_lines = []
+    if info_lines:
+        sidebar_lines.append(html.Div(" | ".join(info_lines),
+            style={"color": GREEN, "fontWeight": "bold"}))
+    else:
+        sidebar_lines.append(html.Div("Sin datos. Sube un archivo.", style={"color": AMBER}))
+    sidebar_lines.append(html.Div(sync_info, className="small", style={"color": "#94a3b8"}))
+    if alertas:
+        sidebar_lines.append(html.Div(
+            f"   Datos desactualizados: {', '.join(alertas)}",
+            style={"color": RED, "fontWeight": "bold", "fontSize": "0.68rem", "marginTop": "6px", "lineHeight": "1.3"}
+        ))
+
+    return tuple(badges) + (html.Div(sidebar_lines),)
 
 
 # Sidebar: show last uploaded file for current module
@@ -528,9 +560,11 @@ def reload_module(n, module, count):
     if module not in MODULES:
         return html.Div("Modulo invalido.", style={"color": RED}), no_update
     _clear_cache(module)
-    df = _load_cached(module)
+    from firebase_config import load_local
+    df = load_local(module)
     if df.empty:
         return html.Div("No hay datos guardados. Sube un archivo primero.", style={"color": AMBER}), no_update
+    _data_cache[module] = df.copy()
     return html.Div(f"Recargado: {len(df):,} registros.", style={"color": GREEN}), count + 1
 
 
@@ -587,11 +621,8 @@ def switch_module(*args):
     Output("mod-badge-facturas", "style"),
     Output("mod-badge-inventario", "style"),
     Input("store-module", "data"),
-    Input("store-refresh", "data"),
-    Input("store-clear", "data"),
 )
-def highlight_active_module(module, _refresh, _clear):
-    import pandas as pd
+def highlight_active_module(module):
     BASE = {
         "borderRadius": "8px",
         "padding": "12px 14px",
@@ -772,45 +803,6 @@ def clear_data(n, clear_count):
 def refresh_data(n, count):
     _clear_cache()
     return count + 1
-
-
-@callback(
-    Output("sidebar-info", "children"),
-    Input("store-refresh", "data"),
-    Input("store-clear", "data"),
-)
-def update_sidebar_info(n, _clear):
-    from firebase_config import get_upload_age_hours
-    info = []
-    for tipo in ["pedidos", "facturas", "inventario"]:
-        df = _load_cached(tipo)
-        if not df.empty:
-            info.append(f"{tipo}: {len(df):,}")
-    meta = get_metadata()
-    syncs = meta.get("syncs_remaining", 0)
-    sync_info = f"| Firestore: {syncs}/3" if syncs > 0 else "| Firestore: agotado"
-    lines = []
-    if info:
-        lines.append(html.Div(" | ".join(info), style={"color": GREEN, "fontWeight": "bold"}))
-    else:
-        lines.append(html.Div("Sin datos. Sube un archivo.", style={"color": AMBER}))
-    lines.append(html.Div(sync_info, className="small", style={"color": "#94a3b8"}))
-
-    alertas = []
-    for tipo in ["pedidos", "facturas", "inventario"]:
-        age = get_upload_age_hours(tipo)
-        if age is not None and age > 24:
-            dias = int(age / 24)
-            alertas.append(f"{tipo}: +{dias}d")
-    if alertas:
-        lines.append(html.Div(
-            f"   Datos desactualizados: {', '.join(alertas)}",
-            style={"color": RED, "fontWeight": "bold", "fontSize": "0.68rem", "marginTop": "6px", "lineHeight": "1.3"}
-        ))
-    return html.Div(lines)
-
-
-
 
 
 @callback(
