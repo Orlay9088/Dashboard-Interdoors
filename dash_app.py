@@ -65,6 +65,12 @@ app = dash.Dash(
 )
 server = app.server
 
+
+@server.route("/health")
+def health_check():
+    return {"status": "ok", "service": "Dashboard Interdoors"}, 200
+
+
 MODULES = {
     "pedidos": {"label": "PEDIDOS", "color": BLUE, "pages": {
         "home": "Home",
@@ -954,6 +960,61 @@ def select_pareto_canal(n_clicks, current):
     obj = json.loads(triggered.split(".")[0])
     name = obj["name"]
     return name if name != current else no_update
+
+
+# ===== HOME NAVIGATION: Click "Ir al modulo" → switch module =====
+@callback(
+    Output("store-module", "data", allow_duplicate=True),
+    Output("store-page", "data", allow_duplicate=True),
+    Input({"type": "home-nav", "mod": ALL, "page": ALL}, "n_clicks"),
+    prevent_initial_call=True,
+)
+def home_navigate_module(n_clicks):
+    import json
+    ctx = dash.ctx
+    if not ctx.triggered or not n_clicks or all(nc is None for nc in n_clicks):
+        return no_update, no_update
+    triggered = ctx.triggered[0]["prop_id"]
+    obj = json.loads(triggered.split(".")[0])
+    return obj.get("mod", "pedidos"), obj.get("page", "resumen")
+
+
+# ===== CROSS-FILTERING: Click en gráfico → actualizar filtro =====
+@callback(
+    Output("dropdown-canal", "value"),
+    Input("chart-canal-pie", "clickData"),
+    prevent_initial_call=True,
+)
+def crossfilter_canal(clickData):
+    if not clickData:
+        return no_update
+    try:
+        canal = clickData["points"][0]["label"]
+        return canal
+    except Exception:
+        return no_update
+
+
+@callback(
+    Output("dropdown-asesor", "value"),
+    Input("chart-asesor-participacion", "clickData"),
+    Input("chart-ranking-asesores", "clickData"),
+    prevent_initial_call=True,
+)
+def crossfilter_asesor(click_part, click_rank):
+    ctx = dash.ctx
+    if not ctx.triggered:
+        return no_update
+    try:
+        clickData = ctx.triggered[0]["value"]
+        if not clickData:
+            return no_update
+        asesor = clickData["points"][0].get("y") or clickData["points"][0].get("label")
+        if asesor:
+            return asesor
+    except Exception:
+        pass
+    return no_update
 
 
 if __name__ == "__main__":

@@ -56,24 +56,72 @@ def pagina_home(data):
         ("Valor Prom.", fmt_p(vi/inv_prod) if inv_prod else "-", "por producto" if inv_prod else ""),
     ], inventario.empty))
 
+    if not pedidos.empty and not inventario.empty and "_referencia" in pedidos.columns and "_referencia" in inventario.columns:
+        ped_refs = pedidos.groupby("_referencia")["_cantidad"].sum().reset_index()
+        ped_refs.columns = ["_referencia", "demanda"]
+        inv_refs = inventario.groupby("_referencia").agg(
+            stock=("_cantidad", "sum"), disponible=("_cantidad_com", "sum")
+        ).reset_index()
+        cruzado = ped_refs.merge(inv_refs, on="_referencia", how="inner")
+        if not cruzado.empty:
+            cruzado["deficit"] = cruzado["demanda"] - cruzado["disponible"]
+            alertas = cruzado[cruzado["deficit"] > 0].sort_values("deficit", ascending=False).head(10)
+            if not alertas.empty:
+                children.append(html.Div([
+                    html.H6("ALERTAS: Demanda vs Stock", className="fw-bold mb-2", style={"color": RED, "fontSize": "0.8rem", "letterSpacing": "1px", "textTransform": "uppercase"}),
+                    html.P(f"{len(alertas)} productos con demanda mayor al stock disponible", style={"fontSize": "0.7rem", "color": GRAY, "marginBottom": "8px"}),
+                    dash_table.DataTable(
+                        columns=[{"name": "Referencia", "id": "_referencia"}, {"name": "Demanda", "id": "demanda"},
+                                 {"name": "Disponible", "id": "disponible"}, {"name": "Deficit", "id": "deficit"}],
+                        data=[{"_referencia": str(r["_referencia"])[:25], "demanda": f"{int(r['demanda']):,}",
+                               "disponible": f"{int(r['disponible']):,}", "deficit": f"{int(r['deficit']):,}"}
+                              for _, r in alertas.iterrows()],
+                        style_table={"overflowX": "auto"},
+                        style_cell={"textAlign": "left", "padding": "4px 8px", "fontSize": "0.7rem", "fontFamily": "Segoe UI, Arial, sans-serif"},
+                        style_header={"fontWeight": "bold", "backgroundColor": DARKGRAY, "color": "white", "border": "none"},
+                        style_data_conditional=[
+                            {"if": {"column_id": "deficit"}, "color": RED, "fontWeight": "bold"},
+                        ],
+                        page_size=10,
+                    ),
+                ], style={"background": "white", "borderRadius": "12px", "padding": "14px 20px", "marginBottom": "16px",
+                           "borderLeft": f"5px solid {RED}", "boxShadow": "0 1px 3px rgba(0,0,0,0.05)"}))
+
     children.append(html.Hr())
     return children
 
 
 def _home_block(title, color, kpis, is_empty):
+    mod_id = "pedidos" if title == "PEDIDOS" else "facturas" if title == "FACTURACION" else "inventario"
+    first_page = "resumen" if title != "PEDIDOS" else "resumen"
+
     if is_empty:
         return html.Div([
-            html.H6(title, className="fw-bold mb-2", style={"color": color, "fontSize": "0.8rem", "letterSpacing": "1.5px", "textTransform": "uppercase"}),
+            html.Div([
+                html.H6(title, className="fw-bold mb-1", style={"color": color, "fontSize": "0.8rem", "display": "inline", "letterSpacing": "1.5px", "textTransform": "uppercase"}),
+                html.Button("Ir al modulo", id={"type": "home-nav", "mod": mod_id, "page": first_page}, style={
+                    "background": "none", "border": f"1px solid {color}", "cursor": "pointer",
+                    "color": color, "fontSize": "0.6rem", "padding": "2px 8px", "borderRadius": "4px",
+                    "float": "right",
+                }),
+            ]),
             html.P("Sin datos. Sube un archivo Excel en el panel lateral.", style={"color": GRAY, "fontSize": "0.8rem", "fontStyle": "italic"}),
         ], style={"background": "white", "borderRadius": "12px", "padding": "16px 20px", "marginBottom": "16px",
                    "borderLeft": f"5px solid {color}", "boxShadow": "0 1px 3px rgba(0,0,0,0.05)"})
 
     return html.Div([
-        html.H6(title, className="fw-bold mb-3", style={"color": color, "fontSize": "0.8rem", "letterSpacing": "1.5px", "textTransform": "uppercase"}),
+        html.Div([
+            html.H6(title, className="fw-bold mb-3", style={"color": color, "fontSize": "0.8rem", "display": "inline", "letterSpacing": "1.5px", "textTransform": "uppercase"}),
+            html.Button("Ir al modulo", id={"type": "home-nav", "mod": mod_id, "page": first_page}, style={
+                "background": "none", "border": f"1px solid {color}", "cursor": "pointer",
+                "color": color, "fontSize": "0.6rem", "padding": "2px 8px", "borderRadius": "4px",
+                "float": "right", "marginTop": "-3px",
+            }),
+        ]),
         dbc.Row([
             dbc.Col(kpi_card(name, val, sub, color=(color if i == 0 else NAVY if i == 1 else GRAY)), width=3)
             for i, (name, val, sub) in enumerate(kpis)
-        ], className="mb-3 g-3"),
+        ], className="g-3"),
     ], style={"background": "white", "borderRadius": "12px", "padding": "16px 20px", "marginBottom": "16px",
                "borderLeft": f"5px solid {color}", "boxShadow": "0 1px 3px rgba(0,0,0,0.05)"})
 
@@ -212,6 +260,7 @@ def pagina_participacion(data):
     fig_canal.add_annotation(text=fmt_pm(vp), x=0.5, y=0.5, showarrow=False,
         font=dict(size=16, color=DARKGRAY, family="Segoe UI"), xref="paper", yref="paper")
     fig_canal.update_layout(**fig_layout("Por Canal", height=370))
+    fig_canal.update_layout(clickmode="event+select")
 
     asesores = data.groupby("_vendedor").agg(Valor=("_valor", "sum"), Pedidos=("_documento", "nunique")).reset_index().sort_values("Valor", ascending=False)
     asesores["%"] = (asesores["Valor"] / vp * 100).round(2)
@@ -242,8 +291,8 @@ def pagina_participacion(data):
     fig_lin.update_yaxes(automargin=True, autorange="reversed")
 
     children.append(dbc.Row([
-        dbc.Col(graph_png(figure=fig_canal), width=4),
-        dbc.Col(graph_png(figure=fig_ase), width=4),
+        dbc.Col(graph_png(figure=fig_canal, id="chart-canal-pie"), width=4),
+        dbc.Col(graph_png(figure=fig_ase, id="chart-asesor-participacion"), width=4),
         dbc.Col(graph_png(figure=fig_lin), width=4),
     ], className="mb-3 g-3"))
 
@@ -397,7 +446,7 @@ def pagina_ranking(data):
         margin=dict(t=40, b=20, l=20, r=50)))
     fig.update_xaxes(title="$ millones", showgrid=True, gridcolor="#e2e8f0")
     fig.update_yaxes(automargin=True, tickfont=dict(size=10), autorange="reversed")
-    children.append(dbc.Row([dbc.Col(graph_png(figure=fig), width=12)], className="mb-3"))
+    children.append(dbc.Row([dbc.Col(graph_png(figure=fig, id="chart-ranking-asesores"), width=12)], className="mb-3"))
 
     table_data = []
     for _, r in rank.iterrows():
@@ -587,7 +636,7 @@ def pagina_heatmap(data):
     fig.update_yaxes(tickfont=dict(size=9, family="Segoe UI"), automargin=True)
     fig.add_hline(y=len(y_labels) - 1.5, line=dict(color=DARKGRAY, width=2, dash="dot"))
 
-    children.append(dbc.Row([dbc.Col(graph_png(figure=fig), width=12)], className="mb-3"))
+    children.append(dbc.Row([dbc.Col(graph_png(figure=fig, id="chart-heatmap"), width=12)], className="mb-3"))
 
     top_asesores = (
         heat.groupby("_vendedor")["_valor"].sum().sort_values(ascending=False)

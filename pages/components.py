@@ -3,8 +3,9 @@ import dash_bootstrap_components as dbc
 import dash_mantine_components as dmc
 import pandas as pd
 
-def graph_png(figure, className=None, style=None):
+def graph_png(figure, className=None, style=None, id=None):
     return dcc.Graph(
+        id=id,
         figure=figure,
         className=className,
         style=style,
