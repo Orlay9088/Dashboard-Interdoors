@@ -157,11 +157,23 @@ def try_save(df, tipo, filename=""):
     return n
 
 
+def _firestore_available():
+    if os.environ.get("FIREBASE_KEY_JSON"):
+        return True
+    if (Path(__file__).parent / "firebase-key.json").exists():
+        return True
+    if Path("/etc/secrets/firebase-key.json").exists():
+        return True
+    return False
+
+
 def try_load(tipo):
     df = load_local(tipo)
     if not df.empty:
         return df, "local"
     if SKIP_FIRESTORE_FILE.exists():
+        return pd.DataFrame(), "local"
+    if not _firestore_available():
         return pd.DataFrame(), "local"
     df = load_from_firestore(tipo)
     if not df.empty:
