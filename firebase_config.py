@@ -155,12 +155,12 @@ def try_save(df, tipo, filename=""):
 
 
 def try_load(tipo):
-    df = load_from_firestore(tipo)
-    if not df.empty:
-        return df, "firestore"
     df = load_local(tipo)
     if not df.empty:
         return df, "local"
+    df = load_from_firestore(tipo)
+    if not df.empty:
+        return df, "firestore"
     return pd.DataFrame(), "local"
 
 

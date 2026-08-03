@@ -19,7 +19,7 @@ from etl.detector import detectar_tipo
 from etl.normalizer import normalizar
 from etl.processor import procesar as procesar_etl
 
-from firebase_config import try_load, try_save, is_cache_stale, mark_cache_fresh, get_metadata, load_local, clear_local_cache
+from firebase_config import try_load, try_save, get_metadata, load_local, clear_local_cache
 from analysis import generar_analisis, generar_con_gemini, generar_con_opencode
 from pages.pedidos import (
     pagina_home, pagina_resumen, pagina_participacion, pagina_pareto,
