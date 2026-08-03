@@ -194,18 +194,19 @@ def save_to_firestore(df, tipo, filename=""):
         "columnas": list(df.columns),
         "data": data_json,
     }
-    db.collection(tipo).document("latest").set(meta)
+    db.collection(tipo).document("latest").set(meta, timeout=10)
     return n
 
 
 def load_from_firestore(tipo):
-    """Lee el documento 'latest' desde Firestore. 1 sola lectura directa."""
+    """Lee el documento 'latest' desde Firestore. Timeout de 5 segundos."""
     app, db = _firestore_client()
     if not db:
         return pd.DataFrame()
 
     try:
-        doc = db.collection(tipo).document("latest").get()
+        from google.api_core import retry, exceptions as api_exceptions
+        doc = db.collection(tipo).document("latest").get(timeout=5)
         if not doc.exists:
             return pd.DataFrame()
         meta = doc.to_dict()

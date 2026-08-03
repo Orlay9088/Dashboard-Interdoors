@@ -717,7 +717,6 @@ def process_upload(n_clicks, contents, filename, refresh_count, active_module):
         df_norm = normalizar(df_raw, tipo)
         df_proc = procesar_etl(df_norm)
         n_reg = try_save(df_proc, tipo, filename)
-        _clear_cache(tipo)
         _data_cache[tipo] = df_proc.copy()
         _cache_timestamps[tipo] = time.time()
 
