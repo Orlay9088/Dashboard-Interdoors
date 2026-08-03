@@ -190,71 +190,37 @@ def build_sidebar():
 
     children.append(html.Hr(style={"borderColor": "rgba(255,255,255,0.15)"}))
 
-    # Filters
+    # Action buttons - compact layout
     children.extend([
-        html.H6("Filtros", className="text-uppercase small fw-semibold mb-2", style={"color": "#94a3b8"}),
-        html.Div([
-            html.Label("Periodo", className="small mb-1 d-block", style={"color": "#cbd5e1", "fontWeight": "500"}),
-            dcc.DatePickerRange(id="date-range", display_format="DD/MM/YYYY",
-                style={"width": "100%", "fontSize": "0.8rem"},
-                className="mb-3"),
-        ], style={"background": "rgba(255,255,255,0.04)", "borderRadius": "8px", "padding": "10px", "marginBottom": "8px"}),
-        html.Div([
-            html.Label("Asesor", className="small mb-1 d-block", style={"color": "#cbd5e1", "fontWeight": "500"}),
-            dcc.Dropdown(id="dropdown-asesor", options=[], value="Todos", clearable=False,
-                style={"fontSize": "0.8rem"}, className="small-dropdown mb-0"),
-        ], style={"background": "rgba(255,255,255,0.04)", "borderRadius": "8px", "padding": "10px", "marginBottom": "8px"}),
-        html.Div([
-            html.Label("Canal", className="small mb-1 d-block", style={"color": "#cbd5e1", "fontWeight": "500"}),
-            dcc.Dropdown(id="dropdown-canal", options=[], value="Todos", clearable=False,
-                style={"fontSize": "0.8rem"}, className="small-dropdown mb-0"),
-        ], style={"background": "rgba(255,255,255,0.04)", "borderRadius": "8px", "padding": "10px", "marginBottom": "8px"}),
-        html.Div([
-            html.Label("Estado", className="small mb-1 d-block", style={"color": "#cbd5e1", "fontWeight": "500"}),
-            dcc.Dropdown(id="dropdown-estado", options=[], value="Todos", clearable=False,
-                style={"fontSize": "0.8rem"}, className="small-dropdown mb-0"),
-        ], style={"background": "rgba(255,255,255,0.04)", "borderRadius": "8px", "padding": "10px", "marginBottom": "8px"}),
-        html.Div([
-            html.Label("Linea", className="small mb-1 d-block", style={"color": "#cbd5e1", "fontWeight": "500"}),
-            dcc.Dropdown(id="dropdown-linea", options=[], value="Todos", clearable=False,
-                style={"fontSize": "0.8rem"}, className="small-dropdown mb-0"),
-        ], style={"background": "rgba(255,255,255,0.04)", "borderRadius": "8px", "padding": "10px", "marginBottom": "8px"}),
-        html.Div([
-            html.Label("Sublinea", className="small mb-1 d-block", style={"color": "#cbd5e1", "fontWeight": "500"}),
-            dcc.Dropdown(id="dropdown-sublinea", options=[], value="Todos", clearable=False,
-                style={"fontSize": "0.8rem"}, className="small-dropdown mb-0"),
-        ], style={"background": "rgba(255,255,255,0.04)", "borderRadius": "8px", "padding": "10px", "marginBottom": "8px"}),
-        html.Hr(style={"borderColor": "rgba(255,255,255,0.15)"}),
+    dbc.Button("Refrescar datos", id="refresh-data", color="light", size="sm", className="w-100 mb-1 text-dark"),
+    dbc.Button("Limpiar datos", id="clear-data", color="danger", size="sm", className="w-100 mb-1"),
+    dbc.Button("   Descargar CSV", id="btn-download-csv", color="success", size="sm", className="w-100 mb-1"),
+    dcc.Download(id="download-data"),
+    html.Div(id="clear-status", style={"fontSize": "0.75rem", "minHeight": "1.2rem"}),
+    html.Hr(style={"borderColor": "rgba(255,255,255,0.15)"}),
 
-        dbc.Button("Refrescar datos", id="refresh-data", color="light", size="sm", className="w-100 mb-1 text-dark"),
-        dbc.Button("Limpiar datos", id="clear-data", color="danger", size="sm", className="w-100 mb-1"),
-        dbc.Button("   Descargar CSV", id="btn-download-csv", color="success", size="sm", className="w-100 mb-1"),
-        dcc.Download(id="download-data"),
-        html.Div(id="clear-status", style={"fontSize": "0.8rem", "minHeight": "1.5rem"}),
-        html.Hr(style={"borderColor": "rgba(255,255,255,0.15)"}),
-
-        html.H6("IA Analisis", className="text-uppercase small fw-semibold mb-2", style={"color": "#94a3b8"}),
-        dcc.Dropdown(
-            id="ai-model-select",
-            options=[
-                {"label": "OpenCode AI", "value": "opencode"},
-                {"label": "Gemini (Google)", "value": "gemini"},
-                {"label": "Sin IA (analisis local)", "value": "local"},
-            ],
-            value="local",
-            clearable=False,
-            className="mb-2",
-            style={"fontSize": "0.8rem"},
-        ),
-        dbc.Input(id="api-key-input", type="password", placeholder="API Key", size="sm", className="mb-1",
-                  style={"fontSize": "0.8rem"}),
-        dbc.Button("Verificar", id="btn-verify-api", color="success", size="sm", className="w-100 mb-1"),
-        html.Div(id="api-status", style={"fontSize": "0.75rem", "color": "#94a3b8", "minHeight": "1.2rem"}),
-        dcc.Store(id="store-api-key", data=""),
-        dcc.Store(id="store-ai-model", data="local"),
-        html.Hr(style={"borderColor": "rgba(255,255,255,0.15)"}),
-        html.Div(id="sidebar-info", className="small", style={"color": "#94a3b8"}),
-    ])
+    html.H6("IA Analisis", className="text-uppercase small fw-semibold mb-2", style={"color": "#94a3b8"}),
+    dcc.Dropdown(
+        id="ai-model-select",
+        options=[
+            {"label": "OpenCode AI", "value": "opencode"},
+            {"label": "Gemini (Google)", "value": "gemini"},
+            {"label": "Sin IA (analisis local)", "value": "local"},
+        ],
+        value="local",
+        clearable=False,
+        className="mb-2",
+        style={"fontSize": "0.8rem"},
+    ),
+    dbc.Input(id="api-key-input", type="password", placeholder="API Key", size="sm", className="mb-1",
+              style={"fontSize": "0.8rem"}),
+    dbc.Button("Verificar", id="btn-verify-api", color="success", size="sm", className="w-100 mb-1"),
+    html.Div(id="api-status", style={"fontSize": "0.75rem", "color": "#94a3b8", "minHeight": "1.2rem"}),
+    dcc.Store(id="store-api-key", data=""),
+    dcc.Store(id="store-ai-model", data="local"),
+    html.Hr(style={"borderColor": "rgba(255,255,255,0.15)"}),
+    html.Div(id="sidebar-info", className="small", style={"color": "#94a3b8"}),
+])
     return html.Div(children, style=SIDEBAR_STYLE)
 
 
@@ -681,28 +647,6 @@ def highlight_active_module(module, _refresh, _clear):
 
 
 @callback(
-    Output("store-filters", "data"),
-    Input("date-range", "start_date"),
-    Input("date-range", "end_date"),
-    Input("dropdown-asesor", "value"),
-    Input("dropdown-canal", "value"),
-    Input("dropdown-estado", "value"),
-    Input("dropdown-linea", "value"),
-    Input("dropdown-sublinea", "value"),
-)
-def update_filters(start, end, asesor, canal, estado, linea, sublinea):
-    import json
-    return json.dumps({
-        "rango": [start, end],
-        "asesor": asesor or "Todos",
-        "canal": canal or "Todos",
-        "estado": estado or "Todos",
-        "linea": linea or "Todos",
-        "sublinea": sublinea or "Todos",
-    })
-
-
-@callback(
     Output("upload-status", "children"),
     Output("store-refresh", "data"),
     Output("store-module", "data", allow_duplicate=True),
@@ -853,32 +797,6 @@ def update_sidebar_info(n, _clear):
     return html.Div(lines)
 
 
-@callback(
-    Output("dropdown-asesor", "options"),
-    Output("dropdown-canal", "options"),
-    Output("dropdown-estado", "options"),
-    Output("dropdown-linea", "options"),
-    Output("dropdown-sublinea", "options"),
-    Input("store-refresh", "data"),
-    Input("store-clear", "data"),
-    Input("store-tipo", "data"),
-)
-def update_dropdowns(_refresh, _clear, tipo):
-    try:
-        df = _load_cached(tipo)
-        no_data = [{"label": "Sin datos", "value": "Todos"}]
-        if df.empty:
-            return no_data, no_data, no_data, no_data, no_data
-        asesores = [{"label": "Todos", "value": "Todos"}] + [{"label": a, "value": a} for a in sorted(df["_vendedor"].dropna().unique()) if a]
-        canales = [{"label": "Todos", "value": "Todos"}] + [{"label": c, "value": c} for c in sorted(df["_canal"].dropna().unique()) if c]
-        estados = [{"label": "Todos", "value": "Todos"}] + [{"label": e, "value": e} for e in sorted(df["_estado"].dropna().unique()) if e]
-        lineas = [{"label": "Todos", "value": "Todos"}] + [{"label": l, "value": l} for l in sorted(df["_linea"].dropna().unique()) if str(l).strip()]
-        sublineas = [{"label": "Todos", "value": "Todos"}] + [{"label": s, "value": s} for s in sorted(df["_sublinea"].dropna().unique()) if str(s).strip()]
-        return asesores, canales, estados, lineas, sublineas
-    except Exception:
-        return no_data, no_data, no_data, no_data, no_data
-
-
 
 
 
@@ -979,29 +897,31 @@ def home_navigate_module(n_clicks):
     return obj.get("mod", "pedidos"), obj.get("page", "resumen")
 
 
-# ===== CROSS-FILTERING: Click en gráfico → actualizar filtro =====
+# ===== CROSS-FILTERING: Click en gráfico → actualizar store-filters =====
 @callback(
-    Output("dropdown-canal", "value"),
+    Output("store-filters", "data", allow_duplicate=True),
     Input("chart-canal-pie", "clickData"),
     prevent_initial_call=True,
 )
 def crossfilter_canal(clickData):
+    import json
     if not clickData:
         return no_update
     try:
         canal = clickData["points"][0]["label"]
-        return canal
+        return json.dumps({"canal": canal, "asesor": "Todos", "estado": "Todos", "linea": "Todos", "sublinea": "Todos"})
     except Exception:
         return no_update
 
 
 @callback(
-    Output("dropdown-asesor", "value"),
+    Output("store-filters", "data", allow_duplicate=True),
     Input("chart-asesor-participacion", "clickData"),
     Input("chart-ranking-asesores", "clickData"),
     prevent_initial_call=True,
 )
 def crossfilter_asesor(click_part, click_rank):
+    import json
     ctx = dash.ctx
     if not ctx.triggered:
         return no_update
@@ -1011,9 +931,21 @@ def crossfilter_asesor(click_part, click_rank):
             return no_update
         asesor = clickData["points"][0].get("y") or clickData["points"][0].get("label")
         if asesor:
-            return asesor
+            return json.dumps({"canal": "Todos", "asesor": asesor, "estado": "Todos", "linea": "Todos", "sublinea": "Todos"})
     except Exception:
         pass
+    return no_update
+
+
+@callback(
+    Output("store-filters", "data", allow_duplicate=True),
+    Input("clear-data", "n_clicks"),
+    prevent_initial_call=True,
+)
+def clear_filters_on_clear(n):
+    import json
+    if n:
+        return json.dumps({})
     return no_update
 
 
