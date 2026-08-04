@@ -501,6 +501,12 @@ def generate_analysis_single(n_clicks, module, page, filters, api_key, ai_model,
 
     if not result:
         result = generar_analisis(module, page, data)
+        if ai_model in ("opencode", "gemini") and api_key:
+            result = html.Div([
+                html.Div("⚠ La API no respondió. Mostrando análisis local. Verifica tu conexión o intenta de nuevo.", 
+                         style={"fontSize": "0.7rem", "color": AMBER, "marginBottom": "8px", "fontStyle": "italic"}),
+                result,
+            ])
     return result, False
 
 # ============================================================
