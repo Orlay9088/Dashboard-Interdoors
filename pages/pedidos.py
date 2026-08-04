@@ -106,7 +106,7 @@ def pagina_home(data):
 
 def _home_block(title, color, kpis, is_empty):
     mod_id = "pedidos" if title == "PEDIDOS" else "facturas" if title == "FACTURACION" else "inventario"
-    first_page = "resumen" if title != "PEDIDOS" else "resumen"
+    first_page = "resumen"
 
     if is_empty:
         return html.Div([
@@ -161,11 +161,14 @@ def pagina_resumen(data):
     ], className="mb-4 g-3")
     children.append(kpi_row)
 
+    const_val = 0
+    if "_canal" in data.columns:
+        const_val = data[data["_canal"].str.contains("CNST|CONSTR", case=False, na=False)]["_valor"].sum()
     kpi2 = dbc.Row([
         dbc.Col(kpi_card("Promedio x Cliente", fmt_p(promedio_cliente), fmt_pm(promedio_cliente), color=GRAY), width=3),
         dbc.Col(kpi_card("Promedio x Pedido", fmt_p(promedio_pedido), fmt_pm(promedio_pedido), color=GRAY), width=3),
         dbc.Col(kpi_card("Cumplimiento", f"{vc/vp*100:.2f}%" if vp else "0%", f"{fmt_p(vc)} comprometido", color=GREEN), width=3),
-        dbc.Col(kpi_card("Construccion", f"{data[data['_canal'].str.contains('CNST|CONSTR', case=False, na=False)]['_valor'].sum()/vp*100:.2f}%" if vp else "0%", "% del total", color=AMBER), width=3),
+        dbc.Col(kpi_card("Construccion", f"{const_val/vp*100:.2f}%" if vp else "0%", "% del total", color=AMBER), width=3),
     ], className="mb-4 g-3")
     children.append(kpi2)
 
@@ -680,7 +683,6 @@ def pagina_heatmap(data):
 
 
 def pagina_proyeccion(data):
-    import numpy as np
     if "_fecha" not in data.columns or data["_fecha"].isna().all():
         return [section_title("Proyeccion de Cierre", "Sin datos"), html.P("No hay fechas disponibles.", className="text-muted")]
 
@@ -699,7 +701,11 @@ def pagina_proyeccion(data):
                 html.P(f"Se requieren al menos 3 meses. Hay {len(evol)}.", className="text-muted")]
 
     n_meses = len(evol)
-    coef = np.polyfit(evol["Periodo"], evol["Valor"], 1)
+    valid = evol["Valor"].notna()
+    if valid.sum() < 3:
+        children.append(html.P("Se requieren al menos 3 meses con datos validos.", className="text-muted"))
+        return children
+    coef = np.polyfit(evol.loc[valid, "Periodo"], evol.loc[valid, "Valor"], 1)
     trend = np.poly1d(coef)
     evol["Tendencia"] = trend(evol["Periodo"])
 

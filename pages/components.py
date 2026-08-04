@@ -1,5 +1,5 @@
 from dash import html, dcc
-import dash_bootstrap_components as dbc
+from copy import deepcopy
 import dash_mantine_components as dmc
 import pandas as pd
 
@@ -77,7 +77,6 @@ PLOTLY_TEMPLATE = dict(
 )
 
 def fig_layout(title="", height=400, **overrides):
-    from copy import deepcopy
     layout = {}
     layout.update(deepcopy(PLOTLY_TEMPLATE["layout"]))
     layout.update({
@@ -143,17 +142,19 @@ def kpi_card(label, value, sub="", color=None, icon=None, delta=None):
     })
 
 def fmt_p(valor):
-    if pd.isna(valor) or valor == 0:
+    if pd.isna(valor):
         return "$ 0"
+    neg = valor < 0
     s = f"{abs(valor):,.0f}".replace(",", ".")
-    return f"$ {s}"
+    return f"-$ {s}" if neg else f"$ {s}"
 
 def fmt_pm(valor):
-    if pd.isna(valor) or valor == 0:
+    if pd.isna(valor):
         return "$ 0"
-    v = round(valor / 1e6)
-    s = f"{abs(v):,}".replace(",", ".")
-    return f"$ {s}M"
+    neg = valor < 0
+    v = round(abs(valor) / 1e6)
+    s = f"{v:,}".replace(",", ".")
+    return f"-$ {s}M" if neg else f"$ {s}M"
 
 def apply_filters(data, filters_dict):
     if data.empty:

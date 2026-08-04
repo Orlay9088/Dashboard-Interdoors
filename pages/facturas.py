@@ -1,6 +1,5 @@
 from dash import html, dcc, dash_table
 import dash_bootstrap_components as dbc
-import dash_mantine_components as dmc
 import plotly.graph_objects as go
 import plotly.express as px
 from pages.components import section_title, kpi_card, fmt_p, fmt_pm, fig_layout, NAVY, BLUE, GREEN, AMBER, RED, GRAY, DARKGRAY, GOLD, graph_png
@@ -260,12 +259,14 @@ def pagina_precio_promedio(data):
     resumen["Precio Prom"] = resumen["Valor"] / resumen["Cantidad"].replace(0, 1)
     global_precio = resumen["Valor"].sum() / resumen["Cantidad"].sum() if resumen["Cantidad"].sum() else 0
     n_lineas = len(resumen)
+    linea_top = str(resumen.iloc[0]["_linea"])[:22] if not resumen.empty else "-"
+    precio_top = fmt_p(resumen.iloc[0]["Precio Prom"]) if not resumen.empty else ""
 
     children = [section_title("Precio Promedio", f"{n_lineas} lineas | Precio global: {fmt_p(global_precio)}")]
 
     kpi_row = dbc.Row([
         dbc.Col(kpi_card("Precio Global", fmt_p(global_precio), f"{n_lineas} lineas de producto", color=BLUE), width=4),
-        dbc.Col(kpi_card("Linea TOP", str(resumen.iloc[0]["_linea"])[:22] if not resumen.empty else "-", fmt_p(resumen.iloc[0]["Precio Prom"]) if not resumen.empty else "", color=GOLD), width=4),
+        dbc.Col(kpi_card("Linea TOP", linea_top, precio_top, color=GOLD), width=4),
         dbc.Col(kpi_card("Unidades Totales", f"{int(resumen['Cantidad'].sum()):,}", f"Valor: {fmt_pm(resumen['Valor'].sum())}", color=GRAY), width=4),
     ], className="mb-4 g-3")
     children.append(kpi_row)

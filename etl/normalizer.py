@@ -75,9 +75,10 @@ def normalizar(df, tipo):
         if found:
             df_out[canon] = df[found]
         else:
-            df_out[canon] = "" if canon in ("_cliente", "_vendedor", "_canal", "_linea",
-                                             "_sublinea", "_documento", "_estado",
-                                             "_referencia", "_bodega", "_ubicacion",
-                                             "_grupo") else 0
+            df_out[canon] = pd.NaT if canon == "_fecha" else (
+                "" if canon in ("_cliente", "_vendedor", "_canal", "_linea",
+                                "_sublinea", "_documento", "_estado",
+                                "_referencia", "_bodega", "_ubicacion",
+                                "_grupo") else 0)
     df_out["_tipo"] = tipo
     return df_out

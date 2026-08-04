@@ -3,7 +3,7 @@ import numpy as np
 import requests
 import time
 from dash import html
-from pages.components import fmt_p, fmt_pm, DARKGRAY, BLUE, GOLD, TEAL
+from pages.components import fmt_p, fmt_pm, DARKGRAY, BLUE, GOLD
 
 
 def _company_context():

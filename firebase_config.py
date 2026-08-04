@@ -143,7 +143,7 @@ def try_save(df, tipo, filename=""):
     save_local(df, tipo)
     save_upload_meta(tipo, filename, n)
     if SKIP_FIRESTORE_FILE.exists():
-        SKIP_FIRESTORE_FILE.unlink()
+        SKIP_FIRESTORE_FILE.unlink(missing_ok=True)
     if _use_firestore_sync():
         try:
             save_to_firestore(df, tipo, filename)
@@ -205,8 +205,9 @@ def load_from_firestore(tipo):
         return pd.DataFrame()
 
     try:
-        from google.api_core import retry, exceptions as api_exceptions
-        doc = db.collection(tipo).document("latest").get(timeout=5)
+        from google.api_core import retry
+
+        doc = db.collection(tipo).document("latest").get(timeout=5, retry=retry.Retry(deadline=4))
         if not doc.exists:
             return pd.DataFrame()
         meta = doc.to_dict()

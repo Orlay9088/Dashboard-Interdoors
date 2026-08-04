@@ -1,4 +1,5 @@
 import base64
+import threading
 import traceback
 from datetime import datetime
 from pathlib import Path
@@ -37,27 +38,54 @@ from pages.inventario import (
 # ============================================================
 _data_cache = {}
 _cache_timestamps = {}
+_cache_lock = threading.Lock()
 
 def _load_cached(module):
-    now = time.time()
-    last_load = _cache_timestamps.get(module, 0)
-    if (now - last_load) > (24 * 3600):
-        _data_cache.pop(module, None)
-    if module in _data_cache and _data_cache[module] is not None:
-        return _data_cache[module].copy()
+    with _cache_lock:
+        now = time.time()
+        last_load = _cache_timestamps.get(module, 0)
+        if (now - last_load) > (24 * 3600):
+            _data_cache.pop(module, None)
+        if module in _data_cache and _data_cache[module] is not None:
+            return _data_cache[module].copy()
     df, backend = try_load(module)
     if not df.empty:
-        _data_cache[module] = df.copy()
-        _cache_timestamps[module] = now
+        with _cache_lock:
+            _data_cache[module] = df.copy()
+            _cache_timestamps[module] = now
     return df
 
 def _clear_cache(module=None):
-    if module:
-        _data_cache.pop(module, None)
-        _cache_timestamps.pop(module, None)
-    else:
-        _data_cache.clear()
-        _cache_timestamps.clear()
+    with _cache_lock:
+        if module:
+            _data_cache.pop(module, None)
+            _cache_timestamps.pop(module, None)
+        else:
+            _data_cache.clear()
+            _cache_timestamps.clear()
+
+
+def _parse_filters(filters):
+    import json
+    if isinstance(filters, str):
+        try:
+            return json.loads(filters)
+        except Exception:
+            return {}
+    return filters if isinstance(filters, dict) else {}
+
+def _apply_special_filters(data, module, page, pareto_canal, bodega_filter):
+    import json
+    if module == "pedidos" and page == "pareto" and pareto_canal and pareto_canal != "TODOS":
+        data = data[data["_canal"] == pareto_canal]
+    if module == "inventario" and bodega_filter and bodega_filter != "[]" and "_bodega" in data.columns:
+        try:
+            selected = json.loads(bodega_filter)
+            if selected:
+                data = data[data["_bodega"].astype(str).isin(selected)]
+        except Exception:
+            pass
+    return data
 
 # ============================================================
 # APP SETUP
@@ -92,16 +120,6 @@ MODULES = {
         "criticos": "Criticos",
     }},
 }
-
-PAGE_ROUTES = {}
-ALL_PAGE_KEYS = set()
-for mod_key, mod_val in MODULES.items():
-    for page_key in mod_val["pages"]:
-        PAGE_ROUTES[f"{mod_key}_{page_key}"] = (mod_key, page_key)
-        ALL_PAGE_KEYS.add(page_key)
-
-MODULE_LABELS = [v["label"] for v in MODULES.values()]
-MODULE_COLORS = {k: v["color"] for k, v in MODULES.items()}
 
 SIDEBAR_STYLE = {
     "position": "fixed", "top": 0, "left": 0, "bottom": 0,
@@ -400,15 +418,7 @@ def render_page_content(module, page, filters, refresh_count, clear_count, paret
         if data.empty:
             return dmc.Alert("Filtros no devuelven resultados.", title="Sin resultados", color="yellow")
 
-        if module == "pedidos" and page == "pareto" and pareto_canal != "TODOS":
-            data = data[data["_canal"] == pareto_canal]
-        if module == "inventario" and bodega_filter and bodega_filter != "[]" and "_bodega" in data.columns:
-            try:
-                selected = json.loads(bodega_filter)
-                if selected:
-                    data = data[data["_bodega"].astype(str).isin(selected)]
-            except Exception:
-                pass
+        data = _apply_special_filters(data, module, page, pareto_canal, bodega_filter)
 
         page_funcs = {
             "pedidos": {"home":pagina_home, "resumen":pagina_resumen,"participacion":pagina_participacion,"pareto":pagina_pareto,
@@ -460,15 +470,7 @@ def generate_analysis_single(n_clicks, module, page, filters, api_key, ai_model,
     if df.empty: return html.Div("Sin datos. Sube un archivo primero.", className="text-muted")
     data = apply_filters(df, filters)
     if data.empty: return html.Div("Sin resultados con estos filtros.", className="text-muted")
-    if module == "pedidos" and page == "pareto" and pareto_canal != "TODOS":
-        data = data[data["_canal"] == pareto_canal]
-    if module == "inventario" and bodega_filter and bodega_filter != "[]" and "_bodega" in data.columns:
-        try:
-            selected = json.loads(bodega_filter)
-            if selected:
-                data = data[data["_bodega"].astype(str).isin(selected)]
-        except Exception:
-            pass
+    data = _apply_special_filters(data, module, page, pareto_canal, bodega_filter)
 
     result = None
     if ai_model == "opencode" and api_key:
@@ -767,14 +769,7 @@ def download_csv(n, module, filters, pareto_canal, bodega_filter):
         data = apply_filters(df, filters)
         if data.empty:
             return dict(content="No hay datos con los filtros actuales.", filename="sin_resultados.txt")
-        if module == "pedidos" and pareto_canal and pareto_canal != "TODOS":
-            data = data[data["_canal"] == pareto_canal]
-        if module == "inventario" and bodega_filter and bodega_filter != "[]" and "_bodega" in data.columns:
-            try:
-                selected = json.loads(bodega_filter)
-                if selected:
-                    data = data[data["_bodega"].astype(str).isin(selected)]
-            except: pass
+        data = _apply_special_filters(data, module, "", pareto_canal, bodega_filter)
         buffer = io.StringIO()
         data.to_csv(buffer, index=False, encoding="utf-8-sig")
         return dict(content=buffer.getvalue(), filename=f"dashboard_{module}.csv")
@@ -953,9 +948,3 @@ def clear_filters_on_clear(n):
     if n:
         return json.dumps({})
     return no_update
-
-
-if __name__ == "__main__":
-    import os
-    port = int(os.environ.get("PORT", 8503))
-    app.run(debug=False, host="0.0.0.0", port=port, threaded=True)

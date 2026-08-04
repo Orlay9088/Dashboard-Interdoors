@@ -1,6 +1,5 @@
 from dash import html, dcc, dash_table
 import dash_bootstrap_components as dbc
-import dash_mantine_components as dmc
 import plotly.graph_objects as go
 import plotly.express as px
 from pages.components import section_title, kpi_card, fmt_p, fmt_pm, fig_layout, NAVY, BLUE, GREEN, AMBER, RED, GRAY, DARKGRAY, GOLD, graph_png
@@ -239,9 +238,9 @@ def pagina_criticos(data):
         ).reset_index().sort_values("Valor", ascending=False).head(20)
 
         barras_data = criticos_top.groupby("_referencia")["Valor"].sum().sort_values(ascending=False).head(10)
-        fig_crit = go.Figure()
         refs_short = [str(r)[:25] for r in barras_data.index]
-        fig_crit.add_trace(go.Bar(x=[str(r)[:25] for r in barras_data.index],
+        fig_crit = go.Figure()
+        fig_crit.add_trace(go.Bar(x=refs_short,
             y=barras_data.values / 1e6,
             marker_color=RED, text=[f"${v/1e6:.1f}M" for v in barras_data.values],
             textposition="outside", textfont=dict(size=9, color=DARKGRAY),

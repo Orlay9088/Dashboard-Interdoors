@@ -49,4 +49,7 @@ MESES_ES = {
 
 for p in [CARPETA_ENTRADA, CARPETA_BASE, CARPETA_ASESORES,
           CARPETA_GERENCIA, CARPETA_DASHBOARD, CARPETA_LOGS]:
-    p.mkdir(parents=True, exist_ok=True)
+    try:
+        p.mkdir(parents=True, exist_ok=True)
+    except Exception:
+        pass

@@ -42,10 +42,7 @@ def detectar_tipo(ruta):
 
 def detectar_tipo_df(df):
     cols = [c.strip() for c in df.columns]
-    scores = {}
-    for tipo, required in SIGNATURES.items():
-        hits = sum(1 for r in required if r in cols)
-        pct = hits / len(required)
-        scores[tipo] = pct
+    if not scores:
+        return "generic"
     best = max(scores, key=scores.get)
     return best if scores[best] >= 0.4 else "generic"
