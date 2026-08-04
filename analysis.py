@@ -359,107 +359,234 @@ def generar_analisis(tipo, page, data):
 
 def _analisis_pedidos(page, data):
     vp = data["_valor"].sum()
-    vc = data["_valor_sec"].sum()
+    vc = data["_valor_sec"].sum() if "_valor_sec" in data.columns else 0
     clientes = data["_cliente"].nunique()
     pedidos = data["_documento"].nunique()
     asesores = data["_vendedor"].nunique()
     cumpl = (vc / vp * 100) if vp else 0
+    meses = data["_fecha"].dt.to_period("M").nunique() if "_fecha" in data.columns else 0
 
-    if page == "resumen":
+    title = {
+        "home": "Dashboard Ejecutivo", "resumen": "Resumen Ejecutivo",
+        "participacion": "Participación Comercial", "pareto": "Pareto de Clientes",
+        "ranking": "Ranking de Asesores", "embudo": "Embudo de Pedidos",
+        "heatmap": "Heatmap de Rendimiento", "proyeccion": "Proyección de Cierre",
+    }.get(page, "Análisis")
+
+    items = []
+
+    # ---- Common header ----
+    items.append(html.P([html.Strong(f"   {title}")], style={"color": DARKGRAY}, className="fw-bold mb-2"))
+
+    if page == "home" or page == "resumen":
         part_cnst = 0
         if "_canal" in data.columns:
             mask = data["_canal"].str.contains("CNST|CONSTR", case=False, na=False)
             part_cnst = data.loc[mask, "_valor"].sum() / vp * 100 if vp else 0
         top3 = data.groupby("_cliente")["_valor"].sum().sort_values(ascending=False)
         top3_pct = top3.iloc[:3].sum() / vp * 100 if vp and len(top3) > 0 else 0
-        meses = data["_fecha"].dt.to_period("M").nunique() if "_fecha" in data.columns else 0
-        return html.Div(children=[
-            html.P([html.Strong("   Resumen Ejecutivo")], style={"color": DARKGRAY}, className="fw-bold mb-2"),
-            html.Ul([
-                html.Li(f"Valor total de {fmt_p(vp)} en {pedidos:,} pedidos de {clientes} clientes, {asesores} asesores."),
-                html.Li(f"Canal Construccion: {part_cnst:.1f}% del valor total."),
-                html.Li(f"Top 3 clientes concentran {top3_pct:.1f}% del valor."),
-                html.Li(f"Cumplimiento general: {cumpl:.1f}% ({fmt_p(vc)} de {fmt_p(vp)})."),
-                html.Li(f"Periodo analizado: {meses} meses."),
-            ], style={"paddingLeft": "1.2rem"}),
-        ])
+        items.append(html.P("📊 HALLAZGOS CLAVE", style={"fontWeight": "bold", "fontSize": "0.78rem", "marginBottom": "4px"}))
+        items.append(html.Ul([
+            html.Li(f"Pipeline total de {fmt_p(vp)} en {pedidos:,} pedidos de {clientes} clientes, equipo de {asesores} asesores."),
+            html.Li(f"Canal Construcción: {part_cnst:.1f}% del valor. Top 3 clientes concentran {top3_pct:.1f}%."),
+            html.Li(f"Cumplimiento: {cumpl:.1f}% ({fmt_p(vc)} comprometido de {fmt_p(vp)}). Periodo: {meses} meses."),
+        ], style={"paddingLeft": "1.2rem", "fontSize": "0.8rem"}))
+        if top3_pct > 50:
+            items.append(html.P(f"⚠ Riesgo: alta concentración de clientes. Top 3 concentran {top3_pct:.1f}%. Recomendable diversificar.", style={"fontSize": "0.75rem", "color": RED}))
+        if cumpl < 30:
+            items.append(html.P(f"⚠ Riesgo: bajo cumplimiento ({cumpl:.1f}%). Priorizar cierre de pedidos en pipeline.", style={"fontSize": "0.75rem", "color": RED}))
+
     elif page == "participacion":
         canales = data["_canal"].nunique() if "_canal" in data.columns else 0
-        return html.Div(children=[html.P([html.Strong("   Participacion Comercial")], style={"color": DARKGRAY}, className="fw-bold mb-2"), html.Ul([
-            html.Li(f"Distribucion en {canales} canales de venta."),
-            html.Li(f"{asesores} asesores con actividad en el periodo."),
-            html.Li(f"Valor promedio por asesor: {fmt_p(vp / asesores) if asesores else 0}."),
-        ], style={"paddingLeft": "1.2rem"})])
+        top_canal = data.groupby("_canal")["_valor"].sum().idxmax() if "_canal" in data.columns else "N/D"
+        top_pct = data.groupby("_canal")["_valor"].sum().max() / vp * 100 if vp else 0
+        items.append(html.Ul([
+            html.Li(f"{canales} canales activos. Principal: {str(top_canal)[:25]} ({top_pct:.1f}% del total)."),
+            html.Li(f"Equipo de {asesores} asesores. Promedio: {fmt_pm(vp/asesores) if asesores else 0} por asesor."),
+            html.Li(f"Líneas de producto: {data['_linea'].nunique() if '_linea' in data.columns else 0}. Ticket promedio: {fmt_p(vp/pedidos) if pedidos else 0}."),
+        ], style={"paddingLeft": "1.2rem", "fontSize": "0.8rem"}))
+
     elif page == "pareto":
         pg = data.groupby("_cliente")["_valor"].sum().sort_values(ascending=False)
         pg_acum = (pg.cumsum() / vp * 100) if vp else pd.Series()
-        hasta_80 = (pg_acum <= 80).sum()
-        top3 = pg.head(3).sum() / vp * 100 if vp else 0
-        return html.Div(children=[html.P([html.Strong("   Analisis Pareto")], style={"color": DARKGRAY}, className="fw-bold mb-2"), html.Ul([
-            html.Li(f"{clientes} clientes activos en el periodo."),
-            html.Li(f"Se requieren {hasta_80} clientes para alcanzar el 80%."),
-            html.Li(f"Top 3 concentran {top3:.1f}% del valor."),
-            html.Li(f"{'ALERTA: Alta concentracion.' if hasta_80 < 20 else 'Distribucion moderada.'}"),
-        ], style={"paddingLeft": "1.2rem"})])
+        h80 = (pg_acum <= 80).sum()
+        h50 = (pg_acum <= 50).sum()
+        top3_pct = pg.head(3).sum() / vp * 100 if vp else 0
+        items.append(html.Ul([
+            html.Li(f"{clientes} clientes activos. {h50} clientes concentran el 50% del valor, {h80} para el 80%."),
+            html.Li(f"Top 3 clientes concentran {top3_pct:.1f}%. Top 10: {pg.head(10).sum()/vp*100:.1f}%."),
+        ], style={"paddingLeft": "1.2rem", "fontSize": "0.8rem"}))
+        if h80 < 20:
+            items.append(html.P(f"⚠ Riesgo de concentración: solo {h80} clientes representan el 80% del valor. Dependencia crítica de pocos clientes.", style={"fontSize": "0.75rem", "color": RED}))
+        elif h80 > 50:
+            items.append(html.P(f"✅ Distribución saludable: se necesitan {h80} clientes para el 80%. Base diversificada.", style={"fontSize": "0.75rem", "color": GREEN}))
+
     elif page == "ranking":
-        rank = data.groupby("_vendedor").agg(Valor=("_valor", "sum")).reset_index().sort_values("Valor", ascending=False)
-        top = rank.iloc[0] if not rank.empty else None
-        return html.Div(children=[html.P([html.Strong("   Ranking de Asesores")], style={"color": DARKGRAY}, className="fw-bold mb-2"), html.Ul([
-            html.Li(f"#1 {top['_vendedor']}: {fmt_p(top['Valor'])}." if top is not None else "Sin datos."),
-            html.Li(f"Total: {len(rank)} asesores activos."),
-            html.Li(f"Promedio: {fmt_p(vp / asesores) if asesores else 0} por asesor."),
-        ], style={"paddingLeft": "1.2rem"})])
+        rank = data.groupby("_vendedor").agg(
+            Valor=("_valor", "sum"), Pedidos=("_documento", "nunique"),
+            Clientes=("_cliente", "nunique"), Comprometido=("_valor_sec", "sum"),
+        ).reset_index().sort_values("Valor", ascending=False)
+        brecha = (rank["Valor"].iloc[0] / rank["Valor"].mean()) if len(rank) > 1 and rank["Valor"].mean() > 0 else 1
+
+        try:
+            from budget import cargar_presupuesto_asesores, get_budget_for
+            from config import RUTA_PRESUPUESTO, RUTA_PRESUPUESTO_ASESORES
+            budgets = cargar_presupuesto_asesores(str(RUTA_PRESUPUESTO))
+            if not budgets:
+                budgets = cargar_presupuesto_asesores(str(RUTA_PRESUPUESTO_ASESORES))
+        except Exception:
+            budgets = {}
+
+        items.append(html.P("📊 DESEMPEÑO DEL EQUIPO", style={"fontWeight": "bold", "fontSize": "0.78rem", "marginBottom": "4px"}))
+        lines = [html.Li(f"{len(rank)} asesores activos. Valor total: {fmt_p(vp)}. Brecha #1 vs promedio: {brecha:.1f}x.")]
+        if brecha > 2:
+            lines.append(html.Li(f"⚠ Alta concentración: el #1 concentra {(rank['Valor'].iloc[0]/vp*100):.1f}% del valor total."))
+
+        top_ppto = 0
+        for _, r in rank.head(3).iterrows():
+            n = str(r["_vendedor"])[:20]
+            pp = get_budget_for(str(r["_vendedor"]), budgets)
+            if pp > 0:
+                top_ppto += 1
+                pp_pct = r["Valor"] / pp * 100
+                cp_pct = r["Comprometido"] / pp * 100
+                lines.append(html.Li(f"{n}: {fmt_pm(r['Valor'])} ({r['Valor']/vp*100:.1f}% part) | vs Meta: {pp_pct:.1f}% | % Cumpl: {cp_pct:.1f}%"))
+            else:
+                lines.append(html.Li(f"{n}: {fmt_pm(r['Valor'])} ({r['Valor']/vp*100:.1f}% part) | Sin meta asignada"))
+        lines.append(html.Li(f"Cumplimiento promedio: {rank['Comprometido'].sum()/vp*100:.1f}% del pipeline comprometido."))
+        items.append(html.Ul(lines, style={"paddingLeft": "1.2rem", "fontSize": "0.8rem"}))
+
+        if brecha > 2:
+            items.append(html.P("🎯 Recomendación: Redistribuir clientes del #1 hacia asesores con menor carga para balancear el equipo.", style={"fontSize": "0.75rem", "color": GOLD}))
+        if top_ppto < 3:
+            items.append(html.P("🎯 Recomendación: Asignar metas de presupuesto a los asesores sin meta para poder medir su rendimiento.", style={"fontSize": "0.75rem", "color": GOLD}))
+
     elif page == "embudo":
-        return html.Div(children=[html.P([html.Strong("   Embudo de Pedidos")], style={"color": DARKGRAY}, className="fw-bold mb-2"), html.Ul([
-            html.Li(f"Tasa de cierre: {cumpl:.1f}% del valor total."),
-            html.Li(f"Valor pendiente: {fmt_p(vp - vc)} por comprometer."),
-        ], style={"paddingLeft": "1.2rem"})])
+        funnel = data.groupby("_estado").agg(
+            Valor=("_valor", "sum"), Pedidos=("_documento", "nunique"),
+        ).reset_index().sort_values("Valor", ascending=False)
+        total = funnel["Valor"].sum()
+        comp = funnel[funnel["_estado"].str.contains("Comprometido|Cumplid|Despac", na=False, case=False)]["Valor"].sum()
+        rate = comp / total * 100 if total else 0
+        items.append(html.Ul([
+            html.Li(f"Pipeline: {fmt_p(vp)} en {len(funnel)} estados. Tasa de cierre: {rate:.1f}%."),
+            html.Li(f"Pendiente por comprometer: {fmt_p(vp - vc)} ({100-rate:.1f}% del pipeline)."),
+            html.Li(f"Estados principales: {funnel.iloc[0]['_estado'][:20]} ({funnel.iloc[0]['Valor']/total*100:.1f}%), {funnel.iloc[1]['_estado'][:20]} ({funnel.iloc[1]['Valor']/total*100:.1f}%)."),
+        ], style={"paddingLeft": "1.2rem", "fontSize": "0.8rem"}))
+        if rate < 40:
+            items.append(html.P(f"⚠ Tasa de cierre baja ({rate:.1f}%). Priorizar aceleración de pedidos en estados iniciales.", style={"fontSize": "0.75rem", "color": RED}))
+
     elif page == "heatmap":
-        return html.Div(children=[html.P([html.Strong("   Heatmap de Rendimiento")], style={"color": DARKGRAY}, className="fw-bold mb-2"), html.Ul([
-            html.Li(f"{asesores} asesores con desempeno registrado."),
-            html.Li(f"Valor total distribuido: {fmt_p(vp)}."),
-        ], style={"paddingLeft": "1.2rem"})])
+        meses_n = data["_fecha"].dt.to_period("M").nunique() if "_fecha" in data.columns else 0
+        items.append(html.Ul([
+            html.Li(f"{asesores} asesores activos en {meses_n} meses analizados."),
+            html.Li(f"Valor total distribuido: {fmt_p(vp)}. Promedio por asesor/mes: {fmt_p(vp/asesores/meses_n) if asesores and meses_n else 0}."),
+        ], style={"paddingLeft": "1.2rem", "fontSize": "0.8rem"}))
+
     elif page == "proyeccion":
         evol = data.groupby(data["_fecha"].dt.to_period("M")).agg(Valor=("_valor", "sum")).reset_index()
-        coef = np.polyfit(range(len(evol)), evol["Valor"], 1) if len(evol) >= 3 else [0, 0]
-        proy = np.polyval(coef, len(evol)) if len(evol) >= 3 else 0
-        direction = "creciente" if coef[0] > 0 else "decreciente"
-        return html.Div(children=[html.P([html.Strong("   Proyeccion de Cierre")], style={"color": DARKGRAY}, className="fw-bold mb-2"), html.Ul([
-            html.Li(f"Tendencia {direction} (pendiente: {coef[0]/1e6:.1f}M/mes)."),
-            html.Li(f"Proyeccion proximo mes: {fmt_p(proy)}."),
-        ], style={"paddingLeft": "1.2rem"})])
-    return html.Div("Analisis no disponible.", className="text-muted")
+        if len(evol) >= 3:
+            coef = np.polyfit(range(len(evol)), evol["Valor"], 1)
+            r2 = np.corrcoef(range(len(evol)), evol["Valor"])[0, 1] ** 2
+            proy = np.polyval(coef, len(evol))
+            direction = "creciente" if coef[0] > 0 else "decreciente"
+            growth_pct = (coef[0] / evol["Valor"].mean() * 100) if evol["Valor"].mean() > 0 else 0
+            items.append(html.Ul([
+                html.Li(f"Tendencia {direction} ({growth_pct:+.1f}%/mes) con R²={r2:.3f}."),
+                html.Li(f"Proyección próximo mes: {fmt_p(proy)} ({fmt_pm(proy)})."),
+                html.Li(f"Meses analizados: {len(evol)}. Mes pico: {fmt_pm(evol['Valor'].max())} ({evol.loc[evol['Valor'].idxmax(), '_fecha']})."),
+            ], style={"paddingLeft": "1.2rem", "fontSize": "0.8rem"}))
+            if r2 < 0.3:
+                items.append(html.P(f"⚠ Baja confiabilidad (R²={r2:.3f}). La proyección es indicativa. Se recomienda monitorear.", style={"fontSize": "0.75rem", "color": AMBER}))
+        else:
+            items.append(html.Ul([html.Li(f"Datos insuficientes: {len(evol)} meses. Se requieren al menos 3 para proyección.")], style={"paddingLeft": "1.2rem", "fontSize": "0.8rem"}))
+
+    return html.Div(children=items)
 
 
 def _analisis_facturas(page, data):
     ventas = data["_valor"].sum()
     facturas = data["_documento"].nunique()
     clientes = data["_cliente"].nunique()
-    vendedores = data["_vendedor"].nunique()
+    vendedores = data["_vendedor"].nunique() if "_vendedor" in data.columns else 0
     costo = data["_costo"].sum() if "_costo" in data.columns else 0
     margen_pct = (ventas - costo) / ventas * 100 if ventas else 0
     ticket = ventas / facturas if facturas else 0
-    return html.Div(children=[html.P([html.Strong("   Analisis de Facturacion")], style={"color": DARKGRAY}, className="fw-bold mb-2"), html.Ul([
-        html.Li(f"Ventas totales: {fmt_p(ventas)} en {facturas:,} facturas ({clientes} clientes)."),
-        html.Li(f"Ticket promedio: {fmt_p(ticket)}. Margen global: {margen_pct:.1f}%."),
-        html.Li(f"Equipo de {vendedores} vendedores activos."),
-        html.Li(f"Costo total: {fmt_p(costo)} ({100-margen_pct:.1f}% de las ventas)."),
-    ], style={"paddingLeft": "1.2rem"})])
+    has_costo = "_costo" in data.columns and costo > 0
+    has_margen = "_margen" in data.columns
+
+    items = []
+    title = {"resumen_ventas": "Resumen de Ventas", "margenes": "Márgenes",
+             "mix_producto": "Mix de Producto", "precio_promedio": "Precio Promedio"}.get(page, "Análisis")
+    items.append(html.P([html.Strong(f"   {title}")], style={"color": DARKGRAY}, className="fw-bold mb-2"))
+    items.append(html.P("📊 HALLAZGOS CLAVE", style={"fontWeight": "bold", "fontSize": "0.78rem", "marginBottom": "4px"}))
+
+    lines = [html.Li(f"Ventas totales: {fmt_p(ventas)} en {facturas:,} facturas ({clientes} clientes).")]
+    lines.append(html.Li(f"Ticket promedio: {fmt_p(ticket)}.{' Margen global: ' + str(round(margen_pct,1)) + '%' if has_costo else ''}"))
+    if vendedores:
+        lines.append(html.Li(f"Equipo de {vendedores} vendedores activos. Promedio: {fmt_p(ventas/vendedores) if vendedores else 0} por vendedor."))
+
+    if has_costo:
+        lines.append(html.Li(f"Costo total: {fmt_p(costo)} ({100-margen_pct:.1f}% de las ventas). Utilidad bruta: {fmt_p(ventas - costo)}."))
+        if margen_pct < 20:
+            lines.append(html.Li(f"⚠ Margen bajo ({margen_pct:.1f}%). Revisar costos o ajustar precios."))
+        elif margen_pct > 35:
+            lines.append(html.Li(f"✅ Margen saludable ({margen_pct:.1f}%)."))
+
+    if has_margen and "_canal" in data.columns:
+        canal_top = data.groupby("_canal")["_margen"].mean().idxmax()
+        canal_mgn = data.groupby("_canal")["_margen"].mean().max()
+        lines.append(html.Li(f"Mejor margen por canal: {str(canal_top)[:20]} ({canal_mgn:.1f}%)."))
+
+    if has_margen and "_vendedor" in data.columns:
+        vend_top = data.groupby("_vendedor")["_margen"].mean().idxmax()
+        vend_mgn = data.groupby("_vendedor")["_margen"].mean().max()
+        lines.append(html.Li(f"Mejor margen por vendedor: {str(vend_top)[:20]} ({vend_mgn:.1f}%)."))
+
+    items.append(html.Ul(lines, style={"paddingLeft": "1.2rem", "fontSize": "0.8rem"}))
+    return html.Div(children=items)
 
 
 def _analisis_inventario(page, data):
     valor_total = data["_valor"].sum()
-    productos = data["_referencia"].nunique()
+    productos = data["_referencia"].nunique() if "_referencia" in data.columns else 0
     bodegas = data["_bodega"].nunique() if "_bodega" in data.columns else 0
     existencia = data["_cantidad"].sum() if "_cantidad" in data.columns else 0
     disponible = data["_cantidad_com"].sum() if "_cantidad_com" in data.columns else 0
     comprometido = data["_cantidad_pen"].sum() if "_cantidad_pen" in data.columns else 0
-    return html.Div(children=[html.P([html.Strong("   Analisis de Inventario")], style={"color": DARKGRAY}, className="fw-bold mb-2"), html.Ul([
-        html.Li(f"Valor total inventariado: {fmt_p(valor_total)} en {productos:,} referencias."),
-        html.Li(f"Distribuido en {bodegas} bodegas con {existencia:,.0f} unidades."),
-        html.Li(f"Disponible: {disponible:,.0f} und. Comprometido: {comprometido:,.0f} und."),
-        html.Li(f"Valor promedio por producto: {fmt_p(valor_total / productos) if productos else 0}."),
-    ], style={"paddingLeft": "1.2rem"})])
+    pct_comp = (comprometido / existencia * 100) if existencia else 0
+    pct_disp = (disponible / existencia * 100) if existencia else 0
+
+    items = []
+    title = {"resumen_stock": "Resumen de Stock", "por_bodega": "Por Bodega",
+             "criticos": "Productos Críticos"}.get(page, "Análisis")
+    items.append(html.P([html.Strong(f"   {title}")], style={"color": DARKGRAY}, className="fw-bold mb-2"))
+    items.append(html.P("📊 HALLAZGOS CLAVE", style={"fontWeight": "bold", "fontSize": "0.78rem", "marginBottom": "4px"}))
+
+    lines = [html.Li(f"Valor total inventariado: {fmt_p(valor_total)} en {productos:,} referencias, {bodegas} bodegas.")]
+    lines.append(html.Li(f"Existencia: {existencia:,.0f} und. Disponible: {disponible:,.0f} ({pct_disp:.1f}%). Comprometido: {comprometido:,.0f} ({pct_comp:.1f}%)."))
+    lines.append(html.Li(f"Valor promedio por producto: {fmt_p(valor_total/productos) if productos else 0}."))
+
+    if page == "criticos" and "_cantidad_com" in data.columns and "_cantidad" in data.columns:
+        data_copy = data.copy()
+        data_copy["_ratio"] = data_copy["_cantidad_com"] / data_copy["_cantidad"].replace(0, 1) * 100
+        criticos = data_copy[data_copy["_ratio"] > 80]
+        n_criticos = criticos["_referencia"].nunique()
+        val_criticos = criticos["_valor"].sum()
+        if n_criticos > 0:
+            lines.append(html.Li(f"⚠ {n_criticos} productos críticos (>80% comprometido) con valor de {fmt_p(val_criticos)}."))
+        bajo_stock = data[data["_cantidad"] <= 3]
+        n_bajo = bajo_stock["_referencia"].nunique()
+        if n_bajo > 0:
+            lines.append(html.Li(f"⚠ {n_bajo} productos con stock bajo (≤3 unidades)."))
+
+    if pct_comp > 70:
+        lines.append(html.Li(f"⚠ Alto compromiso ({pct_comp:.1f}%). Riesgo de desabastecimiento. Priorizar reposición."))
+    elif pct_comp < 30:
+        lines.append(html.Li(f"✅ Compromiso bajo ({pct_comp:.1f}%). Stock suficiente para demanda actual."))
+
+    items.append(html.Ul(lines, style={"paddingLeft": "1.2rem", "fontSize": "0.8rem"}))
+    return html.Div(children=items)
 
 
 def _analisis_generico(data):
