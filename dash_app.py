@@ -21,7 +21,6 @@ from etl.normalizer import normalizar
 from etl.processor import procesar as procesar_etl
 
 from firebase_config import try_load, try_save, get_metadata, load_local, clear_local_cache
-from analysis import generar_analisis, generar_con_gemini, generar_con_openai
 from pages.pedidos import (
     pagina_home, pagina_resumen, pagina_participacion, pagina_pareto,
     pagina_ranking, pagina_embudo, pagina_heatmap, pagina_proyeccion,
@@ -221,27 +220,6 @@ def build_sidebar():
     dcc.Download(id="download-data"),
     html.Div(id="clear-status", style={"fontSize": "0.75rem", "minHeight": "1.2rem"}),
     html.Hr(style={"borderColor": "rgba(255,255,255,0.15)"}),
-
-    html.H6("IA Analisis", className="text-uppercase small fw-semibold mb-2", style={"color": "#94a3b8"}),
-    dcc.Dropdown(
-        id="ai-model-select",
-        options=[
-            {"label": "OpenCode", "value": "opencode"},
-            {"label": "OpenAI", "value": "openai"},
-            {"label": "Gemini (Google)", "value": "gemini"},
-        ],
-        value="opencode",
-        clearable=False,
-        className="mb-2",
-        style={"fontSize": "0.8rem"},
-    ),
-    dbc.Input(id="api-key-input", type="password", placeholder="API Key", size="sm", className="mb-1",
-              style={"fontSize": "0.8rem"}),
-    dbc.Button("Verificar", id="btn-verify-api", color="success", size="sm", className="w-100 mb-1"),
-    html.Div(id="api-status", style={"fontSize": "0.75rem", "color": "#94a3b8", "minHeight": "1.2rem"}),
-    dcc.Store(id="store-api-key", data=""),
-    dcc.Store(id="store-ai-model", data="opencode"),
-    html.Hr(style={"borderColor": "rgba(255,255,255,0.15)"}),
     html.Div(id="sidebar-info", className="small", style={"color": "#94a3b8"}),
 ])
     return html.Div(children, style=SIDEBAR_STYLE)
@@ -266,23 +244,6 @@ app.layout = html.Div([
                 html.Div(id="page-content"),
             ]),
             type="circle", color=BLUE,
-        ),
-        html.Hr(style={"margin": "16px 0"}),
-        html.Div([
-            html.Button("   Analizar con IA   ",
-                id="btn-single-analysis",
-                disabled=False,
-                style={
-                    "backgroundColor": GOLD, "color": DARKGRAY, "border": f"1px solid {GOLD}",
-                    "fontSize": "0.85rem", "padding": "8px 24px", "borderRadius": "6px",
-                    "cursor": "pointer", "fontWeight": "bold",
-                }
-            ),
-        ], style={"textAlign": "center", "marginBottom": "12px"}),
-        dcc.Loading(
-            html.Div(id="analisis-result", style={"padding": "12px", "backgroundColor": "#F5F5F0",
-                "borderRadius": "8px", "border": "1px solid #e5e7eb", "minHeight": "50px"}),
-            type="default", color=GOLD,
         ),
     ], style=CONTENT_STYLE),
 ])
@@ -453,69 +414,6 @@ def render_page_content(module, page, filters, refresh_count, clear_count, paret
                          html.Div(str(e), style={"fontSize":"0.7rem", "color": RED}),
                          html.Div(traceback.format_exc().replace("\n","<br>"), style={"fontSize":"0.55rem","maxHeight":"200px","overflow":"auto","fontFamily":"monospace"})],
                         title="Error Critico en Dashboard", color="red", withCloseButton=True)
-
-# ===== SINGLE ANALYSIS CALLBACK =====
-@callback(
-    Output("btn-single-analysis", "disabled"),
-    Input("btn-single-analysis", "n_clicks"),
-    prevent_initial_call=True,
-)
-def disable_analysis_button(n_clicks):
-    return True
-
-
-@callback(
-    Output("analisis-result", "children"),
-    Output("btn-single-analysis", "disabled", allow_duplicate=True),
-    Input("btn-single-analysis", "n_clicks"),
-    State("store-module", "data"),
-    State("store-page", "data"),
-    State("store-filters", "data"),
-    State("store-api-key", "data"),
-    State("store-ai-model", "data"),
-    State("store-pareto-canal", "data"),
-    State("store-bodega-filter", "data"),
-    prevent_initial_call=True,
-)
-def generate_analysis_single(n_clicks, module, page, filters, api_key, ai_model, pareto_canal, bodega_filter):
-    import json
-    module = str(module).strip().lower()
-    if module not in MODULES: module = list(MODULES.keys())[0]
-    if page not in MODULES[module]["pages"]: page = list(MODULES[module]["pages"].keys())[0]
-    if isinstance(filters, str):
-        try: filters = json.loads(filters)
-        except: filters = {}
-    if not isinstance(filters, dict): filters = {}
-
-    if not api_key:
-        return html.Div("⚠ Configura tu API Key. Selecciona Gemini u OpenAI, ingresa la clave y haz clic en Verificar.",
-                         style={"fontSize": "0.85rem", "color": RED, "fontWeight": "bold"}), False
-
-    df = _load_cached(module)
-    if df.empty: return html.Div("Sin datos. Sube un archivo primero.", className="text-muted"), False
-    data = apply_filters(df, filters)
-    if data.empty: return html.Div("Sin resultados con estos filtros.", className="text-muted"), False
-    data = _apply_special_filters(data, module, page, pareto_canal, bodega_filter)
-
-    error_detail = ""
-    if ai_model == "opencode":
-        result, error_detail = generar_con_openai(module, page, data, api_key)
-        if not result:
-            error_detail = "Error OpenCode: " + (error_detail or "sin respuesta")
-    elif ai_model == "gemini":
-        result = generar_con_gemini(module, page, data, api_key)
-        if not result:
-            error_detail = "Error al conectar con Gemini. Verifica tu API key."
-    elif ai_model == "openai":
-        result, error_detail = generar_con_openai(module, page, data, api_key)
-    else:
-        result = None
-        error_detail = "Selecciona un modelo de IA valido."
-
-    if not result:
-        return html.Div(f"⚠ {error_detail}",
-                         style={"fontSize": "0.85rem", "color": RED, "fontWeight": "bold"}), False
-    return result, False
 
 # ============================================================
 # CALLBACKS
@@ -849,65 +747,9 @@ def refresh_data(n, count):
     return count + 1
 
 
-@callback(
-    Output("api-status", "children"),
-    Output("store-api-key", "data"),
-    Output("store-ai-model", "data"),
-    Input("btn-verify-api", "n_clicks"),
-    State("api-key-input", "value"),
-    State("ai-model-select", "value"),
-    prevent_initial_call=True,
-)
-def verify_model(n, api_key, model):
-    if not api_key or not api_key.strip():
-        return html.Div("Ingresa una API Key.", style={"color": AMBER}), no_update, no_update
-    import requests
-    key = api_key.strip()
-    if model == "opencode":
-        for mdl in ["deepseek-v4-pro", "deepseek-chat", "gpt-4o"]:
-            try:
-                resp = requests.post("https://api.opencode.ai/v1/chat/completions",
-                    json={"model": mdl, "messages": [{"role":"user","content":"hi"}]},
-                    headers={"Authorization": f"Bearer {key}"}, timeout=8)
-                if resp.ok:
-                    return html.Div(f"OpenCode verificado ({mdl})", style={"color": GREEN, "fontWeight":"bold"}), key, model
-            except Exception:
-                continue
-        return html.Div("Error: clave no aceptada", style={"color": RED}), no_update, no_update
-    elif model == "gemini":
-        try:
-            resp = requests.post(
-                "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent",
-                params={"key": key}, json={"contents":[{"parts":[{"text":"hi"}]}]}, timeout=8)
-            if resp.ok:
-                return html.Div("Gemini verificado", style={"color": GREEN, "fontWeight":"bold"}), key, model
-            return html.Div(f"Error: clave invalida o sin acceso", style={"color": RED}), no_update, no_update
-        except Exception:
-            return html.Div("Sin conexion con Gemini", style={"color": RED}), no_update, no_update
-    elif model == "openai":
-        # Probar 2 endpoints: OpenAI directo + OpenCode proxy
-        endpoints = [
-            ("https://api.openai.com/v1/chat/completions", "gpt-4o"),
-            ("https://api.opencode.ai/v1/chat/completions", "gpt-4o"),
-        ]
-        for url, mdl in endpoints:
-            try:
-                resp = requests.post(url,
-                    json={"model": mdl, "messages": [{"role":"user","content":"hi"}]},
-                    headers={"Authorization": f"Bearer {key}"}, timeout=8)
-                if resp.ok:
-                    label = "OpenAI" if "openai" in url else "OpenCode"
-                    return html.Div(f"{label} verificado", style={"color": GREEN, "fontWeight":"bold"}), key, model
-            except Exception:
-                continue
-        return html.Div(f"Error: clave invalida en ambos endpoints", style={"color": RED}), no_update, no_update
-    return html.Div("Modo no soportado", style={"color": RED}), no_update, no_update
-
-
 # Navigation via pattern-matching buttons
 @callback(
     Output("store-page", "data", allow_duplicate=True),
-    Output("analisis-result", "children", allow_duplicate=True),
     Input({"type": "nav-btn", "page": ALL}, "n_clicks"),
     State("store-page", "data"),
     prevent_initial_call=True,
@@ -916,13 +758,11 @@ def navigate_buttons(n_clicks, current_page):
     import json
     ctx = dash.ctx
     if not ctx.triggered:
-        return no_update, no_update
+        return no_update
     triggered = ctx.triggered[0]["prop_id"]
     obj = json.loads(triggered.split(".")[0])
     page = obj["page"]
-    if page == current_page:
-        return no_update, no_update
-    return page, ""
+    return page if page != current_page else no_update
 
 
 # Pareto canal selector callback
