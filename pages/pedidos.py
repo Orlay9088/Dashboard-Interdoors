@@ -6,7 +6,7 @@ import pandas as pd
 import numpy as np
 from pages.components import (
     section_title, kpi_card, fmt_p, fmt_pm, fig_layout,
-    NAVY, BLUE, AMBER, GREEN, RED, GRAY, DARKGRAY, GOLD, kahoot_podium, apply_filters, graph_png,
+    NAVY, BLUE, AMBER, GREEN, RED, GRAY, DARKGRAY, GOLD, NAVYBLUE, kahoot_podium, apply_filters, graph_png,
 )
 
 
