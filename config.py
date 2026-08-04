@@ -19,7 +19,11 @@ ARCHIVO_LOG = CARPETA_LOGS / "procesamiento.log"
 
 RUTA_PRESUPUESTO = PROYECTO / "presupuesto por asesor.xlsx"
 RUTA_PRESUPUESTO_ASESORES = CARPETA_ACTIVOS / "presupuesto por asesor.xlsx"
+if not RUTA_PRESUPUESTO_ASESORES.exists():
+    RUTA_PRESUPUESTO_ASESORES = PROYECTO / "presupuesto por asesor.xlsx"
 RUTA_PRESUPUESTO_COMPANY = CARPETA_ACTIVOS / "Ptto 2026 (1).xlsx"
+if not RUTA_PRESUPUESTO_COMPANY.exists():
+    RUTA_PRESUPUESTO_COMPANY = PROYECTO / "Ptto 2026 (1).xlsx"
 
 HOJA_SIESA = "Tabla principal"
 
