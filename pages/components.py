@@ -159,6 +159,14 @@ def fmt_pm(valor):
 def apply_filters(data, filters_dict):
     if data.empty:
         return data
+    active = False
+    for key, val in filters_dict.items():
+        if key == "rango" and len(val) == 2 and val[0] and val[1]:
+            active = True; break
+        if val and val != "Todos":
+            active = True; break
+    if not active:
+        return data
     d = data.copy()
     rango = filters_dict.get("rango", [])
     if len(rango) == 2 and rango[0] and rango[1]:

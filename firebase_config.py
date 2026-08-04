@@ -285,10 +285,9 @@ def get_upload_age_hours(tipo):
 
 def get_metadata():
     info = {}
+    meta = _load_json(META_FILE, {})
     for tipo in LOCAL_PARQUET:
-        df = load_local(tipo)
-        if not df.empty:
-            info[tipo] = len(df)
+        info[tipo] = meta.get(tipo, {}).get("registros", 0)
     counter = _load_counter()
     remaining = MAX_SYNCS_PER_DAY - counter.get("count", 0)
     info["syncs_remaining"] = max(0, remaining)

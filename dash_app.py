@@ -258,17 +258,20 @@ app.layout = html.Div([
     dcc.Store(id="store-bodega-filter", data="[]"),
     build_sidebar(),
     html.Div([
-        html.Div(id="nav-bar"),
-        html.Div(id="canal-bar"),
-        html.Div(id="bodega-bar"),
         dcc.Loading(
-            html.Div(id="page-content"),
+            html.Div([
+                html.Div(id="nav-bar"),
+                html.Div(id="canal-bar"),
+                html.Div(id="bodega-bar"),
+                html.Div(id="page-content"),
+            ]),
             type="circle", color=BLUE,
         ),
         html.Hr(style={"margin": "16px 0"}),
         html.Div([
             html.Button("   Analizar con IA   ",
                 id="btn-single-analysis",
+                disabled=False,
                 style={
                     "backgroundColor": GOLD, "color": DARKGRAY, "border": f"1px solid {GOLD}",
                     "fontSize": "0.85rem", "padding": "8px 24px", "borderRadius": "6px",
@@ -276,8 +279,11 @@ app.layout = html.Div([
                 }
             ),
         ], style={"textAlign": "center", "marginBottom": "12px"}),
-        html.Div(id="analisis-result", style={"padding": "12px", "backgroundColor": "#F5F5F0",
-            "borderRadius": "8px", "border": "1px solid #e5e7eb", "minHeight": "50px"}),
+        dcc.Loading(
+            html.Div(id="analisis-result", style={"padding": "12px", "backgroundColor": "#F5F5F0",
+                "borderRadius": "8px", "border": "1px solid #e5e7eb", "minHeight": "50px"}),
+            type="default", color=GOLD,
+        ),
     ], style=CONTENT_STYLE),
 ])
 
@@ -349,8 +355,9 @@ def render_canal_bar(module, page, pareto_canal, _refresh):
     Output("bodega-bar", "children"),
     Input("store-module", "data"),
     Input("store-refresh", "data"),
+    State("store-bodega-filter", "data"),
 )
-def render_bodega_bar(module, _refresh):
+def render_bodega_bar(module, _refresh, bodega_filter):
     if str(module).strip().lower() != "inventario":
         return None
     df = _load_cached("inventario")
@@ -358,12 +365,16 @@ def render_bodega_bar(module, _refresh):
         return None
     bodega_options = [{"label": f"Bodega {str(b)}", "value": str(b)}
                       for b in sorted(df["_bodega"].dropna().unique())]
+    import json
+    current_sel = json.loads(bodega_filter) if isinstance(bodega_filter, str) else bodega_filter
+    if not isinstance(current_sel, list):
+        current_sel = []
     return html.Div([
         html.Span("Bodega: ", style={"fontSize": "0.78rem", "color": GRAY, "marginRight": "8px", "fontWeight": "500"}),
         dcc.Dropdown(
             id="bodega-dropdown",
             options=bodega_options,
-            value=[],
+            value=current_sel,
             multi=True,
             placeholder="Todas las bodegas (selecciona para filtrar)",
             className="d-inline-block",
@@ -445,7 +456,17 @@ def render_page_content(module, page, filters, refresh_count, clear_count, paret
 
 # ===== SINGLE ANALYSIS CALLBACK =====
 @callback(
+    Output("btn-single-analysis", "disabled"),
+    Input("btn-single-analysis", "n_clicks"),
+    prevent_initial_call=True,
+)
+def disable_analysis_button(n_clicks):
+    return True
+
+
+@callback(
     Output("analisis-result", "children"),
+    Output("btn-single-analysis", "disabled", allow_duplicate=True),
     Input("btn-single-analysis", "n_clicks"),
     State("store-module", "data"),
     State("store-page", "data"),
@@ -467,9 +488,9 @@ def generate_analysis_single(n_clicks, module, page, filters, api_key, ai_model,
     if not isinstance(filters, dict): filters = {}
 
     df = _load_cached(module)
-    if df.empty: return html.Div("Sin datos. Sube un archivo primero.", className="text-muted")
+    if df.empty: return html.Div("Sin datos. Sube un archivo primero.", className="text-muted"), False
     data = apply_filters(df, filters)
-    if data.empty: return html.Div("Sin resultados con estos filtros.", className="text-muted")
+    if data.empty: return html.Div("Sin resultados con estos filtros.", className="text-muted"), False
     data = _apply_special_filters(data, module, page, pareto_canal, bodega_filter)
 
     result = None
@@ -480,7 +501,7 @@ def generate_analysis_single(n_clicks, module, page, filters, api_key, ai_model,
 
     if not result:
         result = generar_analisis(module, page, data)
-    return result
+    return result, False
 
 # ============================================================
 # CALLBACKS
@@ -495,22 +516,22 @@ def generate_analysis_single(n_clicks, module, page, filters, api_key, ai_model,
 )
 def update_badges_and_sidebar(_refresh, _clear):
     from firebase_config import get_upload_age_hours
+    meta = get_metadata()
     badges = []
     info_lines = []
     alertas = []
 
     for tipo in ["pedidos", "facturas", "inventario"]:
-        df = _load_cached(tipo)
-        if not df.empty:
-            badges.append(f"{len(df):,} reg")
-            info_lines.append(f"{tipo}: {len(df):,}")
+        count = meta.get(tipo, 0)
+        if count > 0:
+            badges.append(f"{count:,} reg")
+            info_lines.append(f"{tipo}: {count:,}")
         else:
             badges.append("vacio")
         age = get_upload_age_hours(tipo)
         if age is not None and age > 24:
             alertas.append(f"{tipo}: +{int(age / 24)}d")
 
-    meta = get_metadata()
     syncs = meta.get("syncs_remaining", 0)
     sync_info = f"| Firestore: {syncs}/3" if syncs > 0 else "| Firestore: agotado"
 
@@ -594,7 +615,6 @@ def show_file_name(filename):
     Output("store-page", "data"),
     Output("file-name", "children"),
     Output("upload-status", "children"),
-    Output("analisis-result", "children"),
     Input("mod-pedidos", "n_clicks"),
     Input("mod-facturas", "n_clicks"),
     Input("mod-inventario", "n_clicks"),
@@ -603,11 +623,11 @@ def show_file_name(filename):
 def switch_module(*args):
     ctx = dash.ctx
     if not ctx.triggered:
-        return no_update, no_update, no_update, no_update, no_update
+        return no_update, no_update, no_update, no_update
     mod_id = ctx.triggered[0]["prop_id"].split(".")[0]
     module = mod_id.replace("mod-", "")
     first_page = list(MODULES[module]["pages"].keys())[0]
-    return module, first_page, "", "", ""
+    return module, first_page, "", ""
 
 
 @callback(
@@ -728,6 +748,20 @@ def process_upload(n_clicks, contents, filename, refresh_count, active_module):
             tipo = "pedidos"
         first_page = list(MODULES[tipo]["pages"].keys())[0]
 
+        current_mod = str(active_module).strip().lower()
+        if current_mod in MODULES:
+            current_has_data = not _load_cached(current_mod).empty
+        else:
+            current_has_data = False
+
+        if current_has_data and current_mod != tipo:
+            return html.Div([
+                html.Div(f"OK: {filename}", style={"color": "#93c5fd"}),
+                html.Div(f"{tipo.upper()}: {n_reg:,} registros guardados",
+                         style={"color": GREEN, "fontWeight": "bold"}),
+                html.Div(f"   Cambia al modulo {tipo.upper()} para ver los datos",
+                         style={"color": GRAY, "fontSize": "0.7rem"}),
+            ]), refresh_count + 1, no_update, tipo, no_update
         return html.Div([
             html.Div(f"OK: {filename}", style={"color": "#93c5fd"}),
             html.Div(f"Tipo: {tipo} | {n_reg:,} registros guardados",
@@ -780,16 +814,16 @@ def download_csv(n, module, filters, pareto_canal, bodega_filter):
 @callback(
     Output("clear-status", "children"),
     Output("store-clear", "data"),
+    Output("store-filters", "data", allow_duplicate=True),
     Input("clear-data", "n_clicks"),
     State("store-clear", "data"),
     prevent_initial_call=True,
 )
 def clear_data(n, clear_count):
+    import json
     _clear_cache()
     clear_local_cache()
-    return html.Div("Datos limpiados.", style={"color": GREEN}), clear_count + 1
-
-
+    return html.Div("Datos limpiados.", style={"color": GREEN}), clear_count + 1, json.dumps({})
 @callback(
     Output("store-refresh", "data", allow_duplicate=True),
     Input("refresh-data", "n_clicks"),
@@ -935,16 +969,4 @@ def crossfilter_asesor(click_part, click_rank):
             return json.dumps({"canal": "Todos", "asesor": asesor, "estado": "Todos", "linea": "Todos", "sublinea": "Todos"})
     except Exception:
         pass
-    return no_update
-
-
-@callback(
-    Output("store-filters", "data", allow_duplicate=True),
-    Input("clear-data", "n_clicks"),
-    prevent_initial_call=True,
-)
-def clear_filters_on_clear(n):
-    import json
-    if n:
-        return json.dumps({})
     return no_update
