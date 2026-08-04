@@ -439,47 +439,24 @@ def pagina_ranking(data):
     children.append(kahoot_podium(top3))
 
     kpi_row = dbc.Row([
-        dbc.Col(kpi_card("Asesores Activos", f"{n_asesores}", f"Brecha #1 vs prom: {brecha:.1f}x", color=BLUE), width=3),
         dbc.Col(kpi_card("Valor Total", fmt_p(tv), fmt_pm(tv), color=NAVY), width=3),
-        dbc.Col(kpi_card("vs Presupuesto", f"{presup_pct:.1f}%" if has_budgets else "-", f"Meta: {fmt_pm(presup_total)}" if presup_total else "Sin datos", color=presup_color), width=3),
-        dbc.Col(kpi_card("Cumpl. Prom.", f"{rank['% Cumpl'].mean():.1f}%" if has_budgets and has_compr else "-", f"Top 3: {rank.head(3)['% Part'].sum():.1f}%", color=GREEN if rank['% Cumpl'].mean() > 50 else AMBER), width=3),
+        dbc.Col(kpi_card("vs Meta", f"{presup_pct:.1f}%" if has_budgets else "-", f"Meta: {fmt_pm(presup_total)}" if presup_total else "Sin datos", color=GRAY), width=3),
+        dbc.Col(kpi_card("Cumpl Prom", f"{rank['% Cumpl'].mean():.1f}%" if has_budgets and has_compr else "-", f"Top 3: {rank.head(3)['% Part'].sum():.1f}%", color=GREEN if rank['% Cumpl'].mean() > 50 else AMBER), width=3),
+        dbc.Col(kpi_card("Concentración", f"Brecha {brecha:.1f}x", f"#1: {rank['% Part'].iloc[0]:.1f}% del total" if len(rank) > 0 else "", color=BLUE), width=3),
     ], className="mb-4 g-3")
     children.append(kpi_row)
-
-    top_show = rank.head(min(20, len(rank)))
-    chart_n = len(top_show)
-    fig = go.Figure()
-    fig.add_trace(go.Bar(
-        x=top_show["Valor"] / 1e6,
-        y=top_show["_vendedor"],
-        orientation="h",
-        marker=dict(
-            color=[GOLD if i == 0 else BLUE for i in range(chart_n)],
-            line=dict(color="white", width=1),
-        ),
-        text=[fmt_pm(v) for v in top_show["Valor"]],
-        textposition="outside",
-        textfont=dict(size=10, color=GRAY),
-        hovertemplate="<b>%{y}</b><br>Valor: %{text}<br>Participacion: %{customdata}%<extra></extra>",
-        customdata=top_show["% Part"].tolist(),
-    ))
-    chart_h = max(320, min(700, chart_n * 28))
-    fig.update_layout(**fig_layout(f"Top {chart_n} Asesores por Valor (millones $)", height=chart_h,
-        margin=dict(t=40, b=20, l=20, r=50)))
-    fig.update_xaxes(title="$ millones", showgrid=True, gridcolor="#e2e8f0")
-    fig.update_yaxes(automargin=True, tickfont=dict(size=10), autorange="reversed")
-    children.append(dbc.Row([dbc.Col(graph_png(figure=fig, id="chart-ranking-asesores"), width=12)], className="mb-3"))
 
     table_data = []
     for _, r in rank.iterrows():
         cumpl_pct = r["% Cumpl"]
         has_ppto = r["Presupuesto"] > 0
         show_cumpl = has_ppto and has_compr
+        short_name = str(r["_vendedor"])[:22] + "..." if len(str(r["_vendedor"])) > 25 else str(r["_vendedor"])
         row = {
             "#": r["#"],
             "_vendedor": r["_vendedor"],
             "Valor_total": fmt_p(r["Valor"]),
-            "Presupuesto": fmt_p(r["Presupuesto"]) if has_ppto else "-",
+            "Presupuesto": fmt_pm(r["Presupuesto"]) if has_ppto else "-",
             "% Part": f"{r['% Part']:.1f}%",
             "% Presup": f"{r['% Presup']:.1f}%" if has_ppto else "-",
             "Pedidos": f"{int(r['Pedidos']):,}",
@@ -491,7 +468,7 @@ def pagina_ranking(data):
         table_data.append(row)
 
     table = dash_table.DataTable(
-        columns=[{"name": c, "id": c} for c in ["#", "_vendedor", "Valor_total", "Presupuesto", "% Part", "% Presup", "Pedidos", "Clientes", "% Cumpl"]],
+        columns=[{"name": c, "id": c} for c in ["#", "_vendedor", "Valor_total", "% Part", "Presupuesto", "% Presup", "% Cumpl", "Pedidos", "Clientes"]],
         data=table_data,
         style_table={"overflowX": "auto"},
         style_cell={"textAlign": "left", "padding": "6px 10px", "fontSize": "0.75rem", "fontFamily": "Segoe UI, Arial, sans-serif"},
@@ -533,6 +510,31 @@ def pagina_ranking(data):
         sort_action="native",
     )
     children.append(table)
+
+    top_show = rank.head(min(20, len(rank)))
+    chart_n = len(top_show)
+    fig = go.Figure()
+    fig.add_trace(go.Bar(
+        x=top_show["Valor"] / 1e6,
+        y=top_show["_vendedor"],
+        orientation="h",
+        marker=dict(
+            color=[GOLD if i == 0 else BLUE for i in range(chart_n)],
+            line=dict(color="white", width=1),
+        ),
+        text=[fmt_pm(v) for v in top_show["Valor"]],
+        textposition="outside",
+        textfont=dict(size=10, color=GRAY),
+        hovertemplate="<b>%{y}</b><br>Valor: %{text}<br>Participacion: %{customdata}%<extra></extra>",
+        customdata=top_show["% Part"].tolist(),
+    ))
+    chart_h = max(320, min(700, chart_n * 28))
+    fig.update_layout(**fig_layout(f"Top {chart_n} Asesores por Valor (millones $)", height=chart_h,
+        margin=dict(t=40, b=20, l=20, r=50)))
+    fig.update_xaxes(title="$ millones", showgrid=True, gridcolor="#e2e8f0")
+    fig.update_yaxes(automargin=True, tickfont=dict(size=10), autorange="reversed")
+    children.append(dbc.Row([dbc.Col(graph_png(figure=fig, id="chart-ranking-asesores"), width=12)], className="mb-3"))
+
     children.append(html.Hr())
     return children
 

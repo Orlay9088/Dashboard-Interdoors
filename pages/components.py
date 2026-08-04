@@ -277,11 +277,11 @@ def kahoot_podium(rank_df):
                     "opacity": "0.7",
                 })
             ]),
-            html.Div(f"Alcance: {presup:.0f}%" if has_ppto else "", style={
+            html.Div(f"% Meta: {presup:.0f}%" if has_ppto else "", style={
                 "fontSize": "0.62rem", "fontWeight": "700", "textAlign": "center",
                 "color": c["tx"], "marginBottom": "4px", "opacity": "0.85",
             }),
-            html.Div(f"Comprometido: {r.get('% Cumpl', 0):.1f}%" if has_ppto else "Sin datos", style={
+            html.Div(f"% Cumpl: {r.get('% Cumpl', 0):.1f}%" if has_ppto else "Sin datos", style={
                 "fontSize": "0.65rem", "fontWeight": "600", "textAlign": "center",
                 "color": c["tx"], "opacity": "0.85",
             }),
