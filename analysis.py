@@ -643,17 +643,21 @@ def generar_con_opencode(tipo, page, data, api_key):
 
     models = ["opencode/gpt-5", "gpt-5", "gpt-4o", "opencode"]
     for model in models:
+        start = time.time()
         for attempt in range(2):
             try:
                 resp = requests.post("https://api.opencode.ai/v1/chat/completions",
                     json={"model": model, "messages": [{"role": "user", "content": prompt}]},
                     headers={"Authorization": f"Bearer {api_key}"}, timeout=25)
+                elapsed = time.time() - start
                 if resp.ok:
                     text = resp.json()["choices"][0]["message"]["content"]
+                    print(f"[OpenCode] {model}: OK ({elapsed:.1f}s)")
                     return _format_ai_response(text, "OpenCode AI", GOLD)
-                print(f"[OpenCode] {model}: HTTP {resp.status_code} {resp.text[:120]}")
+                print(f"[OpenCode] {model}: HTTP {resp.status_code} ({elapsed:.1f}s) - {resp.text[:150]}")
             except Exception as e:
-                print(f"[OpenCode] {model}: {e}")
+                elapsed = time.time() - start
+                print(f"[OpenCode] {model}: ERROR ({elapsed:.1f}s) - {e}")
             if attempt < 1:
                 time.sleep(2)
         time.sleep(1)
