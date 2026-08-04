@@ -641,10 +641,11 @@ def generar_con_openai(tipo, page, data, api_key):
         return None, "API key vacía"
     prompt = _build_analysis_prompt(tipo, page, data)
 
-    # Probar OpenAI directo + OpenCode como proxy OpenAI
     configs = [
+        ("https://api.opencode.ai/v1/chat/completions", "deepseek-v4-pro", "DeepSeek Pro"),
+        ("https://api.opencode.ai/v1/chat/completions", "deepseek-chat", "DeepSeek Chat"),
+        ("https://api.opencode.ai/v1/chat/completions", "gpt-4o", "GPT-4o"),
         ("https://api.openai.com/v1/chat/completions", "gpt-4o", "OpenAI"),
-        ("https://api.opencode.ai/v1/chat/completions", "gpt-4o", "OpenCode"),
     ]
     for url, model, label in configs:
         try:
@@ -655,11 +656,11 @@ def generar_con_openai(tipo, page, data, api_key):
                 data = resp.json()
                 if "choices" in data and len(data["choices"]) > 0:
                     text = data["choices"][0]["message"]["content"]
-                    return _format_ai_response(text, f"{label} AI", BLUE), ""
-                return None, f"{label}: sin choices en respuesta"
-        except Exception as e:
+                    return _format_ai_response(text, f"{label}", BLUE), ""
+                return None, f"{label}: sin choices"
+        except Exception:
             continue
-    return None, "Ambos endpoints fallaron. La clave no funciona con OpenAI ni OpenCode."
+    return None, "Ningun modelo disponible. Prueba Gemini (gratis) o verifica tu plan."
 
     if not api_key or data.empty:
         return None, "API key vacía"

@@ -864,15 +864,16 @@ def verify_model(n, api_key, model):
     import requests
     key = api_key.strip()
     if model == "opencode":
-        try:
-            resp = requests.post("https://api.opencode.ai/v1/chat/completions",
-                json={"model": "gpt-4o", "messages": [{"role":"user","content":"hi"}]},
-                headers={"Authorization": f"Bearer {key}"}, timeout=8)
-            if resp.ok and resp.text and "error" not in resp.text.lower():
-                return html.Div("OpenCode verificado", style={"color": GREEN, "fontWeight":"bold"}), key, model
-            return html.Div("Error: clave no aceptada por OpenCode", style={"color": RED}), no_update, no_update
-        except Exception:
-            return html.Div("Sin conexion con OpenCode", style={"color": RED}), no_update, no_update
+        for mdl in ["deepseek-v4-pro", "deepseek-chat", "gpt-4o"]:
+            try:
+                resp = requests.post("https://api.opencode.ai/v1/chat/completions",
+                    json={"model": mdl, "messages": [{"role":"user","content":"hi"}]},
+                    headers={"Authorization": f"Bearer {key}"}, timeout=8)
+                if resp.ok:
+                    return html.Div(f"OpenCode verificado ({mdl})", style={"color": GREEN, "fontWeight":"bold"}), key, model
+            except Exception:
+                continue
+        return html.Div("Error: clave no aceptada", style={"color": RED}), no_update, no_update
         try:
             resp = requests.post(
                 "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent",
