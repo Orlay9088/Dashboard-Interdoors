@@ -640,18 +640,26 @@ def generar_con_openai(tipo, page, data, api_key):
     if not api_key or data.empty:
         return None, "API key vacía"
     prompt = _build_analysis_prompt(tipo, page, data)
-    try:
-        resp = requests.post("https://api.openai.com/v1/chat/completions",
-            json={"model": "gpt-4o", "messages": [{"role": "user", "content": prompt}]},
-            headers={"Authorization": f"Bearer {api_key}"}, timeout=45)
-        if resp.ok:
-            data = resp.json()
-            if "choices" in data and len(data["choices"]) > 0:
-                text = data["choices"][0]["message"]["content"]
-                return _format_ai_response(text, "OpenAI", BLUE), ""
-        return None, f"HTTP {resp.status_code}"
-    except Exception as e:
-        return None, str(e)[:80]
+
+    # Probar OpenAI directo + OpenCode como proxy OpenAI
+    configs = [
+        ("https://api.openai.com/v1/chat/completions", "gpt-4o", "OpenAI"),
+        ("https://api.opencode.ai/v1/chat/completions", "gpt-4o", "OpenCode"),
+    ]
+    for url, model, label in configs:
+        try:
+            resp = requests.post(url,
+                json={"model": model, "messages": [{"role": "user", "content": prompt}]},
+                headers={"Authorization": f"Bearer {api_key}"}, timeout=45)
+            if resp.ok:
+                data = resp.json()
+                if "choices" in data and len(data["choices"]) > 0:
+                    text = data["choices"][0]["message"]["content"]
+                    return _format_ai_response(text, f"{label} AI", BLUE), ""
+                return None, f"{label}: sin choices en respuesta"
+        except Exception as e:
+            continue
+    return None, "Ambos endpoints fallaron. La clave no funciona con OpenAI ni OpenCode."
 
     if not api_key or data.empty:
         return None, "API key vacía"

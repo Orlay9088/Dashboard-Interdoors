@@ -869,15 +869,22 @@ def verify_model(n, api_key, model):
         except Exception:
             return html.Div("Sin conexion con Gemini", style={"color": RED}), no_update, no_update
     elif model == "openai":
-        try:
-            resp = requests.post("https://api.openai.com/v1/chat/completions",
-                json={"model": "gpt-4o", "messages": [{"role":"user","content":"hi"}]},
-                headers={"Authorization": f"Bearer {key}"}, timeout=8)
-            if resp.ok:
-                return html.Div("OpenAI verificado", style={"color": GREEN, "fontWeight":"bold"}), key, model
-            return html.Div(f"Error: clave invalida", style={"color": RED}), no_update, no_update
-        except Exception:
-            return html.Div("Sin conexion con OpenAI", style={"color": RED}), no_update, no_update
+        # Probar 2 endpoints: OpenAI directo + OpenCode proxy
+        endpoints = [
+            ("https://api.openai.com/v1/chat/completions", "gpt-4o"),
+            ("https://api.opencode.ai/v1/chat/completions", "gpt-4o"),
+        ]
+        for url, mdl in endpoints:
+            try:
+                resp = requests.post(url,
+                    json={"model": mdl, "messages": [{"role":"user","content":"hi"}]},
+                    headers={"Authorization": f"Bearer {key}"}, timeout=8)
+                if resp.ok:
+                    label = "OpenAI" if "openai" in url else "OpenCode"
+                    return html.Div(f"{label} verificado", style={"color": GREEN, "fontWeight":"bold"}), key, model
+            except Exception:
+                continue
+        return html.Div(f"Error: clave invalida en ambos endpoints", style={"color": RED}), no_update, no_update
     return html.Div("Modo no soportado", style={"color": RED}), no_update, no_update
 
 
