@@ -874,6 +874,7 @@ def verify_model(n, api_key, model):
             except Exception:
                 continue
         return html.Div("Error: clave no aceptada", style={"color": RED}), no_update, no_update
+    elif model == "gemini":
         try:
             resp = requests.post(
                 "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent",
