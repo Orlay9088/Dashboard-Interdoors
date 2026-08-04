@@ -495,14 +495,6 @@ def generate_analysis_single(n_clicks, module, page, filters, api_key, ai_model,
 
     result = None
     error_detail = ""
-    ia_selected = ai_model in ("opencode", "gemini")
-
-    if ia_selected and not api_key:
-        return html.Div([
-            html.Div("⚠ Configura tu API Key. Selecciona el modelo, ingresa la clave y haz clic en Verificar.", 
-                     style={"fontSize": "0.8rem", "color": AMBER, "fontWeight": "bold", "marginBottom": "8px"}),
-            html.Div("Una vez verificada, vuelve a hacer clic en 'Analizar con IA'.", className="text-muted small"),
-        ]), False
 
     if ai_model == "opencode" and api_key:
         result, error_detail = generar_con_opencode(module, page, data, api_key)
@@ -510,16 +502,13 @@ def generate_analysis_single(n_clicks, module, page, filters, api_key, ai_model,
         result = generar_con_gemini(module, page, data, api_key)
 
     if not result:
-        result = generar_analisis(module, page, data)
-        msg = "⚠ La API no respondió."
-        if error_detail:
-            msg += f" Error: {error_detail}"
-        if ia_selected:
-            result = html.Div([
-                html.Div(msg, 
-                         style={"fontSize": "0.7rem", "color": AMBER, "marginBottom": "8px", "fontStyle": "italic"}),
-                result,
-            ])
+        msg = "⚠ La API no respondió. Verifica tu conexión e intenta de nuevo."
+        if not api_key:
+            msg = "⚠ Configura tu API Key. Selecciona el modelo, ingresa la clave y haz clic en Verificar."
+        elif error_detail:
+            msg = f"⚠ Error API: {error_detail}"
+        return html.Div(msg, style={"fontSize": "0.85rem", "color": RED, "fontWeight": "bold"}), False
+
     return result, False
 
 # ============================================================

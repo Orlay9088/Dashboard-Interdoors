@@ -219,8 +219,8 @@ def kahoot_podium(rank_df):
     heights = {0: "240px", 1: "200px", 2: "188px"}
 
     if n == 1: order_map = [(0, 0)]
-    elif n == 2: order_map = [(0, 1), (1, 0)]
-    else: order_map = [(0, 1), (1, 0), (2, 2)]
+    elif n == 2: order_map = [(1, 1), (0, 0)]
+    else: order_map = [(1, 1), (0, 0), (2, 2)]
     cards = []
     for display_i, data_i in order_map:
         r = top3.iloc[data_i]
