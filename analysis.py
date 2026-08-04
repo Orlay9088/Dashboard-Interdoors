@@ -640,21 +640,21 @@ def generar_con_opencode(tipo, page, data, api_key):
     if not api_key or data.empty:
         return None
     prompt = _build_analysis_prompt(tipo, page, data)
-    for attempt in range(2):
-        try:
-            resp = requests.post("https://api.opencode.ai/v1/chat/completions",
-                json={"model": "opencode", "messages": [{"role": "user", "content": prompt}]},
-                headers={"Authorization": f"Bearer {api_key}"}, timeout=20)
-            if resp.ok:
-                text = resp.json()["choices"][0]["message"]["content"]
-                return _format_ai_response(text, "OpenCode AI", GOLD)
-            elif resp.status_code == 429 and attempt < 1:
-                time.sleep(3)
-            else:
-                print(f"[OpenCode] Error {resp.status_code}: {resp.text[:200]}")
-        except Exception as e:
-            print(f"[OpenCode] Exception: {e}")
-        except Exception:
+
+    models = ["opencode/gpt-5", "gpt-5", "gpt-4o", "opencode"]
+    for model in models:
+        for attempt in range(2):
+            try:
+                resp = requests.post("https://api.opencode.ai/v1/chat/completions",
+                    json={"model": model, "messages": [{"role": "user", "content": prompt}]},
+                    headers={"Authorization": f"Bearer {api_key}"}, timeout=25)
+                if resp.ok:
+                    text = resp.json()["choices"][0]["message"]["content"]
+                    return _format_ai_response(text, "OpenCode AI", GOLD)
+                print(f"[OpenCode] {model}: HTTP {resp.status_code} {resp.text[:120]}")
+            except Exception as e:
+                print(f"[OpenCode] {model}: {e}")
             if attempt < 1:
                 time.sleep(2)
+        time.sleep(1)
     return None
