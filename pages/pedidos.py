@@ -331,7 +331,10 @@ def pagina_participacion(data):
 
 def pagina_pareto(data):
     vp = data["_valor"].sum()
-    canal = data["_canal"].iloc[0] if len(data["_canal"].unique()) == 1 else "TODOS"
+    if "_canal" in data.columns and len(data["_canal"].unique()) == 1:
+        canal = data["_canal"].iloc[0]
+    else:
+        canal = "TODOS"
     titulo = f"Pareto - {canal}"
 
     pg = data.groupby("_cliente").agg(Valor=("_valor", "sum")).reset_index().sort_values("Valor", ascending=False).reset_index(drop=True)

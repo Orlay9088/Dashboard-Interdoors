@@ -347,7 +347,7 @@ def render_canal_bar(module, page, pareto_canal, _refresh):
         ))
     return html.Div([
         html.Span("Canal: ", style={"fontSize": "0.78rem", "color": GRAY, "marginRight": "8px", "fontWeight": "500"}),
-        html.Span(buttons, style={"display": "inline-flex", "flexWrap": "wrap"}),
+        html.Span(buttons, style={"display": "inline-flex", "flexWrap": "nowrap", "overflowX": "auto", "maxWidth": "100%"}),
     ], style={"marginBottom": "12px"})
 
 # ===== BODEGA BAR CALLBACK (Inventario) =====
@@ -618,16 +618,23 @@ def show_file_name(filename):
     Input("mod-pedidos", "n_clicks"),
     Input("mod-facturas", "n_clicks"),
     Input("mod-inventario", "n_clicks"),
+    State("store-page", "data"),
     prevent_initial_call=True,
 )
 def switch_module(*args):
+    clicks = args[:3]
+    current_page = args[3]
     ctx = dash.ctx
     if not ctx.triggered:
         return no_update, no_update, no_update, no_update
     mod_id = ctx.triggered[0]["prop_id"].split(".")[0]
     module = mod_id.replace("mod-", "")
-    first_page = list(MODULES[module]["pages"].keys())[0]
-    return module, first_page, "", ""
+    pages = MODULES[module]["pages"]
+    if current_page in pages:
+        page = current_page
+    else:
+        page = list(pages.keys())[0]
+    return module, page, "", ""
 
 
 @callback(
