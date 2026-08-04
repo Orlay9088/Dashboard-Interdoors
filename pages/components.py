@@ -211,94 +211,93 @@ def kahoot_podium(rank_df):
     n = len(top3)
     if n == 0:
         return None
-    bg_colors = ["#B8BCC8", "#F3C615", "#CD7F32"]
-    dk_colors = ["#6A6F7A", "#9A7400", "#8B4513"]
-    tx_colors = ["white", DARKGRAY, "white"]
-    labels = ["#2", "#1", "#3"]
+    colors = {
+        0: {"bg": "linear-gradient(180deg, #F3C615 0%, #E5B800 100%)", "dk": "#9A7400", "tx": DARKGRAY, "ring": GOLD, "label": "LÍDER 🏆"},
+        1: {"bg": "linear-gradient(180deg, #B8BCC8 0%, #A0A4B0 100%)", "dk": "#6A6F7A", "tx": "white", "ring": "#B8BCC8", "label": "#2"},
+        2: {"bg": "linear-gradient(180deg, #CD7F32 0%, #B8702D 100%)", "dk": "#8B4513", "tx": "white", "ring": "#CD7F32", "label": "#3"},
+    }
+    if n == 1: order_map = [(0, 0)]
+    elif n == 2: order_map = [(0, 1), (1, 0)]
+    else: order_map = [(0, 1), (1, 0), (2, 2)]
     cards = []
-
-    # Map from display position to data index, depending on count
-    if n == 1:
-        order_map = [(0, 0, "#1")]
-    elif n == 2:
-        order_map = [(0, 1, "#2"), (1, 0, "#1")]
-    else:
-        order_map = [(0, 1, "#2"), (1, 0, "#1"), (2, 2, "#3")]
-
-    for display_i, data_i, label in order_map:
+    for display_i, data_i in order_map:
         r = top3.iloc[data_i]
         initials = "".join([w[0] for w in str(r["_vendedor"]).split()[:2]]).upper()
-        bg, dk, tx = bg_colors[display_i], dk_colors[display_i], tx_colors[display_i]
-        margin_top = "-30px" if data_i == 0 else "0px"
-
+        c = colors[display_i]
+        is_top = data_i == 0
+        margin_top = "-35px" if is_top else "0px"
         presup = r.get("% Presup", 0)
         progr = min(100, max(0, presup))
         progr_color = GREEN if progr >= 100 else AMBER if progr >= 70 else RED
         has_ppto = r.get("Presupuesto", 0) > 0
 
         card = html.Div([
-            html.Div(label, style={
-                "position": "absolute", "top": "8px", "right": "10px",
-                "fontSize": "0.75rem", "fontWeight": "900", "color": dk,
-                "opacity": "0.6",
+            html.Div(c["label"], style={
+                "position": "absolute", "top": "10px", "right": "12px",
+                "fontSize": "0.6rem", "fontWeight": "800", "color": c["dk"],
+                "textTransform": "uppercase", "letterSpacing": "0.5px", "opacity": "0.7",
             }),
-            dmc.Avatar(initials, radius="xl", size="lg",
-                       style={"backgroundColor": dk, "color": "white", "marginBottom": "8px"}),
+            dmc.Avatar(initials, radius="xl", size="lg", style={
+                "backgroundColor": c["dk"], "color": c["tx"],
+                "marginBottom": "10px", "border": f"2.5px solid {c['ring']}",
+                "boxShadow": f"0 0 14px {c['ring']}55" if is_top else "none",
+            }),
             html.Div(str(r["_vendedor"]), style={
-                "fontSize": "0.75rem", "fontWeight": "700", "textAlign": "center",
-                "color": tx, "lineHeight": "1.2", "marginBottom": "6px",
-                "minHeight": "30px",
+                "fontSize": "0.72rem", "fontWeight": "700", "textAlign": "center",
+                "color": c["tx"], "lineHeight": "1.25", "marginBottom": "4px",
+                "minHeight": "32px", "maxWidth": "180px", "overflow": "hidden", "textOverflow": "ellipsis",
             }),
             html.Div(fmt_pm(r["Valor"]), style={
-                "fontSize": "1.2rem", "fontWeight": "900", "textAlign": "center",
-                "color": tx, "marginBottom": "2px",
+                "fontSize": "1.3rem", "fontWeight": "900", "textAlign": "center",
+                "color": c["tx"], "marginBottom": "2px",
             }),
             html.Div(f"{r.get('% Part', 0):.1f}% del total", style={
-                "fontSize": "0.65rem", "textAlign": "center", "color": tx,
-                "opacity": "0.8", "marginBottom": "8px",
+                "fontSize": "0.65rem", "textAlign": "center", "color": c["tx"],
+                "opacity": "0.85", "marginBottom": "8px",
             }),
             html.Div(f"Meta: {fmt_pm(r.get('Presupuesto', 0))}" if has_ppto else "Sin meta", style={
                 "fontSize": "0.68rem", "fontWeight": "600", "textAlign": "center",
-                "color": tx, "marginBottom": "5px", "opacity": "0.85",
+                "color": c["tx"], "marginBottom": "6px", "opacity": "0.85",
             }),
             dmc.Progress(value=progr, color=progr_color, size="md",
-                         style={"width": "75%", "margin": "0 auto", "marginBottom": "4px"}),
+                style={"width": "75%", "margin": "0 auto", "marginBottom": "5px"}),
             html.Div(f"Alcance: {presup:.0f}%" if has_ppto else "", style={
                 "fontSize": "0.62rem", "fontWeight": "700", "textAlign": "center",
-                "color": tx, "marginBottom": "4px", "opacity": "0.85",
+                "color": c["tx"], "marginBottom": "4px", "opacity": "0.85",
             }),
             html.Div(f"Comprometido: {r.get('% Cumpl', 0):.1f}%" if has_ppto else "Sin datos", style={
                 "fontSize": "0.65rem", "fontWeight": "600", "textAlign": "center",
-                "color": tx, "opacity": "0.85",
+                "color": c["tx"], "opacity": "0.85",
             }),
         ], style={
             "position": "relative",
-            "width": "190px", "minHeight": "240px",
-            "background": bg, "color": tx,
-            "borderRadius": "12px",
-            "padding": "16px 10px 14px 10px",
+            "width": "210px", "minHeight": "255px",
+            "background": c["bg"], "color": c["tx"],
+            "borderRadius": "14px",
+            "padding": "18px 12px 16px 12px",
             "display": "flex", "flexDirection": "column",
             "alignItems": "center",
-            "boxShadow": f"0 4px 20px rgba(0,0,0,0.12), 0 1px 3px rgba(0,0,0,0.08)",
+            "boxShadow": "0 8px 24px rgba(0,0,0,0.15), 0 2px 6px rgba(0,0,0,0.08)",
             "marginTop": margin_top,
             "transition": "transform 0.2s, box-shadow 0.2s",
-            "borderBottom": f"4px solid {dk}",
+            "borderBottom": f"5px solid {c['dk']}",
+            "cursor": "default",
         })
         cards.append(card)
 
     return html.Div([
         html.Div([
-            html.Span("● ", style={"color": GOLD, "fontSize": "0.8rem"}),
-            html.Span("TOP 3 ASESORES", style={
+            html.Span("● ", style={"color": GOLD, "fontSize": "0.85rem"}),
+            html.Span("RANKING DE ASESORES", style={
                 "fontSize": "0.7rem", "fontWeight": "700", "color": GRAY,
-                "letterSpacing": "1.5px", "textTransform": "uppercase",
+                "letterSpacing": "2px", "textTransform": "uppercase",
             }),
-        ], style={"textAlign": "center", "marginBottom": "8px"}),
+        ], style={"textAlign": "center", "marginBottom": "12px"}),
         html.Div(cards, style={
             "display": "flex", "justifyContent": "center",
-            "alignItems": "flex-end", "gap": "14px",
-            "padding": "10px 0 6px 0",
+            "alignItems": "flex-end", "gap": "16px",
+            "padding": "12px 0 8px 0",
         }),
-    ], style={"margin": "10px 0 20px 0"})
+    ], style={"margin": "12px 0 24px 0"})
 
 
