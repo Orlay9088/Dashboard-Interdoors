@@ -639,30 +639,56 @@ def generar_con_gemini(tipo, page, data, api_key):
 def generar_con_opencode(tipo, page, data, api_key):
     if not api_key or data.empty:
         return None, "API key vacía"
-    prompt = _build_analysis_prompt(tipo, page, data)
-    start = time.time()
 
+    # Construir prompt ligero (solo métricas, sin proyección ni ranking detallado)
+    ctx = _company_context()
+    vp = data["_valor"].sum() if "_valor" in data.columns else 0
+    vc = data["_valor_sec"].sum() if "_valor_sec" in data.columns else 0
+    n = len(data)
+
+    lines = [f"Analisis de {tipo.upper()} - {page.upper()}"]
+    lines.append(f"Valor total: {fmt_pm(vp)} | Registros: {n:,}")
+    if "_fecha" in data.columns and data["_fecha"].notna().any():
+        fmin = data["_fecha"].min().strftime("%b %Y") if pd.notna(data["_fecha"].min()) else "N/A"
+        fmax = data["_fecha"].max().strftime("%b %Y") if pd.notna(data["_fecha"].max()) else "N/A"
+        lines.append(f"Periodo: {fmin} a {fmax}")
+    if "_cliente" in data.columns:
+        lines.append(f"Clientes: {data['_cliente'].nunique()}")
+    if "_vendedor" in data.columns:
+        lines.append(f"Asesores: {data['_vendedor'].nunique()}")
+    if tipo == "pedidos" and vc > 0:
+        lines.append(f"Comprometido: {fmt_pm(vc)} ({(vc/vp*100):.1f}%)")
+
+    prompt = f"""Eres analista senior de inteligencia comercial para {ctx[:200]}.
+Basado en estos datos: {' | '.join(lines)}
+Genera un analisis ejecutivo breve en ESPANOL con:
+**Hallazgos Clave** (2-3 puntos con datos)
+**Decisiones Gerenciales** (2 acciones concretas)
+Maximo 250 palabras. Se directo."""
+
+    start = time.time()
     try:
         resp = requests.post("https://api.opencode.ai/v1/chat/completions",
             json={"model": "opencode", "messages": [{"role": "user", "content": prompt}]},
             headers={"Authorization": f"Bearer {api_key}"}, timeout=45)
         elapsed = time.time() - start
-        raw_text = resp.text[:500]
+        status = resp.status_code
+        raw = resp.text[:500]
 
-        if not resp.ok:
-            return None, f"HTTP {resp.status_code} - {raw_text[:80]}"
+        if status != 200:
+            return None, f"HTTP {status} - {raw[:100]}"
 
         try:
             data = resp.json()
         except Exception:
-            return None, f"Respuesta no es JSON: {raw_text[:100]}"
+            return None, f"No es JSON (HTTP {status}): {raw[:150]}"
 
         if "choices" in data and len(data["choices"]) > 0:
             text = data["choices"][0]["message"]["content"]
             print(f"[OpenCode] OK ({elapsed:.1f}s)")
             return _format_ai_response(text, "OpenCode AI", GOLD), ""
 
-        return None, f"Respuesta sin choices: {str(data)[:120]}"
+        return None, f"Sin choices (HTTP {status}): {str(data)[:150]}"
     except Exception as e:
         elapsed = time.time() - start
         return None, f"ERROR ({elapsed:.1f}s): {str(e)[:80]}"
