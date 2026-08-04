@@ -749,24 +749,17 @@ def process_upload(n_clicks, contents, filename, refresh_count, active_module):
         first_page = list(MODULES[tipo]["pages"].keys())[0]
 
         current_mod = str(active_module).strip().lower()
-        if current_mod in MODULES:
-            current_has_data = not _load_cached(current_mod).empty
-        else:
-            current_has_data = False
+        switch_msg = ""
+        if current_mod != tipo:
+            switch_msg = html.Div(f"   Cambia al modulo {tipo.upper()} para ver los datos",
+                                  style={"color": GRAY, "fontSize": "0.7rem"})
 
-        if current_has_data and current_mod != tipo:
-            return html.Div([
-                html.Div(f"OK: {filename}", style={"color": "#93c5fd"}),
-                html.Div(f"{tipo.upper()}: {n_reg:,} registros guardados",
-                         style={"color": GREEN, "fontWeight": "bold"}),
-                html.Div(f"   Cambia al modulo {tipo.upper()} para ver los datos",
-                         style={"color": GRAY, "fontSize": "0.7rem"}),
-            ]), refresh_count + 1, no_update, tipo, no_update
         return html.Div([
             html.Div(f"OK: {filename}", style={"color": "#93c5fd"}),
-            html.Div(f"Tipo: {tipo} | {n_reg:,} registros guardados",
+            html.Div(f"{tipo.upper()}: {n_reg:,} registros guardados",
                      style={"color": GREEN, "fontWeight": "bold"}),
-        ]), refresh_count + 1, tipo, tipo, first_page
+            switch_msg,
+        ]), refresh_count + 1, no_update, tipo, no_update
     except Exception as e:
         detalle = traceback.format_exc()
         print(detalle)
