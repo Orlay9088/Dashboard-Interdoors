@@ -21,6 +21,7 @@ from etl.normalizer import normalizar
 from etl.processor import procesar as procesar_etl
 
 from firebase_config import try_load, try_save, get_metadata, load_local, clear_local_cache
+from analysis import generar_con_gemini
 from pages.pedidos import (
     pagina_home, pagina_resumen, pagina_participacion, pagina_pareto,
     pagina_ranking, pagina_embudo, pagina_heatmap, pagina_proyeccion,
@@ -220,6 +221,14 @@ def build_sidebar():
     dcc.Download(id="download-data"),
     html.Div(id="clear-status", style={"fontSize": "0.75rem", "minHeight": "1.2rem"}),
     html.Hr(style={"borderColor": "rgba(255,255,255,0.15)"}),
+
+    html.H6("Gemini IA", className="text-uppercase small fw-semibold mb-2", style={"color": "#94a3b8"}),
+    dbc.Input(id="api-key-input", type="password", placeholder="Gemini API Key", size="sm", className="mb-1",
+              style={"fontSize": "0.8rem"}),
+    dbc.Button("Verificar", id="btn-verify-api", color="success", size="sm", className="w-100 mb-1"),
+    html.Div(id="api-status", style={"fontSize": "0.75rem", "color": "#94a3b8", "minHeight": "1.2rem"}),
+    dcc.Store(id="store-api-key", data=""),
+    html.Hr(style={"borderColor": "rgba(255,255,255,0.15)"}),
     html.Div(id="sidebar-info", className="small", style={"color": "#94a3b8"}),
 ])
     return html.Div(children, style=SIDEBAR_STYLE)
@@ -244,6 +253,22 @@ app.layout = html.Div([
                 html.Div(id="page-content"),
             ]),
             type="circle", color=BLUE,
+        ),
+        html.Hr(style={"margin": "16px 0"}),
+        html.Div([
+            html.Button("   Analizar con IA   ",
+                id="btn-single-analysis",
+                style={
+                    "backgroundColor": GOLD, "color": DARKGRAY, "border": f"1px solid {GOLD}",
+                    "fontSize": "0.85rem", "padding": "8px 24px", "borderRadius": "6px",
+                    "cursor": "pointer", "fontWeight": "bold",
+                }
+            ),
+        ], style={"textAlign": "center", "marginBottom": "12px"}),
+        dcc.Loading(
+            html.Div(id="analisis-result", style={"padding": "12px", "backgroundColor": "#F5F5F0",
+                "borderRadius": "8px", "border": "1px solid #e5e7eb", "minHeight": "50px"}),
+            type="default", color=GOLD,
         ),
     ], style=CONTENT_STYLE),
 ])
@@ -745,6 +770,82 @@ def clear_data(n, clear_count):
 def refresh_data(n, count):
     _clear_cache()
     return count + 1
+
+
+# Gemini: auto-save API key
+@callback(
+    Output("store-api-key", "data"),
+    Input("api-key-input", "value"),
+)
+def save_api_key(value):
+    return value.strip() if value else ""
+
+
+
+# Gemini: verify API key
+@callback(
+    Output("api-status", "children", allow_duplicate=True),
+    Input("btn-verify-api", "n_clicks"),
+    State("store-api-key", "data"),
+    prevent_initial_call=True,
+)
+def verify_gemini(n, api_key):
+    if not api_key or not api_key.strip():
+        return html.Div("Ingresa una API Key primero.", style={"color": AMBER})
+    import requests
+    try:
+        resp = requests.post(
+            "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent",
+            params={"key": api_key.strip()},
+            json={"contents": [{"parts": [{"text": "hi"}]}]}, timeout=8)
+        if resp.ok:
+            return html.Div("✓ Gemini verificado", style={"color": GREEN, "fontWeight": "bold"})
+        err = resp.json().get("error", {}).get("message", "clave invalida")
+        return html.Div(f"✗ Error: {err[:80]}", style={"color": RED})
+    except Exception as e:
+        return html.Div(f"✗ Sin conexion: {str(e)[:50]}", style={"color": RED})
+
+
+# Gemini: analyze button
+@callback(
+    Output("analisis-result", "children"),
+    Input("btn-single-analysis", "n_clicks"),
+    State("store-module", "data"),
+    State("store-page", "data"),
+    State("store-filters", "data"),
+    State("store-api-key", "data"),
+    State("store-pareto-canal", "data"),
+    State("store-bodega-filter", "data"),
+    prevent_initial_call=True,
+)
+def gemini_analysis(n, module, page, filters, api_key, pareto_canal, bodega_filter):
+    import json
+    if not api_key:
+        return html.Div("⚠ Ingresa tu Gemini API Key en el panel izquierdo.",
+                         style={"fontSize": "0.85rem", "color": RED, "fontWeight": "bold"})
+
+    module = str(module).strip().lower()
+    if module not in MODULES:
+        module = list(MODULES.keys())[0]
+    if isinstance(filters, str):
+        try: filters = json.loads(filters)
+        except: filters = {}
+    if not isinstance(filters, dict):
+        filters = {}
+
+    df = _load_cached(module)
+    if df.empty:
+        return html.Div("Sin datos. Sube un archivo primero.", className="text-muted")
+    data = apply_filters(df, filters)
+    if data.empty:
+        return html.Div("Sin resultados con estos filtros.", className="text-muted")
+    data = _apply_special_filters(data, module, page, pareto_canal, bodega_filter)
+
+    result = generar_con_gemini(module, page, data, api_key)
+    if not result:
+        return html.Div("⚠ Gemini no respondió. Verifica tu API key o intenta de nuevo.",
+                         style={"fontSize": "0.85rem", "color": RED, "fontWeight": "bold"})
+    return result
 
 
 # Navigation via pattern-matching buttons
