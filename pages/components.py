@@ -65,14 +65,14 @@ def rgba(color, alpha):
 
 PLOTLY_TEMPLATE = dict(
     layout=dict(
-        paper_bgcolor="#F5F5F0", plot_bgcolor="#F5F5F0",
-        font=dict(family="Segoe UI, Arial, sans-serif", color=DARKGRAY, size=12),
-        hoverlabel=dict(bgcolor=DARKGRAY, font_color="white", font_size=12),
-        xaxis=dict(gridcolor="#e5e7eb", zeroline=False, showline=True, linecolor="#d1d5db",
-                   automargin=True, tickfont=dict(size=10)),
-        yaxis=dict(gridcolor="#e5e7eb", zeroline=False, showline=True, linecolor="#d1d5db",
-                   automargin=True, tickfont=dict(size=10)),
-        colorway=[LIGHTBLUE, GOLD, TEAL, CORAL, NAVYBLUE],
+        paper_bgcolor="#F7F7F7", plot_bgcolor="#F7F7F7",
+        font=dict(family="'Inter', 'Segoe UI', Arial, sans-serif", color=DARKGRAY, size=12),
+        hoverlabel=dict(bgcolor=DARKGRAY, font_color="white", font_size=11),
+        xaxis=dict(gridcolor="#f3f4f6", zeroline=False, showline=True, linecolor="#e5e7eb",
+                   automargin=True, tickfont=dict(size=9)),
+        yaxis=dict(gridcolor="#f3f4f6", zeroline=False, showline=True, linecolor="#e5e7eb",
+                   automargin=True, tickfont=dict(size=9)),
+        colorway=[BLUE, GOLD, GREEN, RED, NAVYBLUE],
     )
 )
 
@@ -121,21 +121,22 @@ def kpi_card(label, value, sub="", color=None, icon=None, delta=None):
     return html.Div([
         html.Div(style={
             "height": "3px", "background": color,
-            "borderRadius": "3px 3px 0 0", "marginBottom": "12px",
+            "borderRadius": "0", "marginBottom": "14px",
         }),
         html.Div([
-            html.Span(icon, style={"fontSize": "1.1rem", "marginRight": "6px"}),
-            html.Span(label, style={"fontSize": "0.7rem", "textTransform": "uppercase",
-                                     "color": GRAY, "fontWeight": "600", "letterSpacing": "0.5px"}),
+            html.Span(icon, style={"fontSize": "0.9rem", "marginRight": "6px"}),
+            html.Span(label, style={"fontSize": "0.65rem", "textTransform": "uppercase",
+                                     "color": GRAY, "fontWeight": "600", "letterSpacing": "1px"}),
         ], className="mb-2"),
         html.Div([
-            html.Span(value, style={"fontSize": "1.6rem", "fontWeight": "bold",
-                                     "color": color, "lineHeight": "1.2"}),
+            html.Span(value, style={"fontSize": "1.4rem", "fontWeight": "800",
+                                     "color": color, "lineHeight": "1.2",
+                                     "fontFamily": "'Gilroy', 'Inter', 'Segoe UI', Arial, sans-serif"}),
             delta_html,
         ]),
-        html.Div(sub, style={"fontSize": "0.7rem", "color": SLATE, "marginTop": "4px"}) if sub else "",
+        html.Div(sub, style={"fontSize": "0.65rem", "color": SLATE, "marginTop": "4px"}) if sub else "",
     ], style={
-        "background": "white", "borderRadius": "8px",
+        "background": "white", "borderRadius": "12px",
         "padding": "14px 16px 16px 16px",
         "boxShadow": "0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)",
         "height": "100%", "transition": "box-shadow 0.2s",
@@ -212,10 +213,12 @@ def kahoot_podium(rank_df):
     if n == 0:
         return None
     colors = {
-        0: {"bg": "linear-gradient(180deg, #F3C615 0%, #E5B800 100%)", "dk": "#9A7400", "tx": DARKGRAY, "ring": GOLD, "label": "LÍDER 🏆"},
-        1: {"bg": "linear-gradient(180deg, #B8BCC8 0%, #A0A4B0 100%)", "dk": "#6A6F7A", "tx": "white", "ring": "#B8BCC8", "label": "#2"},
-        2: {"bg": "linear-gradient(180deg, #CD7F32 0%, #B8702D 100%)", "dk": "#8B4513", "tx": "white", "ring": "#CD7F32", "label": "#3"},
+        0: {"bg": GOLD, "dk": "#9A7400", "tx": DARKGRAY, "ring": GOLD, "medal": "🥇", "label": "#1"},
+        1: {"bg": "#6B7280", "dk": "#4B5563", "tx": "white", "ring": "#6B7280", "medal": "🥈", "label": "#2"},
+        2: {"bg": NAVYBLUE, "dk": "#232840", "tx": "white", "ring": NAVYBLUE, "medal": "🥉", "label": "#3"},
     }
+    heights = {0: "240px", 1: "200px", 2: "188px"}
+
     if n == 1: order_map = [(0, 0)]
     elif n == 2: order_map = [(0, 1), (1, 0)]
     else: order_map = [(0, 1), (1, 0), (2, 2)]
@@ -225,42 +228,56 @@ def kahoot_podium(rank_df):
         initials = "".join([w[0] for w in str(r["_vendedor"]).split()[:2]]).upper()
         c = colors[display_i]
         is_top = data_i == 0
-        margin_top = "-35px" if is_top else "0px"
+
         presup = r.get("% Presup", 0)
         progr = min(100, max(0, presup))
-        progr_color = GREEN if progr >= 100 else AMBER if progr >= 70 else RED
+        progr_color = GREEN if progr >= 100 else GOLD if progr >= 70 else RED
         has_ppto = r.get("Presupuesto", 0) > 0
 
         card = html.Div([
-            html.Div(c["label"], style={
-                "position": "absolute", "top": "10px", "right": "12px",
-                "fontSize": "0.6rem", "fontWeight": "800", "color": c["dk"],
-                "textTransform": "uppercase", "letterSpacing": "0.5px", "opacity": "0.7",
-            }),
+            html.Div([
+                html.Span(c["medal"], style={"fontSize": "1rem", "marginRight": "4px"}),
+                html.Span(c["label"], style={
+                    "fontSize": "0.6rem", "fontWeight": "800", "color": c["tx"],
+                    "textTransform": "uppercase", "letterSpacing": "0.5px", "opacity": "0.8",
+                }),
+            ], style={"display": "flex", "alignItems": "center", "marginBottom": "8px"}),
             dmc.Avatar(initials, radius="xl", size="lg", style={
                 "backgroundColor": c["dk"], "color": c["tx"],
-                "marginBottom": "10px", "border": f"2.5px solid {c['ring']}",
-                "boxShadow": f"0 0 14px {c['ring']}55" if is_top else "none",
+                "marginBottom": "10px", "border": f"2px solid {c['ring']}",
+                "boxShadow": f"0 0 16px {c['ring']}55" if is_top else "none",
             }),
             html.Div(str(r["_vendedor"]), style={
-                "fontSize": "0.72rem", "fontWeight": "700", "textAlign": "center",
+                "fontSize": "0.68rem", "fontWeight": "700", "textAlign": "center",
                 "color": c["tx"], "lineHeight": "1.25", "marginBottom": "4px",
-                "minHeight": "32px", "maxWidth": "180px", "overflow": "hidden", "textOverflow": "ellipsis",
+                "minHeight": "30px", "maxWidth": "175px", "overflow": "hidden", "textOverflow": "ellipsis",
             }),
             html.Div(fmt_pm(r["Valor"]), style={
                 "fontSize": "1.3rem", "fontWeight": "900", "textAlign": "center",
                 "color": c["tx"], "marginBottom": "2px",
+                "fontFamily": "'Gilroy', 'Inter', 'Segoe UI', Arial, sans-serif",
             }),
             html.Div(f"{r.get('% Part', 0):.1f}% del total", style={
                 "fontSize": "0.65rem", "textAlign": "center", "color": c["tx"],
-                "opacity": "0.85", "marginBottom": "8px",
+                "opacity": "0.85", "marginBottom": "6px",
             }),
             html.Div(f"Meta: {fmt_pm(r.get('Presupuesto', 0))}" if has_ppto else "Sin meta", style={
-                "fontSize": "0.68rem", "fontWeight": "600", "textAlign": "center",
-                "color": c["tx"], "marginBottom": "6px", "opacity": "0.85",
+                "fontSize": "0.65rem", "fontWeight": "600", "textAlign": "center",
+                "color": c["tx"], "marginBottom": "5px", "opacity": "0.85",
             }),
-            dmc.Progress(value=progr, color=progr_color, size="md",
-                style={"width": "75%", "margin": "0 auto", "marginBottom": "5px"}),
+            html.Div(style={
+                "width": "75%", "height": "3px", "borderRadius": "2px",
+                "backgroundColor": "rgba(0,0,0,0.15)" if c.get("tx") == "white" else "rgba(255,255,255,0.2)",
+                "margin": "0 auto 4px",
+                "overflow": "hidden",
+            }, children=[
+                html.Div(style={
+                    "width": f"{min(progr, 100)}%", "height": "100%",
+                    "borderRadius": "2px",
+                    "backgroundColor": c["tx"],
+                    "opacity": "0.7",
+                })
+            ]),
             html.Div(f"Alcance: {presup:.0f}%" if has_ppto else "", style={
                 "fontSize": "0.62rem", "fontWeight": "700", "textAlign": "center",
                 "color": c["tx"], "marginBottom": "4px", "opacity": "0.85",
@@ -271,16 +288,14 @@ def kahoot_podium(rank_df):
             }),
         ], style={
             "position": "relative",
-            "width": "210px", "minHeight": "255px",
+            "width": "200px", "minHeight": heights[display_i],
             "background": c["bg"], "color": c["tx"],
             "borderRadius": "14px",
-            "padding": "18px 12px 16px 12px",
+            "padding": "16px 12px 14px 12px",
             "display": "flex", "flexDirection": "column",
             "alignItems": "center",
-            "boxShadow": "0 8px 24px rgba(0,0,0,0.15), 0 2px 6px rgba(0,0,0,0.08)",
-            "marginTop": margin_top,
+            "boxShadow": f"0 8px 32px rgba(243,198,21,0.3)" if is_top else "0 4px 16px rgba(0,0,0,0.12)",
             "transition": "transform 0.2s, box-shadow 0.2s",
-            "borderBottom": f"5px solid {c['dk']}",
             "cursor": "default",
         })
         cards.append(card)
@@ -292,12 +307,11 @@ def kahoot_podium(rank_df):
                 "fontSize": "0.7rem", "fontWeight": "700", "color": GRAY,
                 "letterSpacing": "2px", "textTransform": "uppercase",
             }),
-        ], style={"textAlign": "center", "marginBottom": "12px"}),
+        ], style={"textAlign": "center", "marginBottom": "16px"}),
         html.Div(cards, style={
             "display": "flex", "justifyContent": "center",
             "alignItems": "flex-end", "gap": "16px",
-            "padding": "12px 0 8px 0",
+            "padding": "8px 0 4px 0",
         }),
     ], style={"margin": "12px 0 24px 0"})
-
 

@@ -454,19 +454,19 @@ def pagina_ranking(data):
         orientation="h",
         marker=dict(
             color=[GOLD if i == 0 else BLUE for i in range(chart_n)],
-            line=dict(color="white", width=1),
+            line=dict(width=1.5),
         ),
-        text=[fmt_pm(v) for v in top_show["Valor"]],
+        text=[f"{r['% Part']:.1f}%" for _, r in top_show.iterrows()],
         textposition="outside",
-        textfont=dict(size=10, color=GRAY),
-        hovertemplate="<b>%{y}</b><br>Valor: %{text}<br>Participacion: %{customdata}%<extra></extra>",
-        customdata=top_show["% Part"].tolist(),
+        textfont=dict(size=9, color=GRAY, family="'Inter', 'Segoe UI', Arial, sans-serif"),
+        hovertemplate="<b>%{y}</b><br>Valor: %{customdata}<br>Participacion: %{text}<extra></extra>",
+        customdata=[fmt_pm(v) for v in top_show["Valor"]],
     ))
-    chart_h = max(320, min(700, chart_n * 28))
+    chart_h = max(300, min(600, chart_n * 26))
     fig.update_layout(**fig_layout(f"Top {chart_n} Asesores por Valor (millones $)", height=chart_h,
         margin=dict(t=40, b=20, l=20, r=50)))
-    fig.update_xaxes(title="$ millones", showgrid=True, gridcolor="#e2e8f0")
-    fig.update_yaxes(automargin=True, tickfont=dict(size=10), autorange="reversed")
+    fig.update_xaxes(title="Millones COP", showgrid=True, gridcolor="#f3f4f6", zeroline=False)
+    fig.update_yaxes(automargin=True, tickfont=dict(size=9, family="'Inter', 'Segoe UI', Arial"), autorange="reversed")
     children.append(dbc.Row([dbc.Col(graph_png(figure=fig, id="chart-ranking-asesores"), width=12)], className="mb-3"))
 
     table_data = []
@@ -492,23 +492,23 @@ def pagina_ranking(data):
         columns=[{"name": c, "id": c} for c in ["#", "_vendedor", "Valor_total", "Presupuesto", "% Part", "% Presup", "Pedidos", "Clientes", "% Cumpl"]],
         data=table_data,
         style_table={"overflowX": "auto"},
-        style_cell={"textAlign": "left", "padding": "6px 10px", "fontSize": "0.75rem", "fontFamily": "Segoe UI, Arial, sans-serif"},
-        style_header={"fontWeight": "bold", "backgroundColor": DARKGRAY, "color": "white", "border": "none"},
+        style_cell={"textAlign": "left", "padding": "7px 12px", "fontSize": "0.72rem", "fontFamily": "'Inter', 'Segoe UI', Arial, sans-serif", "color": DARKGRAY},
+        style_header={"fontWeight": "700", "backgroundColor": "#F7F7F7", "color": GRAY, "border": "none", "textTransform": "uppercase", "fontSize": "0.65rem", "letterSpacing": "0.5px"},
         style_data_conditional=[
             {
                 "if": {"filter_query": "{#} = 1"},
-                "backgroundColor": "#FFF8E1", "fontWeight": "bold",
-                "borderLeft": f"4px solid {GOLD}",
+                "backgroundColor": "#FFFDF5", "fontWeight": "bold",
+                "borderLeft": f"3px solid {GOLD}",
             },
             {
                 "if": {"filter_query": "{#} = 2"},
-                "backgroundColor": "#F8FAFC", "fontWeight": "bold",
-                "borderLeft": "4px solid #B8BCC8",
+                "backgroundColor": "#FAFAFA", "fontWeight": "bold",
+                "borderLeft": "3px solid #9CA3AF",
             },
             {
                 "if": {"filter_query": "{#} = 3"},
-                "backgroundColor": "#FFF5EC", "fontWeight": "bold",
-                "borderLeft": "4px solid #CD7F32",
+                "backgroundColor": "#F8F8FC", "fontWeight": "bold",
+                "borderLeft": f"3px solid {NAVYBLUE}",
             },
             {
                 "if": {"filter_query": "{_cumpl_num} >= 100", "column_id": "% Cumpl"},
@@ -516,7 +516,7 @@ def pagina_ranking(data):
             },
             {
                 "if": {"filter_query": "{_cumpl_num} >= 70 && {_cumpl_num} < 100", "column_id": "% Cumpl"},
-                "color": "#E5A100", "fontWeight": "bold",
+                "color": GOLD, "fontWeight": "bold",
             },
             {
                 "if": {"filter_query": "{_cumpl_num} >= 0 && {_cumpl_num} < 70", "column_id": "% Cumpl"},

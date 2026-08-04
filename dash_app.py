@@ -92,7 +92,11 @@ def _apply_special_filters(data, module, page, pareto_canal, bodega_filter):
 # ============================================================
 app = dash.Dash(
     __name__,
-    external_stylesheets=[dbc.themes.BOOTSTRAP, dmc.styles.DATES],
+    external_stylesheets=[
+        dbc.themes.BOOTSTRAP,
+        dmc.styles.DATES,
+        "https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=DM+Mono:wght@400;500&display=swap",
+    ],
     title="Dashboard Interdoors",
     suppress_callback_exceptions=True,
 )
@@ -126,7 +130,7 @@ SIDEBAR_STYLE = {
     "width": "260px", "padding": "1rem", "backgroundColor": DARKGRAY,
     "color": "white", "overflowY": "auto", "zIndex": 1000,
 }
-CONTENT_STYLE = {"marginLeft": "260px", "padding": "1.5rem", "background": "#F5F5F0", "minHeight": "100vh"}
+CONTENT_STYLE = {"marginLeft": "260px", "padding": "1.5rem", "background": "#F7F7F7", "minHeight": "100vh"}
 
 
 # ============================================================
@@ -307,15 +311,20 @@ def render_nav_bar(module, page):
             plabel,
             id={"type": "nav-btn", "page": pk},
             style={
-                "backgroundColor": BLUE if active else "white",
+                "backgroundColor": DARKGRAY if active else "transparent",
                 "color": "white" if active else GRAY,
-                "border": f"1px solid {BLUE}", "fontSize": "0.78rem",
-                "padding": "6px 14px", "borderRadius": "6px",
-                "marginRight": "6px", "marginBottom": "4px",
-                "cursor": "pointer", "fontWeight": "bold" if active else "normal",
+                "border": "none", "fontSize": "0.75rem",
+                "padding": "6px 14px", "borderRadius": "8px",
+                "marginRight": "4px", "marginBottom": "2px",
+                "cursor": "pointer", "fontWeight": "600" if active else "400",
+                "fontFamily": "'Inter', 'Gilroy', 'Segoe UI', Arial, sans-serif",
             }
         ))
-    return html.Div([html.Div(buttons, style={"display": "flex", "flexWrap": "wrap"}), html.Hr(style={"margin": "12px 0"})])
+    return html.Div([html.Div(buttons, style={
+        "display": "flex", "flexWrap": "wrap", "backgroundColor": "white",
+        "padding": "6px 10px", "borderRadius": "10px",
+        "boxShadow": "0 1px 3px rgba(0,0,0,0.06)",
+    }), html.Div(style={"height": "8px"})])
 
 # ===== CANAL BAR CALLBACK (Pareto) =====
 @callback(
@@ -669,35 +678,35 @@ def highlight_active_module(module):
         if active:
             styles[f"mod-{key}"] = {
                 **BASE,
-                "backgroundColor": f"rgba(255,255,255,0.15)",
-                "border": f"1px solid {color}",
-                "borderLeft": f"8px solid {color}",
-                "boxShadow": f"0 0 20px {color}44, inset 0 0 30px {color}10",
+                "backgroundColor": "rgba(255,255,255,0.12)",
+                "border": "1px solid rgba(255,255,255,0.1)",
+                "borderLeft": f"3px solid {GOLD}",
+                "boxShadow": "none",
                 "opacity": "1",
             }
             texts[f"mod-text-{key}"] = {
                 "fontSize": "0.95rem", "fontWeight": "bold",
-                "color": "white",
+                "color": GOLD,
             }
             dots[f"mod-dot-{key}"] = "●"
             badges[f"mod-badge-{key}"] = {
-                "fontSize": "0.7rem", "color": color, "fontWeight": "bold",
+                "fontSize": "0.7rem", "color": GOLD, "fontWeight": "bold",
             }
         else:
             styles[f"mod-{key}"] = {
                 **BASE,
-                "backgroundColor": "rgba(255,255,255,0.08)",
-                "border": "1px solid rgba(255,255,255,0.12)",
-                "borderLeft": f"4px solid {color}88",
+                "backgroundColor": "transparent",
+                "border": "1px solid transparent",
+                "borderLeft": "3px solid transparent",
                 "opacity": "0.85",
             }
             texts[f"mod-text-{key}"] = {
                 "fontSize": "0.95rem", "fontWeight": "normal",
-                "color": "#94a3b8",
+                "color": "#9CA3AF",
             }
             dots[f"mod-dot-{key}"] = ""
             badges[f"mod-badge-{key}"] = {
-                "fontSize": "0.7rem", "color": "#94a3b8",
+                "fontSize": "0.7rem", "color": "#9CA3AF",
             }
     return (
         styles["mod-pedidos"], styles["mod-facturas"], styles["mod-inventario"],
