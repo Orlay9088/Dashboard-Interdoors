@@ -4,7 +4,7 @@ MAPPINGS = {
     "pedidos": {
         "_fecha": ["Fecha"],
         "_valor": ["Valor pendiente subtotal"],
-        "_valor_sec": ["V.COMPROMETIDO"],
+        "_valor_sec": ["V.COMPROMETIDO", "V. COMPROMETIDO", "V_COMPROMETIDO", "Valor comprometido"],
         "_cliente": ["Razon social cliente factura"],
         "_vendedor": ["Nombre vendedor"],
         "_canal": ["CANAL DISTRIBUCION"],
