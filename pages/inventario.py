@@ -1,8 +1,9 @@
 from dash import html, dcc, dash_table
 import dash_bootstrap_components as dbc
+import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
-from pages.components import section_title, kpi_card, fmt_p, fmt_pm, fig_layout, NAVY, BLUE, GREEN, AMBER, RED, GRAY, DARKGRAY, GOLD, graph_png
+from pages.components import section_title, kpi_card, fmt_p, fmt_pm, safe_int, fig_layout, NAVY, BLUE, GREEN, AMBER, RED, GRAY, DARKGRAY, GOLD, graph_png
 
 
 def pagina_resumen_stock(data):
@@ -34,9 +35,9 @@ def pagina_resumen_stock(data):
     for _, r in bodegas_summary.iterrows():
         summary_data.append({
             "Bodega": str(r["_bodega"]),
-            "Cant. Comprometida": f"{int(r['CantComprometida']):,}",
-            "Existencia": f"{int(r['Existencia']):,}",
-            "Cant. Disponible": f"{int(r['CantDisponible']):,}",
+            "Cant. Comprometida": f"{safe_int(r['CantComprometida']):,}",
+            "Existencia": f"{safe_int(r['Existencia']):,}",
+            "Cant. Disponible": f"{safe_int(r['CantDisponible']):,}",
         })
     summary_data.append({
         "Bodega": "TOTAL",
@@ -111,8 +112,8 @@ def pagina_resumen_stock(data):
                  {"name": "Existencia", "id": "Existencia"}, {"name": "Comprometido", "id": "Comprometido"},
                  {"name": "Disponible", "id": "Disponible"}],
         data=[{"_bodega": r["_bodega"], "Valor": fmt_p(r["Valor"]),
-               "Existencia": f"{int(r['Existencia']):,}", "Comprometido": f"{int(r['Comprometido']):,}",
-               "Disponible": f"{int(r['Disponible']):,}"} for _, r in bodegas_data.iterrows()],
+               "Existencia": f"{safe_int(r['Existencia']):,}", "Comprometido": f"{safe_int(r['Comprometido']):,}",
+               "Disponible": f"{safe_int(r['Disponible']):,}"} for _, r in bodegas_data.iterrows()],
         style_table={"overflowX": "auto"},
         style_cell={"textAlign": "left", "padding": "4px 8px", "fontSize": "0.8rem"},
         style_header={"fontWeight": "bold", "backgroundColor": DARKGRAY, "color": "white", "border": "none"},
@@ -146,7 +147,7 @@ def pagina_por_bodega(data):
         dbc.Col(kpi_card("Total Bodegas", str(n_bodegas), f"Todas activas", color=BLUE), width=3),
         dbc.Col(kpi_card("Valor Total", fmt_p(valor_total), fmt_pm(valor_total), color=NAVY), width=3),
         dbc.Col(kpi_card("Bodega TOP", f"Bod.{bodega_top}", fmt_pm(panorama.iloc[0]["Valor"]) if not panorama.empty else "-", color=GOLD), width=3),
-        dbc.Col(kpi_card("Productos", f"{data['_referencia'].nunique():,}", f"{int(panorama['Existencia'].sum()):,} unidades", color=GRAY), width=3),
+        dbc.Col(kpi_card("Productos", f"{data['_referencia'].nunique():,}", f"{safe_int(panorama['Existencia'].sum()):,} unidades", color=GRAY), width=3),
     ], className="mb-4 g-3")
     children.append(kpi_row)
 
@@ -171,7 +172,7 @@ def pagina_por_bodega(data):
         hover_data={"_bodega": False, "Valor": True, "Productos": True})
     fig_sun.update_traces(
         texttemplate="<b>Bod.%{label}</b><br>%{value:,.0f}",
-        hovertemplate="<b>Bod.%{label}</b><br>Valor: %{value:$,.0f}<br>Productos: %{customdata[0]}<extra></extra>",
+        hovertemplate="<b>Bod.%{label}</b><br>Valor: %{value:$,.0f}<br>Productos: %{customdata[1]}<extra></extra>",
     )
     fig_sun.update_layout(**fig_layout("Distribucion de Valor por Bodega", height=380))
 
@@ -184,9 +185,9 @@ def pagina_por_bodega(data):
         columns=[{"name": "Bodega", "id": "_bodega"}, {"name": "Productos", "id": "Productos"},
                  {"name": "Valor", "id": "Valor"}, {"name": "Existencia", "id": "Existencia"},
                  {"name": "Disponible", "id": "Disponible"}, {"name": "Comprometido", "id": "Comprometido"}],
-        data=[{"_bodega": r["_bodega"], "Productos": f"{int(r['Productos']):,}",
-               "Valor": fmt_p(r["Valor"]), "Existencia": f"{int(r['Existencia']):,}",
-               "Disponible": f"{int(r['Disponible']):,}", "Comprometido": f"{int(r['Comprometido']):,}"}
+        data=[{"_bodega": r["_bodega"], "Productos": f"{safe_int(r['Productos']):,}",
+               "Valor": fmt_p(r["Valor"]), "Existencia": f"{safe_int(r['Existencia']):,}",
+               "Disponible": f"{safe_int(r['Disponible']):,}", "Comprometido": f"{safe_int(r['Comprometido']):,}"}
               for _, r in panorama.iterrows()],
         style_table={"overflowX": "auto"},
         style_cell={"textAlign": "left", "padding": "6px 10px", "fontSize": "0.78rem", "fontFamily": "Segoe UI, Arial, sans-serif"},
@@ -255,8 +256,8 @@ def pagina_criticos(data):
         criticos.append(dash_table.DataTable(
             columns=[{"name": c, "id": c} for c in ["_referencia", "_linea", "_bodega", "Existencia", "Disponible", "Comprometido", "Valor"]],
             data=[{"_referencia": r["_referencia"][:30], "_linea": r["_linea"],
-                   "_bodega": r["_bodega"], "Existencia": f"{int(r['Existencia']):,}",
-                   "Disponible": f"{int(r['Disponible']):,}", "Comprometido": f"{int(r['Comprometido']):,}",
+                   "_bodega": r["_bodega"], "Existencia": f"{safe_int(r['Existencia']):,}",
+                   "Disponible": f"{safe_int(r['Disponible']):,}", "Comprometido": f"{safe_int(r['Comprometido']):,}",
                    "Valor": fmt_p(r["Valor"])} for _, r in criticos_top.iterrows()],
             style_table={"overflowX": "auto"},
             style_cell={"textAlign": "left", "padding": "5px 8px", "fontSize": "0.75rem", "fontFamily": "Segoe UI, Arial, sans-serif"},
@@ -274,8 +275,8 @@ def pagina_criticos(data):
         criticos.append(dash_table.DataTable(
             columns=[{"name": c, "id": c} for c in ["_referencia", "_linea", "_bodega", "Existencia", "Comprometido", "Valor"]],
             data=[{"_referencia": r["_referencia"][:30], "_linea": r["_linea"],
-                   "_bodega": r["_bodega"], "Existencia": f"{int(r['Existencia']):,}",
-                   "Comprometido": f"{int(r['Comprometido']):,}",
+                   "_bodega": r["_bodega"], "Existencia": f"{safe_int(r['Existencia']):,}",
+                   "Comprometido": f"{safe_int(r['Comprometido']):,}",
                    "Valor": fmt_p(r["Valor"])} for _, r in bajo_top.iterrows()],
             style_table={"overflowX": "auto"},
             style_cell={"textAlign": "left", "padding": "5px 8px", "fontSize": "0.75rem", "fontFamily": "Segoe UI, Arial, sans-serif"},

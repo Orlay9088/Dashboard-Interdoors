@@ -357,7 +357,9 @@ def pagina_pareto(data):
 
     table = dash_table.DataTable(
         columns=[{"name": c, "id": c} for c in ["#", "_cliente", "Valor", "%", "% Acum"]],
-        data=pg.head(50).to_dict("records"),
+        data=[{"#": r["#"], "_cliente": r["_cliente"], "Valor": fmt_p(r["Valor"]),
+               "%": f"{r['%']:.1f}%", "% Acum": f"{r['% Acum']:.1f}%"}
+              for _, r in pg.head(50).iterrows()],
         style_table={"overflowX": "auto"},
         style_cell={"textAlign": "left", "padding": "4px 8px", "fontSize": "0.8rem"},
         style_header={"fontWeight": "bold", "backgroundColor": DARKGRAY, "color": "white", "border": "none"},
@@ -602,6 +604,8 @@ def pagina_heatmap(data):
     children = [section_title("Heatmap de Rendimiento", f"{n_asesores} asesores × {n_meses} meses | {fmt_pm(vp)} total")]
 
     heat = data.copy()
+    if "_fecha" not in heat.columns:
+        return [section_title("Heatmap de Rendimiento", "Sin fechas"), html.P("La columna _fecha no esta disponible.", className="text-muted")]
     heat["Mes_Anio"] = heat["_fecha"].dt.to_period("M").astype(str)
     pivot = heat.pivot_table(index="_vendedor", columns="Mes_Anio", values="_valor", aggfunc="sum").fillna(0)
 
@@ -703,8 +707,8 @@ def pagina_proyeccion(data):
     n_meses = len(evol)
     valid = evol["Valor"].notna()
     if valid.sum() < 3:
-        children.append(html.P("Se requieren al menos 3 meses con datos validos.", className="text-muted"))
-        return children
+        return [section_title("Proyeccion de Cierre", "Datos insuficientes"),
+                html.P("Se requieren al menos 3 meses con datos validos.", className="text-muted")]
     coef = np.polyfit(evol.loc[valid, "Periodo"], evol.loc[valid, "Valor"], 1)
     trend = np.poly1d(coef)
     evol["Tendencia"] = trend(evol["Periodo"])

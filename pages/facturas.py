@@ -2,7 +2,7 @@ from dash import html, dcc, dash_table
 import dash_bootstrap_components as dbc
 import plotly.graph_objects as go
 import plotly.express as px
-from pages.components import section_title, kpi_card, fmt_p, fmt_pm, fig_layout, NAVY, BLUE, GREEN, AMBER, RED, GRAY, DARKGRAY, GOLD, graph_png
+from pages.components import section_title, kpi_card, fmt_p, fmt_pm, safe_int, fig_layout, NAVY, BLUE, GREEN, AMBER, RED, GRAY, DARKGRAY, GOLD, graph_png
 
 
 def pagina_resumen_ventas(data):
@@ -99,14 +99,15 @@ def pagina_margenes(data):
     ventas = data["_valor"].sum()
     costo = data["_costo"].sum()
     mgn_global = (ventas - costo) / ventas * 100 if ventas else 0
-    mgn_prom = data["_margen"].mean()
+    mgn_prom_val = data["_margen"].mean()
+    mgn_prom = f"{mgn_prom_val:.1f}%" if not pd.isna(mgn_prom_val) else "-"
     n_vend = data["_vendedor"].nunique()
     n_canales = data["_canal"].nunique() if "_canal" in data.columns else 0
 
     children = [section_title("Margenes", f"Margen global: {mgn_global:.1f}% | {n_vend} vendedores | {n_canales} canales")]
 
     kpi_row = dbc.Row([
-        dbc.Col(kpi_card("Margen Global", f"{mgn_global:.1f}%", f"Margen prom: {mgn_prom:.1f}%", color=GREEN if mgn_global > 25 else AMBER), width=3),
+        dbc.Col(kpi_card("Margen Global", f"{mgn_global:.1f}%", f"Margen prom: {mgn_prom}", color=GREEN if mgn_global > 25 else AMBER), width=3),
         dbc.Col(kpi_card("Ventas Totales", fmt_p(ventas), fmt_pm(ventas), color=BLUE), width=3),
         dbc.Col(kpi_card("Costo Total", fmt_p(costo), f"{costo/ventas*100:.1f}% de ventas" if ventas else "", color=RED), width=3),
         dbc.Col(kpi_card("Utilidad Bruta", fmt_p(ventas - costo), fmt_pm(ventas - costo), color=GREEN), width=3),
@@ -201,7 +202,7 @@ def pagina_mix_producto(data):
         title=f"Participacion por {titulo}",
         hover_data={group_col: False, "Ventas": True, "%": True})
     fig_treemap.update_traces(
-        texttemplate="<b>%{label}</b><br>%{customdata[0]:.1f}%",
+        texttemplate="<b>%{label}</b><br>%{customdata[1]:.1f}%",
         hovertemplate="<b>%{label}</b><br>Ventas: %{customdata[0]}<br>%: %{customdata[1]:.1f}%<extra></extra>",
     )
     fig_treemap.update_layout(**fig_layout(f"Mix por {titulo}", height=400))
@@ -267,7 +268,7 @@ def pagina_precio_promedio(data):
     kpi_row = dbc.Row([
         dbc.Col(kpi_card("Precio Global", fmt_p(global_precio), f"{n_lineas} lineas de producto", color=BLUE), width=4),
         dbc.Col(kpi_card("Linea TOP", linea_top, precio_top, color=GOLD), width=4),
-        dbc.Col(kpi_card("Unidades Totales", f"{int(resumen['Cantidad'].sum()):,}", f"Valor: {fmt_pm(resumen['Valor'].sum())}", color=GRAY), width=4),
+        dbc.Col(kpi_card("Unidades Totales", f"{safe_int(resumen['Cantidad'].sum()):,}", f"Valor: {fmt_pm(resumen['Valor'].sum())}", color=GRAY), width=4),
     ], className="mb-4 g-3")
     children.append(kpi_row)
 

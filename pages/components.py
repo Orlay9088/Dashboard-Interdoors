@@ -141,6 +141,15 @@ def kpi_card(label, value, sub="", color=None, icon=None, delta=None):
         "height": "100%", "transition": "box-shadow 0.2s",
     })
 
+def safe_int(valor):
+    import numpy as np
+    try:
+        if pd.isna(valor) or np.isinf(valor):
+            return "0"
+        return f"{int(valor):,}"
+    except Exception:
+        return "0"
+
 def fmt_p(valor):
     if pd.isna(valor):
         return "$ 0"
