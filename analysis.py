@@ -638,10 +638,11 @@ def generar_con_gemini(tipo, page, data, api_key):
 
 def generar_con_opencode(tipo, page, data, api_key):
     if not api_key or data.empty:
-        return None
+        return None, "API key vacía"
     prompt = _build_analysis_prompt(tipo, page, data)
 
     models = ["opencode/gpt-5", "gpt-5", "gpt-4o", "opencode"]
+    last_error = ""
     for model in models:
         start = time.time()
         for attempt in range(2):
@@ -653,12 +654,14 @@ def generar_con_opencode(tipo, page, data, api_key):
                 if resp.ok:
                     text = resp.json()["choices"][0]["message"]["content"]
                     print(f"[OpenCode] {model}: OK ({elapsed:.1f}s)")
-                    return _format_ai_response(text, "OpenCode AI", GOLD)
-                print(f"[OpenCode] {model}: HTTP {resp.status_code} ({elapsed:.1f}s) - {resp.text[:150]}")
+                    return _format_ai_response(text, "OpenCode AI", GOLD), ""
+                last_error = f"{model}: HTTP {resp.status_code} ({elapsed:.1f}s)"
+                print(f"[OpenCode] {last_error} - {resp.text[:150]}")
             except Exception as e:
                 elapsed = time.time() - start
-                print(f"[OpenCode] {model}: ERROR ({elapsed:.1f}s) - {e}")
+                last_error = f"{model}: ERROR ({elapsed:.1f}s) - {str(e)}"
+                print(f"[OpenCode] {last_error}")
             if attempt < 1:
                 time.sleep(2)
         time.sleep(1)
-    return None
+    return None, last_error

@@ -494,6 +494,7 @@ def generate_analysis_single(n_clicks, module, page, filters, api_key, ai_model,
     data = _apply_special_filters(data, module, page, pareto_canal, bodega_filter)
 
     result = None
+    error_detail = ""
     ia_selected = ai_model in ("opencode", "gemini")
 
     if ia_selected and not api_key:
@@ -504,15 +505,18 @@ def generate_analysis_single(n_clicks, module, page, filters, api_key, ai_model,
         ]), False
 
     if ai_model == "opencode" and api_key:
-        result = generar_con_opencode(module, page, data, api_key)
+        result, error_detail = generar_con_opencode(module, page, data, api_key)
     elif ai_model == "gemini" and api_key:
         result = generar_con_gemini(module, page, data, api_key)
 
     if not result:
         result = generar_analisis(module, page, data)
+        msg = "⚠ La API no respondió."
+        if error_detail:
+            msg += f" Error: {error_detail}"
         if ia_selected:
             result = html.Div([
-                html.Div("⚠ La API no respondió. Mostrando análisis local. Verifica tu conexión o intenta de nuevo.", 
+                html.Div(msg, 
                          style={"fontSize": "0.7rem", "color": AMBER, "marginBottom": "8px", "fontStyle": "italic"}),
                 result,
             ])
