@@ -640,37 +640,29 @@ def generar_con_opencode(tipo, page, data, api_key):
     if not api_key or data.empty:
         return None, "API key vacía"
     prompt = _build_analysis_prompt(tipo, page, data)
+    start = time.time()
 
-    models = ["opencode", "opencode/gpt-5", "gpt-5", "gpt-4o"]
-    last_error = ""
-    for model in models:
-        start = time.time()
-        for attempt in range(2):
-            try:
-                resp = requests.post("https://api.opencode.ai/v1/chat/completions",
-                    json={"model": model, "messages": [{"role": "user", "content": prompt}]},
-                    headers={"Authorization": f"Bearer {api_key}"}, timeout=25)
-                elapsed = time.time() - start
-                raw_text = resp.text[:300]
-                if resp.ok:
-                    try:
-                        data = resp.json()
-                        if "choices" in data and len(data["choices"]) > 0:
-                            text = data["choices"][0]["message"]["content"]
-                            print(f"[OpenCode] {model}: OK ({elapsed:.1f}s)")
-                            return _format_ai_response(text, "OpenCode AI", GOLD), ""
-                        else:
-                            last_error = f"{model}: HTTP 200 no choices - {str(data)[:100]}"
-                    except Exception as jse:
-                        last_error = f"{model}: Invalid JSON - {raw_text[:80]}"
-                else:
-                    last_error = f"{model}: HTTP {resp.status_code} - {raw_text[:80]}"
-                print(f"[OpenCode] {last_error}")
-            except Exception as e:
-                elapsed = time.time() - start
-                last_error = f"{model}: ERROR ({elapsed:.1f}s) - {str(e)[:60]}"
-                print(f"[OpenCode] {last_error}")
-            if attempt < 1:
-                time.sleep(2)
-        time.sleep(1)
-    return None, last_error
+    try:
+        resp = requests.post("https://api.opencode.ai/v1/chat/completions",
+            json={"model": "opencode", "messages": [{"role": "user", "content": prompt}]},
+            headers={"Authorization": f"Bearer {api_key}"}, timeout=45)
+        elapsed = time.time() - start
+        raw_text = resp.text[:500]
+
+        if not resp.ok:
+            return None, f"HTTP {resp.status_code} - {raw_text[:80]}"
+
+        try:
+            data = resp.json()
+        except Exception:
+            return None, f"Respuesta no es JSON: {raw_text[:100]}"
+
+        if "choices" in data and len(data["choices"]) > 0:
+            text = data["choices"][0]["message"]["content"]
+            print(f"[OpenCode] OK ({elapsed:.1f}s)")
+            return _format_ai_response(text, "OpenCode AI", GOLD), ""
+
+        return None, f"Respuesta sin choices: {str(data)[:120]}"
+    except Exception as e:
+        elapsed = time.time() - start
+        return None, f"ERROR ({elapsed:.1f}s): {str(e)[:80]}"

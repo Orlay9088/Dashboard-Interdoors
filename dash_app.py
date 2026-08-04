@@ -223,15 +223,14 @@ def build_sidebar():
     html.Hr(style={"borderColor": "rgba(255,255,255,0.15)"}),
 
     html.H6("IA Analisis", className="text-uppercase small fw-semibold mb-2", style={"color": "#94a3b8"}),
-    dcc.Dropdown(
-        id="ai-model-select",
-        options=[
-            {"label": "OpenCode AI", "value": "opencode"},
-            {"label": "Gemini (Google)", "value": "gemini"},
-            {"label": "Sin IA (analisis local)", "value": "local"},
-        ],
-        value="local",
-        clearable=False,
+        dcc.Dropdown(
+            id="ai-model-select",
+            options=[
+                {"label": "OpenCode AI", "value": "opencode"},
+                {"label": "Gemini (Google)", "value": "gemini"},
+            ],
+            value="opencode",
+            clearable=False,
         className="mb-2",
         style={"fontSize": "0.8rem"},
     ),
@@ -240,7 +239,7 @@ def build_sidebar():
     dbc.Button("Verificar", id="btn-verify-api", color="success", size="sm", className="w-100 mb-1"),
     html.Div(id="api-status", style={"fontSize": "0.75rem", "color": "#94a3b8", "minHeight": "1.2rem"}),
     dcc.Store(id="store-api-key", data=""),
-    dcc.Store(id="store-ai-model", data="local"),
+    dcc.Store(id="store-ai-model", data="opencode"),
     html.Hr(style={"borderColor": "rgba(255,255,255,0.15)"}),
     html.Div(id="sidebar-info", className="small", style={"color": "#94a3b8"}),
 ])
@@ -496,17 +495,17 @@ def generate_analysis_single(n_clicks, module, page, filters, api_key, ai_model,
     result = None
     error_detail = ""
 
-    if ai_model == "opencode" and api_key:
+    if not api_key:
+        return html.Div("⚠ Configura tu API Key. Ingresa la clave y haz clic en Verificar.", 
+                         style={"fontSize": "0.85rem", "color": RED, "fontWeight": "bold"}), False
+
+    if ai_model == "opencode":
         result, error_detail = generar_con_opencode(module, page, data, api_key)
-    elif ai_model == "gemini" and api_key:
+    elif ai_model == "gemini":
         result = generar_con_gemini(module, page, data, api_key)
 
     if not result:
-        msg = "⚠ La API no respondió. Verifica tu conexión e intenta de nuevo."
-        if not api_key:
-            msg = "⚠ Configura tu API Key. Selecciona el modelo, ingresa la clave y haz clic en Verificar."
-        elif error_detail:
-            msg = f"⚠ Error API: {error_detail}"
+        msg = f"⚠ Error API: {error_detail}" if error_detail else "⚠ La API no respondió."
         return html.Div(msg, style={"fontSize": "0.85rem", "color": RED, "fontWeight": "bold"}), False
 
     return result, False
@@ -881,7 +880,7 @@ def verify_model(n, api_key, model):
         except Exception:
             return html.Div("Sin conexion con Gemini", style={"color": RED}), no_update, no_update
     else:
-        return html.Div("Modo local activado", style={"color": GRAY}), api_key if api_key and api_key.strip() else "", "local"
+        return html.Div("Modo local activado", style={"color": GRAY}), api_key if api_key and api_key.strip() else "", "opencode"
 
 
 # Navigation via pattern-matching buttons
