@@ -226,10 +226,11 @@ def build_sidebar():
     dcc.Dropdown(
         id="ai-model-select",
         options=[
-            {"label": "Gemini (Google)", "value": "gemini"},
+            {"label": "OpenCode", "value": "opencode"},
             {"label": "OpenAI", "value": "openai"},
+            {"label": "Gemini (Google)", "value": "gemini"},
         ],
-        value="gemini",
+        value="opencode",
         clearable=False,
         className="mb-2",
         style={"fontSize": "0.8rem"},
@@ -239,7 +240,7 @@ def build_sidebar():
     dbc.Button("Verificar", id="btn-verify-api", color="success", size="sm", className="w-100 mb-1"),
     html.Div(id="api-status", style={"fontSize": "0.75rem", "color": "#94a3b8", "minHeight": "1.2rem"}),
     dcc.Store(id="store-api-key", data=""),
-    dcc.Store(id="store-ai-model", data="gemini"),
+    dcc.Store(id="store-ai-model", data="opencode"),
     html.Hr(style={"borderColor": "rgba(255,255,255,0.15)"}),
     html.Div(id="sidebar-info", className="small", style={"color": "#94a3b8"}),
 ])
@@ -497,7 +498,11 @@ def generate_analysis_single(n_clicks, module, page, filters, api_key, ai_model,
     data = _apply_special_filters(data, module, page, pareto_canal, bodega_filter)
 
     error_detail = ""
-    if ai_model == "gemini":
+    if ai_model == "opencode":
+        result, error_detail = generar_con_openai(module, page, data, api_key)
+        if not result:
+            error_detail = "Error OpenCode: " + (error_detail or "sin respuesta")
+    elif ai_model == "gemini":
         result = generar_con_gemini(module, page, data, api_key)
         if not result:
             error_detail = "Error al conectar con Gemini. Verifica tu API key."
@@ -858,7 +863,16 @@ def verify_model(n, api_key, model):
         return html.Div("Ingresa una API Key.", style={"color": AMBER}), no_update, no_update
     import requests
     key = api_key.strip()
-    if model == "gemini":
+    if model == "opencode":
+        try:
+            resp = requests.post("https://api.opencode.ai/v1/chat/completions",
+                json={"model": "gpt-4o", "messages": [{"role":"user","content":"hi"}]},
+                headers={"Authorization": f"Bearer {key}"}, timeout=8)
+            if resp.ok and resp.text and "error" not in resp.text.lower():
+                return html.Div("OpenCode verificado", style={"color": GREEN, "fontWeight":"bold"}), key, model
+            return html.Div("Error: clave no aceptada por OpenCode", style={"color": RED}), no_update, no_update
+        except Exception:
+            return html.Div("Sin conexion con OpenCode", style={"color": RED}), no_update, no_update
         try:
             resp = requests.post(
                 "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent",
