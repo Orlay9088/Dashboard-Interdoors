@@ -641,7 +641,7 @@ def generar_con_opencode(tipo, page, data, api_key):
         return None, "API key vacía"
     prompt = _build_analysis_prompt(tipo, page, data)
 
-    models = ["opencode/gpt-5", "gpt-5", "gpt-4o", "opencode"]
+    models = ["opencode", "opencode/gpt-5", "gpt-5", "gpt-4o"]
     last_error = ""
     for model in models:
         start = time.time()
@@ -651,17 +651,21 @@ def generar_con_opencode(tipo, page, data, api_key):
                     json={"model": model, "messages": [{"role": "user", "content": prompt}]},
                     headers={"Authorization": f"Bearer {api_key}"}, timeout=25)
                 elapsed = time.time() - start
+                raw_text = resp.text[:300]
                 if resp.ok:
                     try:
-                        text = resp.json()["choices"][0]["message"]["content"]
-                        print(f"[OpenCode] {model}: OK ({elapsed:.1f}s)")
-                        return _format_ai_response(text, "OpenCode AI", GOLD), ""
+                        data = resp.json()
+                        if "choices" in data and len(data["choices"]) > 0:
+                            text = data["choices"][0]["message"]["content"]
+                            print(f"[OpenCode] {model}: OK ({elapsed:.1f}s)")
+                            return _format_ai_response(text, "OpenCode AI", GOLD), ""
+                        else:
+                            last_error = f"{model}: HTTP 200 no choices - {str(data)[:100]}"
                     except Exception as jse:
-                        last_error = f"{model}: JSON parse error - {str(jse)[:80]}"
-                        print(f"[OpenCode] {last_error} - raw: {resp.text[:200]}")
-                        continue
-                last_error = f"{model}: HTTP {resp.status_code} ({elapsed:.1f}s)"
-                print(f"[OpenCode] {last_error} - {resp.text[:150]}")
+                        last_error = f"{model}: Invalid JSON - {raw_text[:80]}"
+                else:
+                    last_error = f"{model}: HTTP {resp.status_code} - {raw_text[:80]}"
+                print(f"[OpenCode] {last_error}")
             except Exception as e:
                 elapsed = time.time() - start
                 last_error = f"{model}: ERROR ({elapsed:.1f}s) - {str(e)[:60]}"
