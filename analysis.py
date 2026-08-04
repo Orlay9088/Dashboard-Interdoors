@@ -652,14 +652,19 @@ def generar_con_opencode(tipo, page, data, api_key):
                     headers={"Authorization": f"Bearer {api_key}"}, timeout=25)
                 elapsed = time.time() - start
                 if resp.ok:
-                    text = resp.json()["choices"][0]["message"]["content"]
-                    print(f"[OpenCode] {model}: OK ({elapsed:.1f}s)")
-                    return _format_ai_response(text, "OpenCode AI", GOLD), ""
+                    try:
+                        text = resp.json()["choices"][0]["message"]["content"]
+                        print(f"[OpenCode] {model}: OK ({elapsed:.1f}s)")
+                        return _format_ai_response(text, "OpenCode AI", GOLD), ""
+                    except Exception as jse:
+                        last_error = f"{model}: JSON parse error - {str(jse)[:80]}"
+                        print(f"[OpenCode] {last_error} - raw: {resp.text[:200]}")
+                        continue
                 last_error = f"{model}: HTTP {resp.status_code} ({elapsed:.1f}s)"
                 print(f"[OpenCode] {last_error} - {resp.text[:150]}")
             except Exception as e:
                 elapsed = time.time() - start
-                last_error = f"{model}: ERROR ({elapsed:.1f}s) - {str(e)}"
+                last_error = f"{model}: ERROR ({elapsed:.1f}s) - {str(e)[:60]}"
                 print(f"[OpenCode] {last_error}")
             if attempt < 1:
                 time.sleep(2)

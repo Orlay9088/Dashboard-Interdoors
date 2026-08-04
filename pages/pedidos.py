@@ -487,7 +487,7 @@ def pagina_ranking(data):
             {
                 "if": {"filter_query": "{#} = 3"},
                 "backgroundColor": "#FFF5EC", "fontWeight": "bold",
-                "borderLeft": f"4px solid {NAVYBLUE}",
+                "borderLeft": "4px solid #CD7F32",
             },
             {
                 "if": {"filter_query": "{_cumpl_num} >= 100", "column_id": "% Cumpl"},

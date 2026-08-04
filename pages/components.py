@@ -214,7 +214,7 @@ def kahoot_podium(rank_df):
     colors = {
         0: {"bg": GOLD, "dk": "#9A7400", "tx": DARKGRAY, "ring": GOLD, "medal": "🥇", "label": "#1"},
         1: {"bg": "#6B7280", "dk": "#4B5563", "tx": "white", "ring": "#6B7280", "medal": "🥈", "label": "#2"},
-        2: {"bg": NAVYBLUE, "dk": "#232840", "tx": "white", "ring": NAVYBLUE, "medal": "🥉", "label": "#3"},
+        2: {"bg": "#CD7F32", "dk": "#8B4513", "tx": "white", "ring": "#CD7F32", "medal": "🥉", "label": "#3"},
     }
     heights = {0: "240px", 1: "200px", 2: "188px"}
 
