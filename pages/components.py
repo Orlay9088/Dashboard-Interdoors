@@ -65,14 +65,14 @@ def rgba(color, alpha):
 
 PLOTLY_TEMPLATE = dict(
     layout=dict(
-        paper_bgcolor="#F7F7F7", plot_bgcolor="#F7F7F7",
-        font=dict(family="'Inter', 'Segoe UI', Arial, sans-serif", color=DARKGRAY, size=12),
-        hoverlabel=dict(bgcolor=DARKGRAY, font_color="white", font_size=11),
-        xaxis=dict(gridcolor="#f3f4f6", zeroline=False, showline=True, linecolor="#e5e7eb",
-                   automargin=True, tickfont=dict(size=9)),
-        yaxis=dict(gridcolor="#f3f4f6", zeroline=False, showline=True, linecolor="#e5e7eb",
-                   automargin=True, tickfont=dict(size=9)),
-        colorway=[BLUE, GOLD, GREEN, RED, NAVYBLUE],
+        paper_bgcolor="#F5F5F0", plot_bgcolor="#F5F5F0",
+        font=dict(family="Segoe UI, Arial, sans-serif", color=DARKGRAY, size=12),
+        hoverlabel=dict(bgcolor=DARKGRAY, font_color="white", font_size=12),
+        xaxis=dict(gridcolor="#e5e7eb", zeroline=False, showline=True, linecolor="#d1d5db",
+                   automargin=True, tickfont=dict(size=10)),
+        yaxis=dict(gridcolor="#e5e7eb", zeroline=False, showline=True, linecolor="#d1d5db",
+                   automargin=True, tickfont=dict(size=10)),
+        colorway=[LIGHTBLUE, GOLD, TEAL, CORAL, NAVYBLUE],
     )
 )
 
@@ -121,22 +121,21 @@ def kpi_card(label, value, sub="", color=None, icon=None, delta=None):
     return html.Div([
         html.Div(style={
             "height": "3px", "background": color,
-            "borderRadius": "0", "marginBottom": "14px",
+            "borderRadius": "3px 3px 0 0", "marginBottom": "12px",
         }),
         html.Div([
-            html.Span(icon, style={"fontSize": "0.9rem", "marginRight": "6px"}),
-            html.Span(label, style={"fontSize": "0.65rem", "textTransform": "uppercase",
-                                     "color": GRAY, "fontWeight": "600", "letterSpacing": "1px"}),
+            html.Span(icon, style={"fontSize": "1.1rem", "marginRight": "6px"}),
+            html.Span(label, style={"fontSize": "0.7rem", "textTransform": "uppercase",
+                                     "color": GRAY, "fontWeight": "600", "letterSpacing": "0.5px"}),
         ], className="mb-2"),
         html.Div([
-            html.Span(value, style={"fontSize": "1.4rem", "fontWeight": "800",
-                                     "color": color, "lineHeight": "1.2",
-                                     "fontFamily": "'Gilroy', 'Inter', 'Segoe UI', Arial, sans-serif"}),
+            html.Span(value, style={"fontSize": "1.6rem", "fontWeight": "bold",
+                                     "color": color, "lineHeight": "1.2"}),
             delta_html,
         ]),
-        html.Div(sub, style={"fontSize": "0.65rem", "color": SLATE, "marginTop": "4px"}) if sub else "",
+        html.Div(sub, style={"fontSize": "0.7rem", "color": SLATE, "marginTop": "4px"}) if sub else "",
     ], style={
-        "background": "white", "borderRadius": "12px",
+        "background": "white", "borderRadius": "8px",
         "padding": "14px 16px 16px 16px",
         "boxShadow": "0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)",
         "height": "100%", "transition": "box-shadow 0.2s",
