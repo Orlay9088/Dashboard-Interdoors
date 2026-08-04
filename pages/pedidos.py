@@ -419,6 +419,7 @@ def pagina_ranking(data):
             budgets = {}
     rank["Presupuesto"] = rank["_vendedor"].apply(lambda x: get_budget_for(x, budgets))
     has_budgets = rank["Presupuesto"].sum() > 0
+    has_compr = rank["Comprometido"].sum() > 0
     rank["% Presup"] = rank.apply(lambda r: round(r["Valor"] / r["Presupuesto"] * 100, 2) if r["Presupuesto"] > 0 else 0, axis=1)
     rank["% Cumpl"] = rank.apply(lambda r: round(r["Comprometido"] / r["Presupuesto"] * 100, 2) if r["Presupuesto"] > 0 else 0, axis=1)
     rank.insert(0, "#", range(1, len(rank) + 1))
@@ -441,7 +442,7 @@ def pagina_ranking(data):
         dbc.Col(kpi_card("Asesores Activos", f"{n_asesores}", f"Brecha #1 vs prom: {brecha:.1f}x", color=BLUE), width=3),
         dbc.Col(kpi_card("Valor Total", fmt_p(tv), fmt_pm(tv), color=NAVY), width=3),
         dbc.Col(kpi_card("vs Presupuesto", f"{presup_pct:.1f}%" if has_budgets else "-", f"Meta: {fmt_pm(presup_total)}" if presup_total else "Sin datos", color=presup_color), width=3),
-        dbc.Col(kpi_card("Cumpl. Prom.", f"{rank['% Cumpl'].mean():.1f}%" if has_budgets else "-", f"Top 3: {rank.head(3)['% Part'].sum():.1f}%", color=GREEN if rank['% Cumpl'].mean() > 50 else AMBER), width=3),
+        dbc.Col(kpi_card("Cumpl. Prom.", f"{rank['% Cumpl'].mean():.1f}%" if has_budgets and has_compr else "-", f"Top 3: {rank.head(3)['% Part'].sum():.1f}%", color=GREEN if rank['% Cumpl'].mean() > 50 else AMBER), width=3),
     ], className="mb-4 g-3")
     children.append(kpi_row)
 
@@ -473,6 +474,7 @@ def pagina_ranking(data):
     for _, r in rank.iterrows():
         cumpl_pct = r["% Cumpl"]
         has_ppto = r["Presupuesto"] > 0
+        show_cumpl = has_ppto and has_compr
         row = {
             "#": r["#"],
             "_vendedor": r["_vendedor"],
@@ -482,8 +484,8 @@ def pagina_ranking(data):
             "% Presup": f"{r['% Presup']:.1f}%" if has_ppto else "-",
             "Pedidos": f"{int(r['Pedidos']):,}",
             "Clientes": f"{int(r['Clientes'])}",
-            "% Cumpl": f"{cumpl_pct:.1f}%" if has_ppto else "-",
-            "_cumpl_num": cumpl_pct if has_ppto else -1,
+            "% Cumpl": f"{cumpl_pct:.1f}%" if show_cumpl else "-",
+            "_cumpl_num": cumpl_pct if show_cumpl else -1,
             "_presup_num": r["Presupuesto"],
         }
         table_data.append(row)
