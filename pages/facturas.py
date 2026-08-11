@@ -1,5 +1,6 @@
 from dash import html, dcc, dash_table
 import dash_bootstrap_components as dbc
+import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
 from pages.components import section_title, kpi_card, fmt_p, fmt_pm, safe_int, fig_layout, NAVY, BLUE, GREEN, AMBER, RED, GRAY, DARKGRAY, GOLD, graph_png

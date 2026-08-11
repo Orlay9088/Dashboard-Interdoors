@@ -39,8 +39,8 @@ MAPPINGS = {
         "_bodega": [],
     },
     "inventario": {
-        "_fecha": [],
-        "_valor": ["Valor total"],
+        "_fecha": ["Fecha"],
+        "_valor": ["Valor total", "Costo total", "Costo", "Valor"],
         "_valor_sec": [],
         "_cliente": ["Cliente"],
         "_vendedor": [],
@@ -48,12 +48,12 @@ MAPPINGS = {
         "_linea": ["LINEA"],
         "_sublinea": ["SUB-LINEA"],
         "_documento": [],
-        "_cantidad": ["Existencia"],
-        "_cantidad_pen": ["Cant. comprometida"],
-        "_cantidad_com": ["Cant. disponible"],
+        "_cantidad": ["Existencia", "Saldo", "Stock"],
+        "_cantidad_pen": ["Cant. comprometida", "Cantidad comprometida", "Comprometido"],
+        "_cantidad_com": ["Cant. disponible", "Cantidad disponible", "Disponible"],
         "_estado": ["ESTADO"],
-        "_referencia": ["Referencia"],
-        "_bodega": ["Bodega", "Desc. bodega"],
+        "_referencia": ["Referencia", "Codigo", "Código"],
+        "_bodega": ["Bodega", "Desc. bodega", "Nombre bodega"],
         "_ubicacion": ["Desc. ubicacion", "Ubicacion"],
         "_costo": ["Costo prom. total"],
         "_margen": ["Margen"],
@@ -68,9 +68,10 @@ def normalizar(df, tipo):
     df_out = pd.DataFrame(index=df.index)
     for canon, sources in mapping.items():
         found = None
+        columns = {str(c).strip().casefold(): c for c in df.columns}
         for s in sources:
-            if s in df.columns:
-                found = s
+            if s.casefold() in columns:
+                found = columns[s.casefold()]
                 break
         if found:
             df_out[canon] = df[found]
