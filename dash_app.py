@@ -515,7 +515,7 @@ def generate_analysis_single(n_clicks, module, page, filters, api_key, ai_model,
     Input("store-clear", "data"),
 )
 def update_badges_and_sidebar(_refresh, _clear):
-    from firebase_config import get_upload_age_hours
+    from firebase_config import get_upload_age_hours, is_data_stale, STALE_HOURS
     meta = get_metadata()
     badges = []
     info_lines = []
@@ -523,14 +523,21 @@ def update_badges_and_sidebar(_refresh, _clear):
 
     for tipo in ["pedidos", "facturas", "inventario"]:
         count = meta.get(tipo, 0)
+        stale = is_data_stale(tipo)
         if count > 0:
-            badges.append(f"{count:,} reg")
+            badge_text = f"{count:,} reg"
+            if stale:
+                badge_text = f"  {badge_text}"
+            badges.append(badge_text)
             info_lines.append(f"{tipo}: {count:,}")
         else:
             badges.append("vacio")
         age = get_upload_age_hours(tipo)
-        if age is not None and age > 24:
+        if age is not None and age > STALE_HOURS:
             alertas.append(f"{tipo}: +{int(age / 24)}d")
+        elif stale:
+            dias = int(age / 24) if age else 0
+            alertas.append(f"{tipo}:   {dias}d (lunes)")
 
     syncs = meta.get("syncs_remaining", 0)
     sync_info = f"| Firestore: {syncs}/3" if syncs > 0 else "| Firestore: agotado"

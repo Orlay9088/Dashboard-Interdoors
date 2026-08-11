@@ -1,5 +1,8 @@
 import os
 import json
+import base64
+import io
+import threading
 from datetime import date, datetime
 from pathlib import Path
 import pandas as pd
@@ -138,18 +141,121 @@ def load_local(tipo, retries=3):
     return pd.DataFrame()
 
 
+MAX_FIRESTORE_CHUNK = 850_000
+STALE_HOURS = 144
+STALE_LUNES = True
+
+
+def is_data_stale(tipo):
+    age = get_upload_age_hours(tipo)
+    if age is None:
+        return False
+    if age > STALE_HOURS:
+        return True
+    if STALE_LUNES and datetime.now().weekday() == 0:
+        meta = _load_json(META_FILE, {})
+        last_str = meta.get(tipo, {}).get("fecha", "")
+        if last_str:
+            try:
+                last_dt = datetime.fromisoformat(last_str)
+                if last_dt.date() < date.today():
+                    return True
+            except Exception:
+                pass
+    return False
+
+
 def try_save(df, tipo, filename=""):
     n = len(df)
     save_local(df, tipo)
     save_upload_meta(tipo, filename, n)
     if SKIP_FIRESTORE_FILE.exists():
         SKIP_FIRESTORE_FILE.unlink(missing_ok=True)
-    # Firestore sync is skipped during upload to avoid blocking/crashing
-    # the worker with large datasets (e.g. 150K+ inventory rows).
-    # Data remains available via local parquet.
     if filename:
         save_last_file(tipo, filename)
+    if _firestore_available():
+        t = threading.Thread(target=_sync_firestore_bg, args=(df.copy(), tipo, filename), daemon=True)
+        t.start()
     return n
+
+
+def _sync_firestore_bg(df, tipo, filename):
+    try:
+        _delete_firestore_chunks(tipo)
+        _save_firestore_chunked(df, tipo, filename)
+    except Exception:
+        pass
+
+
+def _delete_firestore_chunks(tipo):
+    _, db = _firestore_client()
+    if not db:
+        return
+    try:
+        docs = db.collection(f"{tipo}_chunks").stream(timeout=10)
+        for doc in docs:
+            doc.reference.delete()
+    except Exception:
+        pass
+
+
+def _save_firestore_chunked(df, tipo, filename):
+    _, db = _firestore_client()
+    if not db:
+        return 0
+    buf = io.BytesIO()
+    df.to_parquet(buf, index=False)
+    raw = base64.b64encode(buf.getvalue()).decode("ascii")
+    chunks = [raw[i:i + MAX_FIRESTORE_CHUNK] for i in range(0, len(raw), MAX_FIRESTORE_CHUNK)]
+    col_ref = db.collection(f"{tipo}_chunks")
+    for idx, chunk in enumerate(chunks):
+        col_ref.document(f"chunk_{idx}").set({"data": chunk}, timeout=10)
+    col_ref.document("meta").set({"count": len(chunks), "filename": filename,
+                                   "fecha": datetime.now().isoformat(),
+                                   "registros": len(df), "columnas": list(df.columns)}, timeout=10)
+
+
+def try_load(tipo):
+    df = load_local(tipo)
+    if not df.empty:
+        return df, "local"
+    if SKIP_FIRESTORE_FILE.exists():
+        return pd.DataFrame(), "local"
+    if not _firestore_available():
+        return pd.DataFrame(), "local"
+    df = _load_from_firestore_chunked(tipo)
+    if not df.empty:
+        save_local(df, tipo)
+        return df, "firestore"
+    return pd.DataFrame(), "local"
+
+
+def _load_from_firestore_chunked(tipo):
+    _, db = _firestore_client()
+    if not db:
+        return pd.DataFrame()
+    try:
+        meta_doc = db.collection(f"{tipo}_chunks").document("meta").get(timeout=5)
+        if not meta_doc.exists:
+            return pd.DataFrame()
+        count = meta_doc.to_dict().get("count", 0)
+        if count <= 0:
+            return pd.DataFrame()
+        parts = []
+        for idx in range(count):
+            doc = db.collection(f"{tipo}_chunks").document(f"chunk_{idx}").get(timeout=5)
+            if doc.exists:
+                parts.append(doc.to_dict().get("data", ""))
+        if not parts:
+            return pd.DataFrame()
+        raw = "".join(parts)
+        buf = io.BytesIO(base64.b64decode(raw))
+        df = pd.read_parquet(buf)
+        if "_fecha" in df.columns:
+            df["_fecha"] = pd.to_datetime(df["_fecha"], errors="coerce")
+        return df
+    except Exception:
+        return pd.DataFrame()
 
 
 def _firestore_available():
@@ -162,63 +268,12 @@ def _firestore_available():
     return False
 
 
-def try_load(tipo):
-    df = load_local(tipo)
-    if not df.empty:
-        return df, "local"
-    if SKIP_FIRESTORE_FILE.exists():
-        return pd.DataFrame(), "local"
-    if not _firestore_available():
-        return pd.DataFrame(), "local"
-    df = load_from_firestore(tipo)
-    if not df.empty:
-        return df, "firestore"
-    return pd.DataFrame(), "local"
-
-
 def save_to_firestore(df, tipo, filename=""):
-    """Sobrescribe el documento 'latest' en Firestore con los datos mas recientes."""
-    app, db = _firestore_client()
-    if not db:
-        return 0
-
-    n = len(df)
-    data_json = json.loads(df.to_json(orient="records", date_format="iso", force_ascii=False))
-    meta = {
-        "tipo": tipo,
-        "filename": filename,
-        "fecha": datetime.now().isoformat(),
-        "registros": n,
-        "columnas": list(df.columns),
-        "data": data_json,
-    }
-    db.collection(tipo).document("latest").set(meta, timeout=10)
-    return n
+    return _save_firestore_chunked(df, tipo, filename)
 
 
 def load_from_firestore(tipo):
-    """Lee el documento 'latest' desde Firestore. Timeout de 5 segundos."""
-    app, db = _firestore_client()
-    if not db:
-        return pd.DataFrame()
-
-    try:
-        from google.api_core import retry
-
-        doc = db.collection(tipo).document("latest").get(timeout=5, retry=retry.Retry(deadline=4))
-        if not doc.exists:
-            return pd.DataFrame()
-        meta = doc.to_dict()
-        data = meta.get("data", [])
-        columnas = meta.get("columnas", [])
-        if data and columnas:
-            df = pd.DataFrame(data, columns=columnas)
-            if "_fecha" in df.columns:
-                df["_fecha"] = pd.to_datetime(df["_fecha"], errors="coerce")
-            return df
-    except Exception:
-        pass
-    return pd.DataFrame()
+    return _load_from_firestore_chunked(tipo)
 
 
 def set_metadata(doc_id, data):
