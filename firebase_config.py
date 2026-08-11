@@ -144,11 +144,9 @@ def try_save(df, tipo, filename=""):
     save_upload_meta(tipo, filename, n)
     if SKIP_FIRESTORE_FILE.exists():
         SKIP_FIRESTORE_FILE.unlink(missing_ok=True)
-    if _use_firestore_sync():
-        try:
-            save_to_firestore(df, tipo, filename)
-        except Exception:
-            pass
+    # Firestore sync is skipped during upload to avoid blocking/crashing
+    # the worker with large datasets (e.g. 150K+ inventory rows).
+    # Data remains available via local parquet.
     if filename:
         save_last_file(tipo, filename)
     return n
