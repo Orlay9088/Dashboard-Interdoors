@@ -1,0 +1,32 @@
+@media (max-width: 768px) {
+    #sidebar {
+        transform: translateX(-100%);
+    }
+    #sidebar.open {
+        transform: translateX(0);
+        box-shadow: 4px 0 20px rgba(0,0,0,0.3);
+    }
+    #sidebar-toggle {
+        display: block !important;
+    }
+    .content-area {
+        margin-left: 0 !important;
+    }
+    .kpi-row .col, .kpi-row [class*="col-"] {
+        width: 100% !important;
+        flex: 0 0 100% !important;
+        max-width: 100% !important;
+    }
+}
+
+@media (min-width: 769px) {
+    #sidebar {
+        transform: translateX(0) !important;
+    }
+    #sidebar-toggle {
+        display: none !important;
+    }
+    .content-area {
+        margin-left: 260px !important;
+    }
+}

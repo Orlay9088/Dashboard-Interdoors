@@ -18,10 +18,10 @@ def pagina_resumen_stock(data):
     children = [section_title("Resumen de Inventario", f"{productos:,} productos | {bodegas} bodegas | {existencia:,.0f} und")]
 
     kpi_row = dbc.Row([
-        dbc.Col(kpi_card("Valor Total", fmt_p(valor_total), fmt_pm(valor_total), color=BLUE), width=3),
-        dbc.Col(kpi_card("Productos", f"{productos:,}", f"{bodegas} bodegas activas", color=NAVY), width=3),
-        dbc.Col(kpi_card("Existencia", f"{existencia:,.0f} und", f"Disponible: {disponible:,.0f}", color=GREEN), width=3),
-        dbc.Col(kpi_card("Comprometido", f"{comprometido:,.0f} und", f"{pct_comp:.1f}% del stock", color=AMBER if pct_comp > 50 else GRAY), width=3),
+        dbc.Col(kpi_card("Valor Total", fmt_p(valor_total), fmt_pm(valor_total), color=BLUE), width=12, sm=6, lg=3),
+        dbc.Col(kpi_card("Productos", f"{productos:,}", f"{bodegas} bodegas activas", color=NAVY), width=12, sm=6, lg=3),
+        dbc.Col(kpi_card("Existencia", f"{existencia:,.0f} und", f"Disponible: {disponible:,.0f}", color=GREEN), width=12, sm=6, lg=3),
+        dbc.Col(kpi_card("Comprometido", f"{comprometido:,.0f} und", f"{pct_comp:.1f}% del stock", color=AMBER if pct_comp > 50 else GRAY), width=12, sm=6, lg=3),
     ], className="mb-4 g-3")
     children.append(kpi_row)
 
@@ -56,8 +56,8 @@ def pagina_resumen_stock(data):
     fig_bod.update_yaxes(automargin=True, tickfont=dict(size=10), autorange="reversed")
 
     children.append(dbc.Row([
-        dbc.Col(graph_png(figure=fig_prod), width=6),
-        dbc.Col(graph_png(figure=fig_bod), width=6),
+        dbc.Col(graph_png(figure=fig_prod), width=12, lg=6),
+        dbc.Col(graph_png(figure=fig_bod), width=12, lg=6),
     ], className="mb-3 g-3"))
 
     bodegas_data = data.groupby("_bodega").agg(
@@ -106,10 +106,10 @@ def pagina_por_bodega(data):
     children = [section_title("Inventario por Bodega", f"{n_bodegas} bodegas | Principal: Bod.{bodega_top} ({bodega_top_pct:.1f}%)")]
 
     kpi_row = dbc.Row([
-        dbc.Col(kpi_card("Total Bodegas", str(n_bodegas), "Todas activas", color=BLUE), width=3),
-        dbc.Col(kpi_card("Valor Total", fmt_p(valor_total), fmt_pm(valor_total), color=NAVY), width=3),
-        dbc.Col(kpi_card("Bodega TOP", f"Bod.{bodega_top}", fmt_pm(panorama.iloc[0]["Valor"]) if not panorama.empty else "-", color=GOLD), width=3),
-        dbc.Col(kpi_card("Productos", f"{data['_referencia'].nunique():,}", f"{safe_int(panorama['Existencia'].sum()):,} und", color=GRAY), width=3),
+        dbc.Col(kpi_card("Total Bodegas", str(n_bodegas), "Todas activas", color=BLUE), width=12, sm=6, lg=3),
+        dbc.Col(kpi_card("Valor Total", fmt_p(valor_total), fmt_pm(valor_total), color=NAVY), width=12, sm=6, lg=3),
+        dbc.Col(kpi_card("Bodega TOP", f"Bod.{bodega_top}", fmt_pm(panorama.iloc[0]["Valor"]) if not panorama.empty else "-", color=GOLD), width=12, sm=6, lg=3),
+        dbc.Col(kpi_card("Productos", f"{data['_referencia'].nunique():,}", f"{safe_int(panorama['Existencia'].sum()):,} und", color=GRAY), width=12, sm=6, lg=3),
     ], className="mb-4 g-3")
     children.append(kpi_row)
 
@@ -141,8 +141,8 @@ def pagina_por_bodega(data):
     fig_refs.update_xaxes(tickangle=-45, tickfont=dict(size=8))
 
     children.append(dbc.Row([
-        dbc.Col(graph_png(figure=fig_barras), width=6),
-        dbc.Col(graph_png(figure=fig_refs), width=6),
+        dbc.Col(graph_png(figure=fig_barras), width=12, lg=6),
+        dbc.Col(graph_png(figure=fig_refs), width=12, lg=6),
     ], className="mb-3 g-3"))
 
     table = dash_table.DataTable(
@@ -191,10 +191,10 @@ def pagina_criticos(data):
     val_bajo = bajo_stock_data["_valor"].sum() if n_bajo_stock > 0 else 0
 
     kpi_row = dbc.Row([
-        dbc.Col(kpi_card("Alto Compromiso", str(n_criticos_comp), ">80% ratio", color=RED), width=3),
-        dbc.Col(kpi_card("Bajo Stock", str(n_bajo_stock), "3 und o menos", color=AMBER), width=3),
-        dbc.Col(kpi_card("Valor Critico", fmt_p(val_critico), fmt_pm(val_critico), color=NAVY), width=3),
-        dbc.Col(kpi_card("Valor Total", fmt_p(vp), fmt_pm(vp), color=GRAY), width=3),
+        dbc.Col(kpi_card("Alto Compromiso", str(n_criticos_comp), ">80% ratio", color=RED), width=12, sm=6, lg=3),
+        dbc.Col(kpi_card("Bajo Stock", str(n_bajo_stock), "3 und o menos", color=AMBER), width=12, sm=6, lg=3),
+        dbc.Col(kpi_card("Valor Critico", fmt_p(val_critico), fmt_pm(val_critico), color=NAVY), width=12, sm=6, lg=3),
+        dbc.Col(kpi_card("Valor Total", fmt_p(vp), fmt_pm(vp), color=GRAY), width=12, sm=6, lg=3),
     ], className="mb-4 g-3")
     children.append(kpi_row)
 
@@ -218,7 +218,7 @@ def pagina_criticos(data):
         fig_crit.update_xaxes(tickangle=-45, tickfont=dict(size=9))
         fig_crit.update_yaxes(title="$ millones", automargin=True)
 
-        children.append(dbc.Row([dbc.Col(graph_png(figure=fig_crit), width=12)], className="mb-3"))
+        children.append(dbc.Row([dbc.Col(graph_png(figure=fig_crit), width=12)], className="mb-3 g-3"))
 
         criticos.append(html.H6("Alto Compromiso (>80%)", className="fw-bold", style={"color": RED, "fontSize": "0.85rem"}))
         criticos.append(dash_table.DataTable(

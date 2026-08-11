@@ -132,7 +132,7 @@ def _home_block(title, color, kpis, is_empty):
             }),
         ]),
         dbc.Row([
-            dbc.Col(kpi_card(name, val, sub, color=(color if i == 0 else NAVY if i == 1 else GRAY)), width=3)
+            dbc.Col(kpi_card(name, val, sub, color=(color if i == 0 else NAVY if i == 1 else GRAY)), width=12, sm=6, lg=3)
             for i, (name, val, sub) in enumerate(kpis)
         ], className="g-3"),
     ], style={"background": "white", "borderRadius": "12px", "padding": "16px 20px", "marginBottom": "16px",
@@ -154,10 +154,10 @@ def pagina_resumen(data):
     children = [section_title("Resumen Ejecutivo", "Pedidos - Indicadores principales")]
 
     kpi_row = dbc.Row([
-        dbc.Col(kpi_card("Valor Total", fmt_p(vp), fmt_pm(vp), color=BLUE), width=3),
-        dbc.Col(kpi_card("Pedidos", f"{total_pedidos:,}", f"{cant_pedida:,.0f} unidades", color=NAVY), width=3),
-        dbc.Col(kpi_card("Clientes Activos", f"{total_clientes}", f"{num_asesores} asesores", color=NAVY), width=3),
-        dbc.Col(kpi_card("Valor Pendiente", fmt_p(vp), f"{pct_pend:.2f}% del pedido", color=AMBER), width=3),
+        dbc.Col(kpi_card("Valor Total", fmt_p(vp), fmt_pm(vp), color=BLUE), width=12, sm=6, lg=3),
+        dbc.Col(kpi_card("Pedidos", f"{total_pedidos:,}", f"{cant_pedida:,.0f} unidades", color=NAVY), width=12, sm=6, lg=3),
+        dbc.Col(kpi_card("Clientes Activos", f"{total_clientes}", f"{num_asesores} asesores", color=NAVY), width=12, sm=6, lg=3),
+        dbc.Col(kpi_card("Valor Pendiente", fmt_p(vp), f"{pct_pend:.2f}% del pedido", color=AMBER), width=12, sm=6, lg=3),
     ], className="mb-4 g-3")
     children.append(kpi_row)
 
@@ -165,10 +165,10 @@ def pagina_resumen(data):
     if "_canal" in data.columns:
         const_val = data[data["_canal"].str.contains("CNST|CONSTR", case=False, na=False)]["_valor"].sum()
     kpi2 = dbc.Row([
-        dbc.Col(kpi_card("Promedio x Cliente", fmt_p(promedio_cliente), fmt_pm(promedio_cliente), color=GRAY), width=3),
-        dbc.Col(kpi_card("Promedio x Pedido", fmt_p(promedio_pedido), fmt_pm(promedio_pedido), color=GRAY), width=3),
-        dbc.Col(kpi_card("Cumplimiento", f"{vc/vp*100:.2f}%" if vp else "0%", f"{fmt_p(vc)} comprometido", color=GREEN), width=3),
-        dbc.Col(kpi_card("Construccion", f"{const_val/vp*100:.2f}%" if vp else "0%", "% del total", color=AMBER), width=3),
+        dbc.Col(kpi_card("Promedio x Cliente", fmt_p(promedio_cliente), fmt_pm(promedio_cliente), color=GRAY), width=12, sm=6, lg=3),
+        dbc.Col(kpi_card("Promedio x Pedido", fmt_p(promedio_pedido), fmt_pm(promedio_pedido), color=GRAY), width=12, sm=6, lg=3),
+        dbc.Col(kpi_card("Cumplimiento", f"{vc/vp*100:.2f}%" if vp else "0%", f"{fmt_p(vc)} comprometido", color=GREEN), width=12, sm=6, lg=3),
+        dbc.Col(kpi_card("Construccion", f"{const_val/vp*100:.2f}%" if vp else "0%", "% del total", color=AMBER), width=12, sm=6, lg=3),
     ], className="mb-4 g-3")
     children.append(kpi2)
 
@@ -220,7 +220,7 @@ def pagina_resumen(data):
     )
 
     children.append(dbc.Row([
-        dbc.Col(graph_png(figure=fig_evol), width=6),
+        dbc.Col(graph_png(figure=fig_evol), width=12, lg=6),
         dbc.Col(html.Div([
             html.H6("Indicadores Clave", className="fw-bold", style={"color": NAVY}),
             html.Ul([
@@ -230,7 +230,7 @@ def pagina_resumen(data):
             ], className="small"),
             html.Hr(),
             graph_png(figure=fig_asesores, style={"height": "300px"}),
-        ]), width=6),
+        ]), width=12, lg=6),
     ], className="mb-3 g-3"))
 
     children.append(html.Details([
@@ -257,10 +257,10 @@ def pagina_participacion(data):
     children = [section_title("Participacion Comercial", f"{n_canales} canales | {n_asesores} asesores | {n_lineas} lineas | {n_clientes} clientes")]
 
     kpi_row = dbc.Row([
-        dbc.Col(kpi_card("Valor Total", fmt_p(vp), fmt_pm(vp), color=BLUE), width=3),
-        dbc.Col(kpi_card("Canales", str(n_canales), f"Principal: {canal_top[:18]}", color=NAVY), width=3),
-        dbc.Col(kpi_card("Asesores", str(n_asesores), f"Promedio: {fmt_pm(vp/n_asesores) if n_asesores else 0}", color=GRAY), width=3),
-        dbc.Col(kpi_card("Lineas", str(n_lineas), "Diversidad de portafolio", color=GREEN), width=3),
+        dbc.Col(kpi_card("Valor Total", fmt_p(vp), fmt_pm(vp), color=BLUE), width=12, sm=6, lg=3),
+        dbc.Col(kpi_card("Canales", str(n_canales), f"Principal: {canal_top[:18]}", color=NAVY), width=12, sm=6, lg=3),
+        dbc.Col(kpi_card("Asesores", str(n_asesores), f"Promedio: {fmt_pm(vp/n_asesores) if n_asesores else 0}", color=GRAY), width=12, sm=6, lg=3),
+        dbc.Col(kpi_card("Lineas", str(n_lineas), "Diversidad de portafolio", color=GREEN), width=12, sm=6, lg=3),
     ], className="mb-4 g-3")
     children.append(kpi_row)
 
@@ -307,9 +307,9 @@ def pagina_participacion(data):
     fig_lin.update_yaxes(automargin=True, autorange="reversed")
 
     children.append(dbc.Row([
-        dbc.Col(graph_png(figure=fig_canal, id="chart-canal-pie"), width=4),
-        dbc.Col(graph_png(figure=fig_ase, id="chart-asesor-participacion"), width=4),
-        dbc.Col(graph_png(figure=fig_lin), width=4),
+        dbc.Col(graph_png(figure=fig_canal, id="chart-canal-pie"), width=12, lg=4),
+        dbc.Col(graph_png(figure=fig_ase, id="chart-asesor-participacion"), width=12, lg=4),
+        dbc.Col(graph_png(figure=fig_lin), width=12, lg=4),
     ], className="mb-3 g-3"))
 
     canal_table = dash_table.DataTable(
@@ -380,7 +380,7 @@ def pagina_pareto(data):
                 dmc.CardSection([html.Small("Clientes hasta 80%", className="text-muted d-block"),
                                  html.Strong(str(hasta_80))])
             ], withBorder=True, shadow="sm", padding="md", radius="sm", className="text-center mb-2")),
-        ]),
+        ], className="g-3"),
         dmc.Card([
             dmc.CardSection([html.Small("Total Clientes", className="text-muted d-block"),
                              html.Strong(str(len(pg)))])
@@ -389,8 +389,8 @@ def pagina_pareto(data):
 
     children = [section_title("Pareto de Clientes", "Analisis de concentracion")]
     children.append(dbc.Row([
-        dbc.Col(graph_png(figure=fig, style={"height": "460px"}), width=8),
-        dbc.Col(top10, width=4),
+        dbc.Col(graph_png(figure=fig, style={"height": "460px"}), width=12, lg=8),
+        dbc.Col(top10, width=12, lg=4),
     ], className="mb-3 g-3"))
     children.append(table)
     children.append(html.Hr())
@@ -439,10 +439,10 @@ def pagina_ranking(data):
     children.append(kahoot_podium(top3))
 
     kpi_row = dbc.Row([
-        dbc.Col(kpi_card("Valor Total", fmt_p(tv), fmt_pm(tv), color=NAVY), width=3),
-        dbc.Col(kpi_card("vs Meta", f"{presup_pct:.1f}%" if has_budgets else "-", f"Meta: {fmt_pm(presup_total)}" if presup_total else "Sin datos", color=GRAY), width=3),
-        dbc.Col(kpi_card("Cumpl Prom", f"{rank['% Cumpl'].mean():.1f}%" if has_budgets and has_compr else "-", f"Top 3: {rank.head(3)['% Part'].sum():.1f}%", color=GREEN if rank['% Cumpl'].mean() > 50 else AMBER), width=3),
-        dbc.Col(kpi_card("Concentración", f"Brecha {brecha:.1f}x", f"#1: {rank['% Part'].iloc[0]:.1f}% del total" if len(rank) > 0 else "", color=BLUE), width=3),
+        dbc.Col(kpi_card("Valor Total", fmt_p(tv), fmt_pm(tv), color=NAVY), width=12, sm=6, lg=3),
+        dbc.Col(kpi_card("vs Meta", f"{presup_pct:.1f}%" if has_budgets else "-", f"Meta: {fmt_pm(presup_total)}" if presup_total else "Sin datos", color=GRAY), width=12, sm=6, lg=3),
+        dbc.Col(kpi_card("Cumpl Prom", f"{rank['% Cumpl'].mean():.1f}%" if has_budgets and has_compr else "-", f"Top 3: {rank.head(3)['% Part'].sum():.1f}%", color=GREEN if rank['% Cumpl'].mean() > 50 else AMBER), width=12, sm=6, lg=3),
+        dbc.Col(kpi_card("Concentración", f"Brecha {brecha:.1f}x", f"#1: {rank['% Part'].iloc[0]:.1f}% del total" if len(rank) > 0 else "", color=BLUE), width=12, sm=6, lg=3),
     ], className="mb-4 g-3")
     children.append(kpi_row)
 
@@ -533,7 +533,7 @@ def pagina_ranking(data):
         margin=dict(t=40, b=20, l=20, r=50)))
     fig.update_xaxes(title="$ millones", showgrid=True, gridcolor="#e2e8f0")
     fig.update_yaxes(automargin=True, tickfont=dict(size=10), autorange="reversed")
-    children.append(dbc.Row([dbc.Col(graph_png(figure=fig, id="chart-ranking-asesores"), width=12)], className="mb-3"))
+    children.append(dbc.Row([dbc.Col(graph_png(figure=fig, id="chart-ranking-asesores"), width=12)], className="mb-3 g-3"))
 
     children.append(html.Hr())
     return children
@@ -558,10 +558,10 @@ def pagina_embudo(data):
     children = [section_title("Embudo de Pedidos", f"{estados_n} estados | Tasa cierre: {rate:.1f}%")]
 
     kpi_row = dbc.Row([
-        dbc.Col(kpi_card("Pipeline Total", fmt_p(vp), f"{total_pedidos:,} pedidos", color=BLUE), width=3),
-        dbc.Col(kpi_card("Comprometido", fmt_p(comp), fmt_pm(comp), color=GREEN), width=3),
-        dbc.Col(kpi_card("Tasa de Cierre", f"{rate:.1f}%", f"Pendiente: {fmt_pm(vp-comp)}", color=GREEN if rate > 50 else AMBER), width=3),
-        dbc.Col(kpi_card("Estados", str(estados_n), f"Valor prom: {fmt_pm(total/estados_n)}" if estados_n else "", color=GRAY), width=3),
+        dbc.Col(kpi_card("Pipeline Total", fmt_p(vp), f"{total_pedidos:,} pedidos", color=BLUE), width=12, sm=6, lg=3),
+        dbc.Col(kpi_card("Comprometido", fmt_p(comp), fmt_pm(comp), color=GREEN), width=12, sm=6, lg=3),
+        dbc.Col(kpi_card("Tasa de Cierre", f"{rate:.1f}%", f"Pendiente: {fmt_pm(vp-comp)}", color=GREEN if rate > 50 else AMBER), width=12, sm=6, lg=3),
+        dbc.Col(kpi_card("Estados", str(estados_n), f"Valor prom: {fmt_pm(total/estados_n)}" if estados_n else "", color=GRAY), width=12, sm=6, lg=3),
     ], className="mb-4 g-3")
     children.append(kpi_row)
 
@@ -577,7 +577,7 @@ def pagina_embudo(data):
     fig.update_layout(**fig_layout("Pipeline de Pedidos (millones $)", height=420,
         margin=dict(t=45, b=20, l=80, r=40)))
 
-    children.append(dbc.Row([dbc.Col(graph_png(figure=fig), width=12)], className="mb-3"))
+    children.append(dbc.Row([dbc.Col(graph_png(figure=fig), width=12)], className="mb-3 g-3"))
 
     funnel_table = dash_table.DataTable(
         columns=[{"name": "Estado", "id": "_estado"}, {"name": "Valor", "id": "Valor"},
@@ -663,7 +663,7 @@ def pagina_heatmap(data):
     fig.update_yaxes(tickfont=dict(size=9, family="Segoe UI"), automargin=True)
     fig.add_hline(y=len(y_labels) - 1.5, line=dict(color=DARKGRAY, width=2, dash="dot"))
 
-    children.append(dbc.Row([dbc.Col(graph_png(figure=fig, id="chart-heatmap"), width=12)], className="mb-3"))
+    children.append(dbc.Row([dbc.Col(graph_png(figure=fig, id="chart-heatmap"), width=12)], className="mb-3 g-3"))
 
     top_asesores = (
         heat.groupby("_vendedor")["_valor"].sum().sort_values(ascending=False)
@@ -747,13 +747,13 @@ def pagina_proyeccion(data):
 
     kpi_row = dbc.Row([
         dbc.Col(kpi_card("Proyeccion Prox. Mes", fmt_pm(proy_next), f"Rango: {fmt_pm(proy_low)} – {fmt_pm(proy_high)}",
-            color=GREEN if growth_rate > 0 else RED), width=3),
+            color=GREEN if growth_rate > 0 else RED), width=12, sm=6, lg=3),
         dbc.Col(kpi_card("Tendencia", f"{growth_rate:+.1f}%/mes", f"R²={np.corrcoef(evol['Periodo'], evol['Valor'])[0,1]**2:.3f}",
-            color=BLUE), width=3),
+            color=BLUE), width=12, sm=6, lg=3),
         dbc.Col(kpi_card("Proy. Anual", fmt_pm(proy_annual), f"vs Ppto: {ppto_pct:.1f}%" if presup_anual else "Sin presupuesto anual",
-            color=GREEN if ppto_pct >= 85 else AMBER if ppto_pct >= 60 else RED), width=3),
+            color=GREEN if ppto_pct >= 85 else AMBER if ppto_pct >= 60 else RED), width=12, sm=6, lg=3),
         dbc.Col(kpi_card("Volatilidad", fmt_pm(std_err), f"{std_err/proy_next*100:.1f}% de la proyeccion" if proy_next else "",
-            color=GRAY), width=3),
+            color=GRAY), width=12, sm=6, lg=3),
     ], className="mb-4 g-3")
     children.append(kpi_row)
 
@@ -790,7 +790,7 @@ def pagina_proyeccion(data):
     fig.update_xaxes(tickangle=-45, tickfont=dict(size=9))
     fig.update_yaxes(title="$ millones", automargin=True)
 
-    children.append(dbc.Row([dbc.Col(graph_png(figure=fig), width=12)], className="mb-3"))
+    children.append(dbc.Row([dbc.Col(graph_png(figure=fig), width=12)], className="mb-3 g-3"))
 
     evol_table = dash_table.DataTable(
         columns=[{"name": "Mes", "id": "Mes"}, {"name": "Valor", "id": "Valor"},

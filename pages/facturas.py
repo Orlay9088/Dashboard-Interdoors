@@ -21,10 +21,10 @@ def pagina_resumen_ventas(data):
     children = [section_title("Resumen de Ventas", title_sub)]
 
     kpi_row = dbc.Row([
-        dbc.Col(kpi_card("Ventas Totales", fmt_p(ventas), fmt_pm(ventas), color=BLUE), width=3),
-        dbc.Col(kpi_card("Ticket Promedio", fmt_p(ticket_prom), f"por factura", color=NAVY), width=3),
-        dbc.Col(kpi_card("Margen Global", f"{mgn_pct:.1f}%", f"Costo: {fmt_pm(costo_total)}", color=GREEN if mgn_pct > 30 else AMBER), width=3),
-        dbc.Col(kpi_card("Facturas", f"{total_facturas:,}", f"{total_clientes} clientes activos", color=GRAY), width=3),
+        dbc.Col(kpi_card("Ventas Totales", fmt_p(ventas), fmt_pm(ventas), color=BLUE), width=12, sm=6, lg=3),
+        dbc.Col(kpi_card("Ticket Promedio", fmt_p(ticket_prom), f"por factura", color=NAVY), width=12, sm=6, lg=3),
+        dbc.Col(kpi_card("Margen Global", f"{mgn_pct:.1f}%", f"Costo: {fmt_pm(costo_total)}", color=GREEN if mgn_pct > 30 else AMBER), width=12, sm=6, lg=3),
+        dbc.Col(kpi_card("Facturas", f"{total_facturas:,}", f"{total_clientes} clientes activos", color=GRAY), width=12, sm=6, lg=3),
     ], className="mb-4 g-3")
     children.append(kpi_row)
 
@@ -68,8 +68,8 @@ def pagina_resumen_ventas(data):
     fig_vend.update_yaxes(automargin=True, tickfont=dict(size=10), autorange="reversed")
 
     children.append(dbc.Row([
-        dbc.Col(graph_png(figure=fig_evol), width=6),
-        dbc.Col(graph_png(figure=fig_vend), width=6),
+        dbc.Col(graph_png(figure=fig_evol), width=12, lg=6),
+        dbc.Col(graph_png(figure=fig_vend), width=12, lg=6),
     ], className="mb-3 g-3"))
 
     evol_table = dash_table.DataTable(
@@ -108,10 +108,10 @@ def pagina_margenes(data):
     children = [section_title("Margenes", f"Margen global: {mgn_global:.1f}% | {n_vend} vendedores | {n_canales} canales")]
 
     kpi_row = dbc.Row([
-        dbc.Col(kpi_card("Margen Global", f"{mgn_global:.1f}%", f"Margen prom: {mgn_prom}", color=GREEN if mgn_global > 25 else AMBER), width=3),
-        dbc.Col(kpi_card("Ventas Totales", fmt_p(ventas), fmt_pm(ventas), color=BLUE), width=3),
-        dbc.Col(kpi_card("Costo Total", fmt_p(costo), f"{costo/ventas*100:.1f}% de ventas" if ventas else "", color=RED), width=3),
-        dbc.Col(kpi_card("Utilidad Bruta", fmt_p(ventas - costo), fmt_pm(ventas - costo), color=GREEN), width=3),
+        dbc.Col(kpi_card("Margen Global", f"{mgn_global:.1f}%", f"Margen prom: {mgn_prom}", color=GREEN if mgn_global > 25 else AMBER), width=12, sm=6, lg=3),
+        dbc.Col(kpi_card("Ventas Totales", fmt_p(ventas), fmt_pm(ventas), color=BLUE), width=12, sm=6, lg=3),
+        dbc.Col(kpi_card("Costo Total", fmt_p(costo), f"{costo/ventas*100:.1f}% de ventas" if ventas else "", color=RED), width=12, sm=6, lg=3),
+        dbc.Col(kpi_card("Utilidad Bruta", fmt_p(ventas - costo), fmt_pm(ventas - costo), color=GREEN), width=12, sm=6, lg=3),
     ], className="mb-4 g-3")
     children.append(kpi_row)
 
@@ -146,8 +146,8 @@ def pagina_margenes(data):
     fig_vend.update_yaxes(automargin=True, tickfont=dict(size=10), autorange="reversed")
 
     children.append(dbc.Row([
-        dbc.Col(graph_png(figure=fig_canal), width=6),
-        dbc.Col(graph_png(figure=fig_vend), width=6),
+        dbc.Col(graph_png(figure=fig_canal), width=12, lg=6),
+        dbc.Col(graph_png(figure=fig_vend), width=12, lg=6),
     ], className="mb-3 g-3"))
 
     canal_table = dash_table.DataTable(
@@ -192,9 +192,9 @@ def pagina_mix_producto(data):
     children = [section_title("Mix de Producto", f"{n_groups} {titulo.lower()} | Principal: {str(top_group)[:25]} ({top_pct:.1f}%)")]
 
     kpi_row = dbc.Row([
-        dbc.Col(kpi_card("Total Grupos", str(n_groups), "categorias de producto", color=BLUE), width=4),
-        dbc.Col(kpi_card("Ventas Totales", fmt_p(tv), fmt_pm(tv), color=NAVY), width=4),
-        dbc.Col(kpi_card("Top 3 Concentran", f"{mix.head(3)['%'].sum():.1f}%", f"#1: {top_group[:20]}", color=AMBER), width=4),
+        dbc.Col(kpi_card("Total Grupos", str(n_groups), "categorias de producto", color=BLUE), width=12, lg=4),
+        dbc.Col(kpi_card("Ventas Totales", fmt_p(tv), fmt_pm(tv), color=NAVY), width=12, lg=4),
+        dbc.Col(kpi_card("Top 3 Concentran", f"{mix.head(3)['%'].sum():.1f}%", f"#1: {top_group[:20]}", color=AMBER), width=12, lg=4),
     ], className="mb-4 g-3")
     children.append(kpi_row)
 
@@ -222,8 +222,8 @@ def pagina_mix_producto(data):
     fig_bar.update_yaxes(automargin=True, tickfont=dict(size=10), autorange="reversed")
 
     children.append(dbc.Row([
-        dbc.Col(graph_png(figure=fig_treemap), width=6),
-        dbc.Col(graph_png(figure=fig_bar), width=6),
+        dbc.Col(graph_png(figure=fig_treemap), width=12, lg=6),
+        dbc.Col(graph_png(figure=fig_bar), width=12, lg=6),
     ], className="mb-3 g-3"))
 
     mix_table = dash_table.DataTable(
@@ -267,9 +267,9 @@ def pagina_precio_promedio(data):
     children = [section_title("Precio Promedio", f"{n_lineas} lineas | Precio global: {fmt_p(global_precio)}")]
 
     kpi_row = dbc.Row([
-        dbc.Col(kpi_card("Precio Global", fmt_p(global_precio), f"{n_lineas} lineas de producto", color=BLUE), width=4),
-        dbc.Col(kpi_card("Linea TOP", linea_top, precio_top, color=GOLD), width=4),
-        dbc.Col(kpi_card("Unidades Totales", f"{safe_int(resumen['Cantidad'].sum()):,}", f"Valor: {fmt_pm(resumen['Valor'].sum())}", color=GRAY), width=4),
+        dbc.Col(kpi_card("Precio Global", fmt_p(global_precio), f"{n_lineas} lineas de producto", color=BLUE), width=12, lg=4),
+        dbc.Col(kpi_card("Linea TOP", linea_top, precio_top, color=GOLD), width=12, lg=4),
+        dbc.Col(kpi_card("Unidades Totales", f"{safe_int(resumen['Cantidad'].sum()):,}", f"Valor: {fmt_pm(resumen['Valor'].sum())}", color=GRAY), width=12, lg=4),
     ], className="mb-4 g-3")
     children.append(kpi_row)
 
@@ -289,7 +289,7 @@ def pagina_precio_promedio(data):
     fig.update_xaxes(tickangle=-45, tickfont=dict(size=9))
     fig.update_yaxes(title="$ pesos", automargin=True)
 
-    children.append(dbc.Row([dbc.Col(graph_png(figure=fig), width=12)], className="mb-3"))
+    children.append(dbc.Row([dbc.Col(graph_png(figure=fig), width=12)], className="mb-3 g-3"))
 
     precio_table = dash_table.DataTable(
         columns=[{"name": "Linea", "id": "_linea"}, {"name": "Valor", "id": "Valor"},

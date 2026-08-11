@@ -125,6 +125,7 @@ SIDEBAR_STYLE = {
     "position": "fixed", "top": 0, "left": 0, "bottom": 0,
     "width": "260px", "padding": "1rem", "backgroundColor": DARKGRAY,
     "color": "white", "overflowY": "auto", "zIndex": 1000,
+    "transition": "transform 0.3s ease",
 }
 CONTENT_STYLE = {"marginLeft": "260px", "padding": "1.5rem", "background": "#F5F5F0", "minHeight": "100vh"}
 
@@ -249,7 +250,7 @@ def build_sidebar():
     html.Hr(style={"borderColor": "rgba(255,255,255,0.15)"}),
     html.Div(id="sidebar-info", className="small", style={"color": "#94a3b8"}),
 ])
-    return html.Div(children, style=SIDEBAR_STYLE)
+    return html.Div(children, id="sidebar", style=SIDEBAR_STYLE)
 
 
 app.layout = html.Div([
@@ -263,6 +264,14 @@ app.layout = html.Div([
     dcc.Store(id="store-bodega-filter", data="[]"),
     build_sidebar(),
     html.Div([
+        html.Button("☰", id="sidebar-toggle",
+            style={
+                "display": "none", "position": "fixed", "top": "10px", "left": "10px",
+                "zIndex": 1100, "background": DARKGRAY, "color": "white", "border": "none",
+                "fontSize": "1.5rem", "width": "40px", "height": "40px", "borderRadius": "8px",
+                "cursor": "pointer",
+            }
+        ),
         dcc.Loading(
             html.Div([
                 html.Div(id="nav-bar"),
@@ -289,7 +298,7 @@ app.layout = html.Div([
                 "borderRadius": "8px", "border": "1px solid #e5e7eb", "minHeight": "50px"}),
             type="default", color=GOLD,
         ),
-    ], style=CONTENT_STYLE),
+    ], style=CONTENT_STYLE, className="content-area"),
 ])
 
 # ===== NAV BAR CALLBACK =====
@@ -1033,3 +1042,13 @@ def crossfilter_asesor(click_part, click_rank):
     except Exception:
         pass
     return no_update
+
+
+@callback(
+    Output("sidebar", "className"),
+    Input("sidebar-toggle", "n_clicks"),
+    State("sidebar", "className"),
+    prevent_initial_call=True,
+)
+def toggle_sidebar(n, current):
+    return "open" if not current or "open" not in current else ""
