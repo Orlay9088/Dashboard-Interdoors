@@ -160,6 +160,8 @@ def save_all_to_firestore():
             results[tipo] = (len(df), "ok")
         except Exception as e:
             results[tipo] = (0, str(e)[:60])
+    if SKIP_FIRESTORE_FILE.exists():
+        SKIP_FIRESTORE_FILE.unlink(missing_ok=True)
     return results
 
 
@@ -203,8 +205,6 @@ def try_save(df, tipo, filename=""):
     n = len(df)
     save_local(df, tipo)
     save_upload_meta(tipo, filename, n)
-    if SKIP_FIRESTORE_FILE.exists():
-        SKIP_FIRESTORE_FILE.unlink(missing_ok=True)
     if filename:
         save_last_file(tipo, filename)
     return n
@@ -239,7 +239,18 @@ def _save_firestore_chunked(df, tipo, filename):
 
 
 def try_load(tipo):
-    return load_local(tipo), "local"
+    df = load_local(tipo)
+    if not df.empty:
+        return df, "local"
+    if SKIP_FIRESTORE_FILE.exists():
+        return pd.DataFrame(), "local"
+    if not _firestore_available():
+        return pd.DataFrame(), "local"
+    df = _load_from_firestore_chunked(tipo)
+    if not df.empty:
+        save_local(df, tipo)
+        return df, "firestore"
+    return pd.DataFrame(), "local"
 
 
 def _load_from_firestore_chunked(tipo):
