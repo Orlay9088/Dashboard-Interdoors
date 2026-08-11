@@ -302,13 +302,27 @@ def mark_cache_fresh():
 
 
 def clear_local_cache():
+    clear_firestore_data()
     for path in LOCAL_PARQUET.values():
         if path.exists():
             path.unlink()
-    for f in [COUNTER_FILE, CACHE_FILE, META_FILE]:
+    for f in [COUNTER_FILE, CACHE_FILE, META_FILE, LAST_FILES_JSON]:
         if f.exists():
             f.unlink()
     SKIP_FIRESTORE_FILE.touch()
+
+
+def clear_firestore_data():
+    """Delete the current persisted dataset for every module."""
+    _, db = _firestore_client()
+    if not db:
+        return
+    for tipo in LOCAL_PARQUET:
+        try:
+            db.collection(tipo).document("latest").delete(timeout=10)
+        except Exception:
+            pass
+        _delete_firestore_chunks(tipo)
 
 
 def save_upload_meta(tipo, filename, records):
