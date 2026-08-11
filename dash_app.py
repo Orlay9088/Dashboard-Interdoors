@@ -221,6 +221,11 @@ def build_sidebar():
     dcc.Download(id="download-data"),
     html.Div(id="clear-status", style={"fontSize": "0.75rem", "minHeight": "1.2rem"}),
     html.Hr(style={"borderColor": "rgba(255,255,255,0.15)"}),
+    html.H6("Nube", className="text-uppercase small fw-semibold mb-2", style={"color": "#94a3b8"}),
+    dbc.Button("Guardar en la nube", id="btn-save-cloud", color="warning", size="sm", className="w-100 mb-1", style={"fontSize": "0.75rem"}),
+    dbc.Button("Cargar desde la nube", id="btn-load-cloud", color="info", size="sm", className="w-100 mb-1", style={"fontSize": "0.75rem"}),
+    html.Div(id="cloud-status", style={"fontSize": "0.72rem", "minHeight": "1rem", "color": "#94a3b8"}),
+    html.Hr(style={"borderColor": "rgba(255,255,255,0.15)"}),
 
     html.H6("IA Analisis", className="text-uppercase small fw-semibold mb-2", style={"color": "#94a3b8"}),
     dcc.Dropdown(
@@ -852,6 +857,45 @@ def clear_data(n, clear_count):
 def refresh_data(n, count):
     _clear_cache()
     return count + 1
+
+
+@callback(
+    Output("cloud-status", "children"),
+    Output("store-refresh", "data", allow_duplicate=True),
+    Input("btn-save-cloud", "n_clicks"),
+    State("store-refresh", "data"),
+    prevent_initial_call=True,
+)
+def save_to_cloud(n, count):
+    from firebase_config import save_all_to_firestore
+    results = save_all_to_firestore()
+    lines = []
+    for tipo, (n_reg, status) in results.items():
+        if n_reg > 0:
+            lines.append(f"{tipo}: {n_reg:,} reg guardados")
+        else:
+            lines.append(f"{tipo}: {status}")
+    return html.Div("Guardado: " + " | ".join(lines), style={"color": GREEN}), count + 1
+
+
+@callback(
+    Output("cloud-status", "children", allow_duplicate=True),
+    Output("store-refresh", "data", allow_duplicate=True),
+    Input("btn-load-cloud", "n_clicks"),
+    State("store-refresh", "data"),
+    prevent_initial_call=True,
+)
+def load_from_cloud(n, count):
+    from firebase_config import load_all_from_firestore
+    _clear_cache()
+    results = load_all_from_firestore()
+    lines = []
+    for tipo, (n_reg, status) in results.items():
+        if n_reg > 0:
+            lines.append(f"{tipo}: {n_reg:,} reg cargados")
+        else:
+            lines.append(f"{tipo}: {status}")
+    return html.Div("Cargado: " + " | ".join(lines), style={"color": GREEN}), count + 1
 
 
 @callback(

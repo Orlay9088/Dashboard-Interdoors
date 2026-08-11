@@ -147,6 +147,38 @@ STALE_LUNES = True
 UPDATE_HOUR = 8
 
 
+def save_all_to_firestore():
+    results = {}
+    for tipo in LOCAL_PARQUET:
+        df = load_local(tipo)
+        if df.empty:
+            results[tipo] = (0, "sin datos")
+            continue
+        try:
+            _delete_firestore_chunks(tipo)
+            _save_firestore_chunked(df, tipo, get_last_files().get(tipo, ""))
+            results[tipo] = (len(df), "ok")
+        except Exception as e:
+            results[tipo] = (0, str(e)[:60])
+    return results
+
+
+def load_all_from_firestore():
+    results = {}
+    for tipo in LOCAL_PARQUET:
+        df = _load_from_firestore_chunked(tipo)
+        if df.empty:
+            results[tipo] = (0, "sin datos en la nube")
+            continue
+        try:
+            save_local(df, tipo)
+            save_upload_meta(tipo, get_last_files().get(tipo, ""), len(df))
+            results[tipo] = (len(df), "ok")
+        except Exception as e:
+            results[tipo] = (0, str(e)[:60])
+    return results
+
+
 def is_data_stale(tipo):
     age = get_upload_age_hours(tipo)
     if age is None:
@@ -157,8 +189,6 @@ def is_data_stale(tipo):
     if STALE_LUNES and now.weekday() == 0 and now.hour >= UPDATE_HOUR:
         meta = _load_json(META_FILE, {})
         last_str = meta.get(tipo, {}).get("fecha", "")
-        if not last_str and not SKIP_FIRESTORE_FILE.exists() and _firestore_available():
-            last_str = _get_firestore_chunk_meta(tipo).get("fecha", "")
         if last_str:
             try:
                 last_dt = datetime.fromisoformat(last_str)
@@ -177,18 +207,7 @@ def try_save(df, tipo, filename=""):
         SKIP_FIRESTORE_FILE.unlink(missing_ok=True)
     if filename:
         save_last_file(tipo, filename)
-    if _firestore_available():
-        t = threading.Thread(target=_sync_firestore_bg, args=(df.copy(), tipo, filename), daemon=True)
-        t.start()
     return n
-
-
-def _sync_firestore_bg(df, tipo, filename):
-    try:
-        _delete_firestore_chunks(tipo)
-        _save_firestore_chunked(df, tipo, filename)
-    except Exception:
-        pass
 
 
 def _delete_firestore_chunks(tipo):
@@ -220,18 +239,7 @@ def _save_firestore_chunked(df, tipo, filename):
 
 
 def try_load(tipo):
-    df = load_local(tipo)
-    if not df.empty:
-        return df, "local"
-    if SKIP_FIRESTORE_FILE.exists():
-        return pd.DataFrame(), "local"
-    if not _firestore_available():
-        return pd.DataFrame(), "local"
-    df = _load_from_firestore_chunked(tipo)
-    if not df.empty:
-        save_local(df, tipo)
-        return df, "firestore"
-    return pd.DataFrame(), "local"
+    return load_local(tipo), "local"
 
 
 def _load_from_firestore_chunked(tipo):
@@ -345,9 +353,6 @@ def get_upload_age_hours(tipo):
     meta = _load_json(META_FILE, {})
     info = meta.get(tipo, {})
     fecha_str = info.get("fecha", "")
-    if not fecha_str and not SKIP_FIRESTORE_FILE.exists() and _firestore_available():
-        remote_meta = _get_firestore_chunk_meta(tipo)
-        fecha_str = remote_meta.get("fecha", "")
     if not fecha_str:
         return None
     try:
@@ -362,20 +367,7 @@ def get_metadata():
     meta = _load_json(META_FILE, {})
     for tipo in LOCAL_PARQUET:
         info[tipo] = meta.get(tipo, {}).get("registros", 0)
-        if info[tipo] <= 0 and not SKIP_FIRESTORE_FILE.exists() and _firestore_available():
-            info[tipo] = _get_firestore_chunk_meta(tipo).get("registros", 0)
     counter = _load_counter()
     remaining = MAX_SYNCS_PER_DAY - counter.get("count", 0)
     info["syncs_remaining"] = max(0, remaining)
     return info
-
-
-def _get_firestore_chunk_meta(tipo):
-    _, db = _firestore_client()
-    if not db:
-        return {}
-    try:
-        doc = db.collection(f"{tipo}_chunks").document("meta").get(timeout=5)
-        return doc.to_dict() if doc.exists else {}
-    except Exception:
-        return {}
