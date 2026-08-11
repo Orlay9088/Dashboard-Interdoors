@@ -144,6 +144,7 @@ def load_local(tipo, retries=3):
 MAX_FIRESTORE_CHUNK = 850_000
 STALE_HOURS = 144
 STALE_LUNES = True
+UPDATE_HOUR = 8
 
 
 def is_data_stale(tipo):
@@ -152,9 +153,12 @@ def is_data_stale(tipo):
         return False
     if age > STALE_HOURS:
         return True
-    if STALE_LUNES and datetime.now().weekday() == 0:
+    now = datetime.now()
+    if STALE_LUNES and now.weekday() == 0 and now.hour >= UPDATE_HOUR:
         meta = _load_json(META_FILE, {})
         last_str = meta.get(tipo, {}).get("fecha", "")
+        if not last_str and not SKIP_FIRESTORE_FILE.exists() and _firestore_available():
+            last_str = _get_firestore_chunk_meta(tipo).get("fecha", "")
         if last_str:
             try:
                 last_dt = datetime.fromisoformat(last_str)
@@ -317,12 +321,12 @@ def clear_firestore_data():
     _, db = _firestore_client()
     if not db:
         return
-    for tipo in LOCAL_PARQUET:
+    for collection_name in [*LOCAL_PARQUET, *[f"{tipo}_chunks" for tipo in LOCAL_PARQUET], "metadata", "_metadata"]:
         try:
-            db.collection(tipo).document("latest").delete(timeout=10)
+            for doc in db.collection(collection_name).stream(timeout=10):
+                doc.reference.delete(timeout=10)
         except Exception:
             pass
-        _delete_firestore_chunks(tipo)
 
 
 def save_upload_meta(tipo, filename, records):
@@ -341,6 +345,9 @@ def get_upload_age_hours(tipo):
     meta = _load_json(META_FILE, {})
     info = meta.get(tipo, {})
     fecha_str = info.get("fecha", "")
+    if not fecha_str and not SKIP_FIRESTORE_FILE.exists() and _firestore_available():
+        remote_meta = _get_firestore_chunk_meta(tipo)
+        fecha_str = remote_meta.get("fecha", "")
     if not fecha_str:
         return None
     try:
@@ -355,7 +362,20 @@ def get_metadata():
     meta = _load_json(META_FILE, {})
     for tipo in LOCAL_PARQUET:
         info[tipo] = meta.get(tipo, {}).get("registros", 0)
+        if info[tipo] <= 0 and not SKIP_FIRESTORE_FILE.exists() and _firestore_available():
+            info[tipo] = _get_firestore_chunk_meta(tipo).get("registros", 0)
     counter = _load_counter()
     remaining = MAX_SYNCS_PER_DAY - counter.get("count", 0)
     info["syncs_remaining"] = max(0, remaining)
     return info
+
+
+def _get_firestore_chunk_meta(tipo):
+    _, db = _firestore_client()
+    if not db:
+        return {}
+    try:
+        doc = db.collection(f"{tipo}_chunks").document("meta").get(timeout=5)
+        return doc.to_dict() if doc.exists else {}
+    except Exception:
+        return {}

@@ -442,7 +442,19 @@ def render_page_content(module, page, filters, refresh_count, clear_count, paret
         if not func:
             return dmc.Alert(f"Pagina no encontrada", title="Error", color="red")
         try:
-            return html.Div(func(data))
+            content = func(data)
+            from firebase_config import is_data_stale, get_upload_age_hours
+            if is_data_stale(module):
+                age = get_upload_age_hours(module)
+                age_text = f" hace {int(age / 24)} dias" if age is not None else ""
+                notice = dmc.Alert(
+                    f"Actualiza los datos de {mod_info['label']}{age_text}. La actualizacion semanal es cada lunes desde las 8:00 a. m.",
+                    title="Actualizacion pendiente",
+                    color="yellow", variant="light", withCloseButton=False,
+                    className="mb-3",
+                )
+                content = [notice] + (content if isinstance(content, list) else [content])
+            return html.Div(content)
         except Exception as e:
             return dmc.Alert([html.Div(f"Error: {module}/{page}", style={"fontWeight":"bold"}),
                              html.Div(str(e), className="small text-muted mt-1"),
@@ -527,7 +539,7 @@ def update_badges_and_sidebar(_refresh, _clear):
         if count > 0:
             badge_text = f"{count:,} reg"
             if stale:
-                badge_text = f"  {badge_text}"
+                badge_text = f"{badge_text} | actualizar"
             badges.append(badge_text)
             info_lines.append(f"{tipo}: {count:,}")
         else:
