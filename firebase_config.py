@@ -228,9 +228,13 @@ def _delete_firestore_chunks(tipo):
     if not db:
         return
     try:
-        docs = db.collection(f"{tipo}_chunks").stream(timeout=10)
-        for doc in docs:
-            doc.reference.delete()
+        collection = db.collection(f"{tipo}_chunks")
+        meta_ref = collection.document("meta")
+        meta = meta_ref.get(timeout=5)
+        count = meta.to_dict().get("count", 0) if meta.exists else 0
+        for idx in range(int(count)):
+            collection.document(f"chunk_{idx}").delete(timeout=10)
+        meta_ref.delete(timeout=10)
     except Exception:
         pass
 
