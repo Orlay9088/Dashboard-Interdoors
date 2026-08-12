@@ -225,7 +225,9 @@ def kahoot_podium(rank_df):
     for display_i, data_i in order_map:
         r = top3.iloc[data_i]
         initials = "".join([w[0] for w in str(r["_vendedor"]).split()[:2]]).upper()
-        c = colors[display_i]
+        # Use the actual ranking position for medal and color. The visual
+        # podium order is intentionally different from left to right.
+        c = colors[data_i]
         is_top = data_i == 0
 
         presup = r.get("% Presup", 0)
@@ -287,7 +289,7 @@ def kahoot_podium(rank_df):
             }),
         ], style={
             "position": "relative",
-            "width": "200px", "minHeight": heights[display_i],
+            "width": "200px", "minHeight": heights[data_i],
             "background": c["bg"], "color": c["tx"],
             "borderRadius": "14px",
             "padding": "16px 12px 14px 12px",
@@ -313,4 +315,3 @@ def kahoot_podium(rank_df):
             "padding": "8px 0 4px 0",
         }),
     ], style={"margin": "12px 0 24px 0"})
-
