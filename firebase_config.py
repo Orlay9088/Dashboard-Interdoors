@@ -78,10 +78,11 @@ def _use_firestore_sync():
 _firestore_app = None
 _firestore_db = None
 _firestore_failed = False
+_firestore_error = ""
 
 
 def _firestore_client():
-    global _firestore_app, _firestore_db, _firestore_failed
+    global _firestore_app, _firestore_db, _firestore_failed, _firestore_error
     if _firestore_failed:
         return None, None
     if _firestore_app and _firestore_db:
@@ -113,13 +114,19 @@ def _firestore_client():
                     break
             else:
                 _firestore_failed = True
+                _firestore_error = "No se encontro firebase-key.json en Render"
                 return None, None
         _firestore_app = firebase_admin.initialize_app(cred)
         _firestore_db = firestore.client()
         return _firestore_app, _firestore_db
-    except Exception:
+    except Exception as exc:
         _firestore_failed = True
+        _firestore_error = str(exc).replace("\n", " ")[:240]
         return None, None
+
+
+def get_firestore_error():
+    return _firestore_error or "Error desconocido al inicializar Firestore"
 
 
 def save_local(df, tipo):
@@ -169,7 +176,7 @@ def save_all_to_firestore():
             if not _firestore_available():
                 raise RuntimeError("Firebase no configurado: agrega el Secret File firebase-key.json en Render")
             if not _firestore_client()[1]:
-                raise RuntimeError("Firebase configurado pero no pudo inicializarse; revisa permisos y proyecto")
+                raise RuntimeError(f"Firebase no pudo inicializarse: {get_firestore_error()}")
             saved = _save_firestore_chunked(df, tipo, get_last_files().get(tipo, ""))
             if saved != len(df):
                 raise RuntimeError("Firebase no confirmo la escritura")
