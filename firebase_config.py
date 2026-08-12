@@ -95,7 +95,13 @@ def _firestore_client():
             return _firestore_app, _firestore_db
         key = os.environ.get("FIREBASE_KEY_JSON")
         if key:
-            cred = credentials.Certificate(json.loads(key))
+            try:
+                cred = credentials.Certificate(json.loads(key))
+            except json.JSONDecodeError:
+                key_path = Path(key)
+                if not key_path.exists():
+                    raise RuntimeError("FIREBASE_KEY_JSON no contiene JSON ni una ruta valida")
+                cred = credentials.Certificate(str(key_path))
         else:
             local = Path(__file__).parent
             render = Path("/etc/secrets")
@@ -160,8 +166,10 @@ def save_all_to_firestore():
             continue
         attempted += 1
         try:
-            if not _firestore_available() or not _firestore_client()[1]:
-                raise RuntimeError("Firebase no disponible: falta FIREBASE_KEY_JSON o el secreto de Render")
+            if not _firestore_available():
+                raise RuntimeError("Firebase no configurado: agrega el Secret File firebase-key.json en Render")
+            if not _firestore_client()[1]:
+                raise RuntimeError("Firebase configurado pero no pudo inicializarse; revisa permisos y proyecto")
             saved = _save_firestore_chunked(df, tipo, get_last_files().get(tipo, ""))
             if saved != len(df):
                 raise RuntimeError("Firebase no confirmo la escritura")
