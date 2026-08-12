@@ -149,24 +149,31 @@ UPDATE_HOUR = 8
 
 def save_all_to_firestore():
     results = {}
+    attempted = 0
+    successful = 0
     for tipo in LOCAL_PARQUET:
         df = load_local(tipo)
         if df.empty:
             results[tipo] = (0, "sin datos")
             continue
+        attempted += 1
         try:
             _delete_firestore_chunks(tipo)
-            _save_firestore_chunked(df, tipo, get_last_files().get(tipo, ""))
-            results[tipo] = (len(df), "ok")
+            saved = _save_firestore_chunked(df, tipo, get_last_files().get(tipo, ""))
+            if saved != len(df):
+                raise RuntimeError("Firebase no confirmo la escritura")
+            successful += 1
+            results[tipo] = (saved, "ok")
         except Exception as e:
             results[tipo] = (0, str(e)[:60])
-    if SKIP_FIRESTORE_FILE.exists():
+    if attempted > 0 and successful == attempted and SKIP_FIRESTORE_FILE.exists():
         SKIP_FIRESTORE_FILE.unlink(missing_ok=True)
     return results
 
 
 def load_all_from_firestore():
     results = {}
+    successful = 0
     for tipo in LOCAL_PARQUET:
         df = _load_from_firestore_chunked(tipo)
         if df.empty:
@@ -175,9 +182,12 @@ def load_all_from_firestore():
         try:
             save_local(df, tipo)
             save_upload_meta(tipo, get_last_files().get(tipo, ""), len(df))
+            successful += 1
             results[tipo] = (len(df), "ok")
         except Exception as e:
             results[tipo] = (0, str(e)[:60])
+    if successful > 0 and SKIP_FIRESTORE_FILE.exists():
+        SKIP_FIRESTORE_FILE.unlink(missing_ok=True)
     return results
 
 
@@ -236,6 +246,7 @@ def _save_firestore_chunked(df, tipo, filename):
     col_ref.document("meta").set({"count": len(chunks), "filename": filename,
                                    "fecha": datetime.now().isoformat(),
                                    "registros": len(df), "columnas": list(df.columns)}, timeout=10)
+    return len(df)
 
 
 def try_load(tipo):
