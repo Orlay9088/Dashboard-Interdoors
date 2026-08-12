@@ -158,7 +158,8 @@ def save_all_to_firestore():
             continue
         attempted += 1
         try:
-            _delete_firestore_chunks(tipo)
+            if not _firestore_available() or not _firestore_client()[1]:
+                raise RuntimeError("Firebase no disponible: falta FIREBASE_KEY_JSON o el secreto de Render")
             saved = _save_firestore_chunked(df, tipo, get_last_files().get(tipo, ""))
             if saved != len(df):
                 raise RuntimeError("Firebase no confirmo la escritura")
@@ -235,7 +236,7 @@ def _delete_firestore_chunks(tipo):
 def _save_firestore_chunked(df, tipo, filename):
     _, db = _firestore_client()
     if not db:
-        return 0
+        raise RuntimeError("Firebase no disponible: no hay cliente Firestore")
     buf = io.BytesIO()
     df.to_parquet(buf, index=False)
     raw = base64.b64encode(buf.getvalue()).decode("ascii")
