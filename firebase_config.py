@@ -79,6 +79,7 @@ _firestore_app = None
 _firestore_db = None
 _firestore_failed = False
 _firestore_error = ""
+_firestore_lock = threading.Lock()
 
 
 def _firestore_client():
@@ -87,42 +88,54 @@ def _firestore_client():
         return None, None
     if _firestore_app and _firestore_db:
         return _firestore_app, _firestore_db
-    try:
-        import firebase_admin
-        from firebase_admin import credentials, firestore
-        if firebase_admin._apps:
-            _firestore_app = list(firebase_admin._apps.values())[0]
-            _firestore_db = firestore.client()
+    with _firestore_lock:
+        if _firestore_app and _firestore_db:
             return _firestore_app, _firestore_db
-        key = os.environ.get("FIREBASE_KEY_JSON")
-        if key:
-            try:
-                cred = credentials.Certificate(json.loads(key))
-            except json.JSONDecodeError:
-                key_path = Path(key)
-                if not key_path.exists():
-                    raise RuntimeError("FIREBASE_KEY_JSON no contiene JSON ni una ruta valida")
-                cred = credentials.Certificate(str(key_path))
-        else:
-            local = Path(__file__).parent
-            render = Path("/etc/secrets")
-            key_paths = [render / "firebase-key.json", render / "firebase-key",
-                         local / "firebase-key.json", local / "firebase-key"]
-            for p in key_paths:
-                if p.exists():
-                    cred = credentials.Certificate(str(p))
-                    break
+        try:
+            import firebase_admin
+            from firebase_admin import credentials, firestore
+
+            if firebase_admin._apps:
+                _firestore_app = firebase_admin.get_app()
+                _firestore_db = firestore.client(app=_firestore_app)
+                return _firestore_app, _firestore_db
+
+            key = os.environ.get("FIREBASE_KEY_JSON")
+            if key:
+                try:
+                    cred = credentials.Certificate(json.loads(key))
+                except json.JSONDecodeError:
+                    key_path = Path(key)
+                    if not key_path.exists():
+                        raise RuntimeError("FIREBASE_KEY_JSON no contiene JSON ni una ruta valida")
+                    cred = credentials.Certificate(str(key_path))
             else:
-                _firestore_failed = True
-                _firestore_error = "No se encontro firebase-key.json en Render"
-                return None, None
-        _firestore_app = firebase_admin.initialize_app(cred)
-        _firestore_db = firestore.client()
-        return _firestore_app, _firestore_db
-    except Exception as exc:
-        _firestore_failed = True
-        _firestore_error = str(exc).replace("\n", " ")[:240]
-        return None, None
+                local = Path(__file__).parent
+                render = Path("/etc/secrets")
+                key_paths = [render / "firebase-key.json", render / "firebase-key",
+                             local / "firebase-key.json", local / "firebase-key"]
+                for p in key_paths:
+                    if p.exists():
+                        cred = credentials.Certificate(str(p))
+                        break
+                else:
+                    _firestore_failed = True
+                    _firestore_error = "No se encontro firebase-key.json en Render"
+                    return None, None
+
+            try:
+                _firestore_app = firebase_admin.initialize_app(cred)
+            except ValueError as exc:
+                # Another callback may have initialized the default app first.
+                if "already exists" not in str(exc).lower():
+                    raise
+                _firestore_app = firebase_admin.get_app()
+            _firestore_db = firestore.client(app=_firestore_app)
+            return _firestore_app, _firestore_db
+        except Exception as exc:
+            _firestore_failed = True
+            _firestore_error = str(exc).replace("\n", " ")[:240]
+            return None, None
 
 
 def get_firestore_error():
