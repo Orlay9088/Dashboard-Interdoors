@@ -97,9 +97,11 @@ def _firestore_client():
         if key:
             cred = credentials.Certificate(json.loads(key))
         else:
-            local = Path(__file__).parent / "firebase-key.json"
-            render = Path("/etc/secrets/firebase-key.json")
-            for p in [render, local]:
+            local = Path(__file__).parent
+            render = Path("/etc/secrets")
+            key_paths = [render / "firebase-key.json", render / "firebase-key",
+                         local / "firebase-key.json", local / "firebase-key"]
+            for p in key_paths:
                 if p.exists():
                     cred = credentials.Certificate(str(p))
                     break
@@ -296,9 +298,11 @@ def _load_from_firestore_chunked(tipo):
 def _firestore_available():
     if os.environ.get("FIREBASE_KEY_JSON"):
         return True
-    if (Path(__file__).parent / "firebase-key.json").exists():
+    local = Path(__file__).parent
+    if (local / "firebase-key.json").exists() or (local / "firebase-key").exists():
         return True
-    if Path("/etc/secrets/firebase-key.json").exists():
+    render = Path("/etc/secrets")
+    if (render / "firebase-key.json").exists() or (render / "firebase-key").exists():
         return True
     return False
 
