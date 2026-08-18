@@ -1,9 +1,12 @@
+/* =========================================================
+   BUTTON UTILITIES — with AppState integration
+   Fixes: loading states, confirm, upload preview, shortcuts
+   ========================================================= */
 document.addEventListener("DOMContentLoaded", function () {
 
   /* =========================================================
-     1. BUTTON LOADING STATES
-     Buttons with data-loading="true" get disabled + spinner
-     on click, re-enabled after Dash callback completes.
+     1. BUTTON LOADING STATES (Bug 1+2 fix)
+     Uses MutationObserver on Dash loading overlay + per-click timeout.
      ========================================================= */
   var LOADING_IDS = [
     "btn-save-cloud", "btn-load-cloud", "btn-reload-module",
@@ -27,19 +30,30 @@ document.addEventListener("DOMContentLoaded", function () {
       btn.setAttribute("data-original-text", btn.innerHTML);
       btn.disabled = true;
       btn.classList.add("is-loading");
+      btn.innerHTML = "";
       var spinner = document.createElement("span");
       spinner.className = "btn-spinner";
-      btn.innerHTML = "";
       btn.appendChild(spinner);
       var lbl = document.createElement("span");
       lbl.className = "btn-loading-label";
       lbl.textContent = LOADING_TEXT[btnId] || "Procesando...";
       btn.appendChild(lbl);
+      if (typeof AppState !== "undefined") AppState.setLoading(btnId, true);
     } else {
       btn.disabled = false;
       btn.classList.remove("is-loading");
       btn.innerHTML = btn.getAttribute("data-original-text") || btn.innerHTML;
+      if (typeof AppState !== "undefined") AppState.setLoading(btnId, false);
     }
+  }
+
+  function clearAllLoading() {
+    LOADING_IDS.forEach(function (id) {
+      var btn = document.getElementById(id);
+      if (btn && btn.classList.contains("is-loading")) {
+        setButtonLoading(btn, false, id);
+      }
+    });
   }
 
   LOADING_IDS.forEach(function (id) {
@@ -47,89 +61,117 @@ document.addEventListener("DOMContentLoaded", function () {
     if (!btn) return;
     btn.addEventListener("click", function () {
       setButtonLoading(btn, true, id);
+      setTimeout(function () {
+        setButtonLoading(btn, false, id);
+      }, 20000);
     });
   });
 
-  document.addEventListener("dash:callback", function () {
-    LOADING_IDS.forEach(function (id) {
-      var btn = document.getElementById(id);
-      if (btn && btn.classList.contains("is-loading")) {
-        setButtonLoading(btn, false, id);
-      }
-    });
+  /* MutationObserver: detect when Dash loading overlay disappears */
+  var observer = new MutationObserver(function () {
+    var overlay = document.querySelector(
+      "#_dash-loading, .dash-loading--default, ._dash-loading"
+    );
+    if (!overlay || overlay.style.display === "none" || overlay.children.length === 0) {
+      clearAllLoading();
+    }
+  });
+  observer.observe(document.body, {
+    childList: true,
+    subtree: true,
+    attributes: true,
+    attributeFilter: ["style", "class"],
   });
 
-  setTimeout(function () {
-    LOADING_IDS.forEach(function (id) {
+  /* Also listen for Dash layout updates */
+  var dashRoot = document.getElementById("react-entry-point") || document.getElementById("dash-app-content") || document.body;
+  observer.observe(dashRoot, { childList: true, subtree: true });
+
+  /* Fallback: check every 3 seconds if no loading overlay exists */
+  setInterval(function () {
+    var overlay = document.querySelector(
+      "#_dash-loading, .dash-loading--default, ._dash-loading"
+    );
+    var anyActive = LOADING_IDS.some(function (id) {
       var btn = document.getElementById(id);
-      if (btn && btn.classList.contains("is-loading")) {
-        setButtonLoading(btn, false, id);
-      }
+      return btn && btn.classList.contains("is-loading");
     });
-  }, 20000);
+    if (anyActive && (!overlay || overlay.style.display === "none" || overlay.children.length === 0)) {
+      clearAllLoading();
+    }
+  }, 3000);
 
   /* =========================================================
-     2. CONFIRMATION BEFORE DESTRUCTIVE ACTIONS
-     Intercept clear-data click and show confirm dialog.
+     2. CONFIRMATION BEFORE DESTRUCTIVE ACTIONS (Bug 3 fix)
+     Removed JS hack — now handled by Dash server-side
+     via dcc.ConfirmDialogProvider.
      ========================================================= */
-  var clearBtn = document.getElementById("clear-data");
-  if (clearBtn) {
-    clearBtn.addEventListener("click", function (e) {
-      if (!window.confirm("Esto limpiara todos los datos locales y la nube.\n\n¿Continuar?")) {
-        e.stopImmediatePropagation();
-        e.preventDefault();
-        return false;
-      }
-    }, true);
-  }
 
   /* =========================================================
-     3. FILE UPLOAD PREVIEW
-     Show file size and validate type before upload.
+     3. FILE UPLOAD PREVIEW (Bug 4+10 fix)
+     Listens on internal file input change event, works for
+     both click-to-select and drag-and-drop.
      ========================================================= */
-  var uploadEl = document.getElementById("upload-data");
-  var fileNameEl = document.getElementById("file-name");
-
   function formatSize(bytes) {
     if (bytes < 1024) return bytes + " B";
     if (bytes < 1048576) return (bytes / 1024).toFixed(1) + " KB";
     return (bytes / 1048576).toFixed(1) + " MB";
   }
 
-  if (uploadEl && fileNameEl) {
-    uploadEl.addEventListener("drop", function (e) {
-      var files = e.dataTransfer && e.dataTransfer.files;
-      if (files && files.length > 0) {
-        var f = files[0];
-        var ext = f.name.split(".").pop().toLowerCase();
-        if (["xlsx", "xls"].indexOf(ext) === -1) {
-          fileNameEl.innerHTML = '<span style="color:#f87171">Archivo no valido. Solo se aceptan .xlsx o .xls</span>';
-          e.preventDefault();
-          return false;
+  function setupUploadPreview() {
+    var uploadEl = document.getElementById("upload-data");
+    var fileNameEl = document.getElementById("file-name");
+    if (!uploadEl || !fileNameEl) return;
+
+    var internalInput = uploadEl.querySelector('input[type="file"]');
+    if (internalInput) {
+      internalInput.addEventListener("change", function (e) {
+        var files = e.target.files;
+        if (files && files.length > 0) {
+          var f = files[0];
+          var ext = f.name.split(".").pop().toLowerCase();
+          if (["xlsx", "xls"].indexOf(ext) === -1) {
+            fileNameEl.innerHTML = '<span style="color:#f87171">Archivo no valido. Solo .xlsx o .xls</span>';
+          } else {
+            fileNameEl.innerHTML =
+              '<span style="color:#93c5fd">' + f.name + "</span> " +
+              '<span style="color:#64748b">(' + formatSize(f.size) + ")</span>";
+          }
         }
-        fileNameEl.innerHTML = '<span style="color:#93c5fd">' + f.name + '</span> <span style="color:#64748b">(' + formatSize(f.size) + ')</span>';
-      }
-    }, true);
+      });
+    }
   }
+  setupUploadPreview();
 
   /* =========================================================
-     4. KEYBOARD SHORTCUTS
-     R = refresh, Ctrl+D = download, 1/2/3 = modules
-     Only active when no input/textarea/dropdown is focused.
+     4. KEYBOARD SHORTCUTS (Bug 5 fix)
+     Alt+R = refresh, Ctrl+D = download, 1/2/3 = modules.
+     Properly detects Dash dropdowns.
      ========================================================= */
+  function isInDropdown(el) {
+    if (!el || !el.closest) return false;
+    return !!(
+      el.closest(".dropdown-menu") ||
+      el.closest(".dash-dropdown") ||
+      el.closest("[class*='react-select']") ||
+      el.closest("[class*='Select']") ||
+      el.closest("[class*='Mantine']") ||
+      el.closest(".ant-select-dropdown")
+    );
+  }
+
+  function isInInput(el) {
+    if (!el) return false;
+    var tag = (el.tagName || "").toLowerCase();
+    if (tag === "input" || tag === "textarea" || tag === "select") return true;
+    if (el.getAttribute && el.getAttribute("role") === "textbox") return true;
+    return false;
+  }
+
   document.addEventListener("keydown", function (e) {
-    var tag = (e.target.tagName || "").toLowerCase();
-    if (tag === "input" || tag === "textarea" || tag === "select") return;
-    if (e.target.closest && e.target.closest(".dropdown-menu")) return;
+    if (isInInput(e.target) || isInDropdown(e.target)) return;
 
-    if (e.key === "r" || e.key === "R") {
-      if (e.ctrlKey || e.metaKey) return;
-      e.preventDefault();
-      var refreshBtn = document.getElementById("refresh-data");
-      if (refreshBtn) refreshBtn.click();
-      return;
-    }
-
+    /* Ctrl+D = Download CSV */
     if ((e.ctrlKey || e.metaKey) && (e.key === "d" || e.key === "D")) {
       e.preventDefault();
       var dlBtn = document.getElementById("btn-download-csv");
@@ -137,19 +179,28 @@ document.addEventListener("DOMContentLoaded", function () {
       return;
     }
 
-    if (e.key === "1") {
+    /* Alt+R = Refresh (not bare R) */
+    if (e.altKey && (e.key === "r" || e.key === "R")) {
+      e.preventDefault();
+      var refreshBtn = document.getElementById("refresh-data");
+      if (refreshBtn) refreshBtn.click();
+      return;
+    }
+
+    /* 1/2/3 = Module switch */
+    if (e.key === "1" && !e.altKey && !e.ctrlKey && !e.metaKey) {
       e.preventDefault();
       var p = document.getElementById("mod-pedidos");
       if (p) p.click();
       return;
     }
-    if (e.key === "2") {
+    if (e.key === "2" && !e.altKey && !e.ctrlKey && !e.metaKey) {
       e.preventDefault();
       var f = document.getElementById("mod-facturas");
       if (f) f.click();
       return;
     }
-    if (e.key === "3") {
+    if (e.key === "3" && !e.altKey && !e.ctrlKey && !e.metaKey) {
       e.preventDefault();
       var inv = document.getElementById("mod-inventario");
       if (inv) inv.click();
@@ -159,7 +210,6 @@ document.addEventListener("DOMContentLoaded", function () {
 
   /* =========================================================
      5. TOAST NOTIFICATION HELPER
-     Shows a brief toast for shortcut feedback.
      ========================================================= */
   window.showToast = function (msg, duration) {
     duration = duration || 1500;

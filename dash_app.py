@@ -265,8 +265,12 @@ app.layout = html.Div([
     dcc.Store(id="store-pareto-canal", data="TODOS"),
     dcc.Store(id="store-facturas-rango", data=[]),
     dcc.Store(id="store-bodega-filter", data="[]"),
-    dcc.Store(id="store-resumen-canal", data="TODOS"),
-    dcc.Store(id="store-resumen-rango", data=[]),
+    dcc.Store(id="store-clear-confirm", data=False),
+    dcc.ConfirmDialog(
+        id="confirm-clear",
+        message="Esto limpiará todos los datos locales y la nube.\n\n¿Continuar?",
+        displayed=False,
+    ),
     dcc.Interval(id="stale-interval", interval=60 * 60 * 1000, n_intervals=0),
     build_sidebar(),
     html.Div([
@@ -393,10 +397,12 @@ def render_canal_bar(module, page, pareto_canal, _refresh):
     Input("store-module", "data"),
     Input("store-page", "data"),
     Input("store-refresh", "data"),
+    Input("store-clear", "data"),
+    Input("store-pareto-canal", "data"),
     State("store-filters", "data"),
     prevent_initial_call=True,
 )
-def render_resumen_filter_bar(module, page, _refresh, filters_json):
+def render_resumen_filter_bar(module, page, _refresh, _clear, pareto_canal, filters_json):
     hidden = ([], {"display": "none"}, no_update, no_update, no_update, no_update, no_update)
     if str(module).strip().lower() != "pedidos" or str(page).strip().lower() != "resumen":
         return hidden
@@ -411,9 +417,7 @@ def render_resumen_filter_bar(module, page, _refresh, filters_json):
         filters = {}
 
     canales = ["TODOS"] + sorted(df["_canal"].dropna().unique().tolist()) if "_canal" in df.columns else ["TODOS"]
-    canal_val = filters.get("canal", "TODOS")
-    if canal_val not in canales:
-        canal_val = "TODOS"
+    canal_val = pareto_canal if pareto_canal and pareto_canal in canales else "TODOS"
 
     canal_dropdown = html.Div([
         html.Span("Canal: ", style={"fontSize": "0.78rem", "color": GRAY, "marginRight": "6px", "fontWeight": "500"}),
@@ -453,32 +457,34 @@ def render_resumen_filter_bar(module, page, _refresh, filters_json):
 
 
 @callback(
-    Output("store-filters", "data", allow_duplicate=True),
+    Output("store-pareto-canal", "data", allow_duplicate=True),
     Input("resumen-canal-dropdown", "value"),
+    prevent_initial_call=True,
+)
+def update_resumen_canal(canal):
+    if not canal or canal == "TODOS":
+        return "TODOS"
+    return canal
+
+
+@callback(
+    Output("store-filters", "data", allow_duplicate=True),
     Input("resumen-date-range", "start_date"),
     Input("resumen-date-range", "end_date"),
     State("store-filters", "data"),
     prevent_initial_call=True,
 )
-def update_resumen_filters(canal, start_date, end_date, current_json):
+def update_resumen_dates(start_date, end_date, current_json):
     import json as _json
     try:
         filters = _json.loads(current_json) if isinstance(current_json, str) else (current_json or {})
     except Exception:
         filters = {}
     filters = dict(filters)
-
-    ctx = dash.ctx
-    if ctx.triggered:
-        prop = ctx.triggered[0]["prop_id"].split(".")[0]
-        if prop == "resumen-canal-dropdown":
-            filters["canal"] = canal if canal and canal != "TODOS" else "Todos"
-        elif prop == "resumen-date-range":
-            if start_date and end_date:
-                filters["rango"] = [start_date, end_date]
-            else:
-                filters.pop("rango", None)
-
+    if start_date and end_date:
+        filters["rango"] = [start_date, end_date]
+    else:
+        filters.pop("rango", None)
     return _json.dumps(filters)
 
 
@@ -910,6 +916,7 @@ def highlight_active_module(module):
     Output("store-module", "data", allow_duplicate=True),
     Output("store-tipo", "data"),
     Output("store-page", "data", allow_duplicate=True),
+    Output("store-filters", "data", allow_duplicate=True),
     Input("btn-process", "n_clicks"),
     State("upload-data", "contents"),
     State("upload-data", "filename"),
@@ -918,12 +925,13 @@ def highlight_active_module(module):
     prevent_initial_call=True,
 )
 def process_upload(n_clicks, contents, filename, refresh_count, active_module):
+    import json
     if not contents:
-        return html.Div("Selecciona un archivo Excel primero.", style={"color": AMBER}), no_update, no_update, no_update, no_update
+        return html.Div("Selecciona un archivo Excel primero.", style={"color": AMBER}), no_update, no_update, no_update, no_update, no_update
     if not filename:
-        return html.Div("Selecciona un archivo.", style={"color": AMBER}), no_update, no_update, no_update, no_update
+        return html.Div("Selecciona un archivo.", style={"color": AMBER}), no_update, no_update, no_update, no_update, no_update
     if not filename.endswith((".xlsx", ".xls")):
-        return html.Div("Solo archivos Excel.", style={"color": RED}), no_update, no_update, no_update, no_update
+        return html.Div("Solo archivos Excel.", style={"color": RED}), no_update, no_update, no_update, no_update, no_update
     try:
         content_type, content_string = contents.split(",", 1)
         decoded = base64.b64decode(content_string)
@@ -938,7 +946,7 @@ def process_upload(n_clicks, contents, filename, refresh_count, active_module):
                 html.Div(f"No se pudo identificar el tipo de archivo", style={"color": RED, "fontWeight": "bold"}),
                 html.Div(f"Columnas encontradas no coinciden con pedidos, facturas ni inventario.", className="small", style={"color": "#f87171"}),
                 html.Div(f"Verifica que el archivo tenga las columnas requeridas.", className="small mt-1", style={"color": GRAY}),
-            ]), no_update, no_update, no_update, no_update
+            ]), no_update, no_update, no_update, no_update, no_update
         df_raw = pd.read_excel(str(ruta), sheet_name=sheet)
         df_norm = normalizar(df_raw, tipo)
         df_proc = procesar_etl(df_norm)
@@ -963,14 +971,14 @@ def process_upload(n_clicks, contents, filename, refresh_count, active_module):
             html.Div(f"{tipo.upper()}: {n_reg:,} registros guardados",
                      style={"color": GREEN, "fontWeight": "bold"}),
             switch_msg,
-        ]), refresh_count + 1, no_update, tipo, no_update
+        ]), refresh_count + 1, no_update, tipo, no_update, json.dumps({})
     except Exception as e:
         detalle = traceback.format_exc()
         print(detalle)
         return html.Div([
             html.Div("Error procesando archivo", style={"color": RED, "fontWeight": "bold"}),
             html.Div(str(e), className="small", style={"color": "#f87171"}),
-        ]), no_update, no_update, no_update, no_update
+        ]), no_update, no_update, no_update, no_update, no_update
 
 
 
@@ -1016,15 +1024,45 @@ def download_csv(n, module, filters, pareto_canal, facturas_range, bodega_filter
     Output("clear-status", "children"),
     Output("store-clear", "data"),
     Output("store-filters", "data", allow_duplicate=True),
+    Output("store-pareto-canal", "data", allow_duplicate=True),
     Input("clear-data", "n_clicks"),
     State("store-clear", "data"),
     prevent_initial_call=True,
 )
 def clear_data(n, clear_count):
+    return no_update, no_update, no_update, no_update
+
+
+@callback(
+    Output("confirm-clear", "displayed"),
+    Input("clear-data", "n_clicks"),
+    prevent_initial_call=True,
+)
+def show_clear_confirm(n):
+    return True
+
+
+@callback(
+    Output("clear-status", "children"),
+    Output("store-clear", "data"),
+    Output("store-filters", "data", allow_duplicate=True),
+    Output("store-pareto-canal", "data", allow_duplicate=True),
+    Input("confirm-clear", "submit_n_clicks"),
+    State("store-clear", "data"),
+    prevent_initial_call=True,
+)
+def execute_clear_confirmed(submit_n, clear_count):
     import json
+    if not submit_n:
+        return no_update, no_update, no_update, no_update
     _clear_cache()
     clear_local_cache()
-    return html.Div("Datos limpiados.", style={"color": GREEN}), clear_count + 1, json.dumps({})
+    return (
+        html.Div("Datos limpiados.", style={"color": GREEN}),
+        (clear_count or 0) + 1,
+        json.dumps({}),
+        "TODOS",
+    )
 @callback(
     Output("store-refresh", "data", allow_duplicate=True),
     Input("refresh-data", "n_clicks"),
@@ -1139,7 +1177,7 @@ def navigate_buttons(n_clicks, current_page):
 
 # Pareto canal selector callback
 @callback(
-    Output("store-pareto-canal", "data"),
+    Output("store-pareto-canal", "data", allow_duplicate=True),
     Input({"type": "canal-btn", "name": ALL}, "n_clicks"),
     State("store-pareto-canal", "data"),
     prevent_initial_call=True,
@@ -1174,17 +1212,16 @@ def home_navigate_module(n_clicks):
 
 # ===== CROSS-FILTERING: Click en gráfico → actualizar store-filters =====
 @callback(
-    Output("store-filters", "data", allow_duplicate=True),
+    Output("store-pareto-canal", "data", allow_duplicate=True),
     Input("chart-canal-pie", "clickData"),
     prevent_initial_call=True,
 )
 def crossfilter_canal(clickData):
-    import json
     if not clickData:
         return no_update
     try:
         canal = clickData["points"][0]["label"]
-        return json.dumps({"canal": canal, "asesor": "Todos", "estado": "Todos", "linea": "Todos", "sublinea": "Todos"})
+        return canal
     except Exception:
         return no_update
 
@@ -1193,9 +1230,10 @@ def crossfilter_canal(clickData):
     Output("store-filters", "data", allow_duplicate=True),
     Input("chart-asesor-participacion", "clickData"),
     Input("chart-ranking-asesores", "clickData"),
+    State("store-filters", "data"),
     prevent_initial_call=True,
 )
-def crossfilter_asesor(click_part, click_rank):
+def crossfilter_asesor(click_part, click_rank, current_json):
     import json
     ctx = dash.ctx
     if not ctx.triggered:
@@ -1206,7 +1244,13 @@ def crossfilter_asesor(click_part, click_rank):
             return no_update
         asesor = clickData["points"][0].get("y") or clickData["points"][0].get("label")
         if asesor:
-            return json.dumps({"canal": "Todos", "asesor": asesor, "estado": "Todos", "linea": "Todos", "sublinea": "Todos"})
+            try:
+                filters = json.loads(current_json) if isinstance(current_json, str) else (current_json or {})
+            except Exception:
+                filters = {}
+            filters = dict(filters)
+            filters["asesor"] = asesor
+            return json.dumps(filters)
     except Exception:
         pass
     return no_update
