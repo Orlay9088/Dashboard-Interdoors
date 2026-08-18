@@ -209,8 +209,8 @@ def build_sidebar():
             ])
         ),
         html.Div(id="mod-last-file", className="small mb-1", style={"color": "#64748b", "minHeight": "1rem"}),
-        dbc.Button("Recargar ultimo archivo", id="btn-reload-module", color="secondary",
-                   size="sm", className="w-100 mb-1", style={"fontSize": "0.75rem"}),
+    dbc.Button("Recargar ultimo archivo", id="btn-reload-module", color="secondary",
+               size="sm", className="w-100 mb-1", style={"fontSize": "0.75rem"}),
         html.Div(id="reload-status", style={"fontSize": "0.75rem", "minHeight": "1rem"}),
     ], id="upload-section")),
 
@@ -265,6 +265,7 @@ app.layout = html.Div([
     dcc.Store(id="store-pareto-canal", data="TODOS"),
     dcc.Store(id="store-facturas-rango", data=[]),
     dcc.Store(id="store-bodega-filter", data="[]"),
+    dcc.Interval(id="stale-interval", interval=60 * 60 * 1000, n_intervals=0),
     build_sidebar(),
     html.Div([
         html.Button("☰", id="sidebar-toggle",
@@ -442,6 +443,7 @@ def render_bodega_bar(module, _refresh, bodega_filter):
             options=bodega_options,
             value=current_sel,
             multi=True,
+            debounce=True,
             placeholder="Todas las bodegas (selecciona para filtrar)",
             className="d-inline-block",
             style={"minWidth": "300px", "fontSize": "0.8rem"},
@@ -1105,10 +1107,21 @@ def crossfilter_asesor(click_part, click_rank):
 
 
 @callback(
-    Output("sidebar", "className"),
-    Input("sidebar-toggle", "n_clicks"),
-    State("sidebar", "className"),
-    prevent_initial_call=True,
+    Output("sidebar-toggle", "style"),
+    Input("stale-interval", "n_intervals"),
+    prevent_initial_call=False,
 )
-def toggle_sidebar(n, current):
-    return "open" if not current or "open" not in current else ""
+def check_stale_periodic(_n):
+    from firebase_config import is_data_stale
+    styles = {
+        "display": "none", "position": "fixed", "top": "10px", "left": "10px",
+        "zIndex": 1100, "background": "#1e293b", "color": "white", "border": "none",
+        "fontSize": "1.5rem", "width": "40px", "height": "40px", "borderRadius": "8px",
+        "cursor": "pointer",
+    }
+    for mod in ["pedidos", "facturas", "inventario"]:
+        if is_data_stale(mod):
+            styles["background"] = "#b91c1c"
+            styles["color"] = "#fef2f2"
+            break
+    return styles
