@@ -280,7 +280,15 @@ app.layout = html.Div([
             html.Div([
                 html.Div(id="nav-bar"),
                 html.Div(id="canal-bar"),
-                html.Div(id="facturas-time-bar"),
+                html.Div(id="facturas-time-bar", children=[
+                    html.Span("Periodo: ", style={"fontSize": "0.78rem", "color": GRAY, "marginRight": "8px", "fontWeight": "500"}),
+                    dcc.DatePickerRange(
+                        id="facturas-date-range",
+                        display_format="DD/MM/YYYY",
+                        clearable=True,
+                        style={"fontSize": "0.8rem"},
+                    ),
+                ], style={"display": "none"}),
                 html.Div(id="bodega-bar"),
                 html.Div(id="page-content"),
             ]),
@@ -372,38 +380,32 @@ def render_canal_bar(module, page, pareto_canal, _refresh):
 
 # ===== FACTURAS DATE FILTER =====
 @callback(
-    Output("facturas-time-bar", "children"),
+    Output("facturas-time-bar", "style"),
+    Output("facturas-date-range", "min_date_allowed"),
+    Output("facturas-date-range", "max_date_allowed"),
+    Output("facturas-date-range", "start_date"),
+    Output("facturas-date-range", "end_date"),
     Input("store-module", "data"),
     Input("store-refresh", "data"),
-    Input("store-facturas-rango", "data"),
+    State("store-facturas-rango", "data"),
 )
 def render_facturas_time_bar(module, _refresh, current_range):
+    hidden = {"display": "none"}
     if str(module).strip().lower() != "facturas":
-        return None
+        return hidden, None, None, None, None
     df = _load_cached("facturas")
     if df.empty or "_fecha" not in df.columns:
-        return None
+        return hidden, None, None, None, None
     fechas = pd.to_datetime(df["_fecha"], errors="coerce").dropna()
     if fechas.empty:
-        return None
+        return hidden, None, None, None, None
     min_date = fechas.min().date().isoformat()
     max_date = fechas.max().date().isoformat()
     selected = current_range if isinstance(current_range, list) else []
     start_date = selected[0] if len(selected) == 2 and selected[0] else min_date
     end_date = selected[1] if len(selected) == 2 and selected[1] else max_date
-    return html.Div([
-        html.Span("Periodo: ", style={"fontSize": "0.78rem", "color": GRAY, "marginRight": "8px", "fontWeight": "500"}),
-        dcc.DatePickerRange(
-            id="facturas-date-range",
-            min_date_allowed=min_date,
-            max_date_allowed=max_date,
-            start_date=start_date,
-            end_date=end_date,
-            display_format="DD/MM/YYYY",
-            clearable=True,
-            style={"fontSize": "0.8rem"},
-        ),
-    ], style={"marginBottom": "12px", "display": "flex", "alignItems": "center", "gap": "6px"})
+    visible = {"marginBottom": "12px", "display": "flex", "alignItems": "center", "gap": "6px"}
+    return visible, min_date, max_date, start_date, end_date
 
 
 @callback(
