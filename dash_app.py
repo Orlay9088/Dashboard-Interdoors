@@ -265,6 +265,8 @@ app.layout = html.Div([
     dcc.Store(id="store-pareto-canal", data="TODOS"),
     dcc.Store(id="store-facturas-rango", data=[]),
     dcc.Store(id="store-bodega-filter", data="[]"),
+    dcc.Store(id="store-resumen-canal", data="TODOS"),
+    dcc.Store(id="store-resumen-rango", data=[]),
     dcc.Interval(id="stale-interval", interval=60 * 60 * 1000, n_intervals=0),
     build_sidebar(),
     html.Div([
@@ -280,6 +282,7 @@ app.layout = html.Div([
             html.Div([
                 html.Div(id="nav-bar"),
                 html.Div(id="canal-bar"),
+                html.Div(id="resumen-filter-bar"),
                 html.Div(id="facturas-time-bar", children=[
                     html.Span("Periodo: ", style={"fontSize": "0.78rem", "color": GRAY, "marginRight": "8px", "fontWeight": "500"}),
                     dcc.DatePickerRange(
@@ -376,6 +379,107 @@ def render_canal_bar(module, page, pareto_canal, _refresh):
         html.Span("Canal: ", style={"fontSize": "0.78rem", "color": GRAY, "marginRight": "8px", "fontWeight": "500"}),
         html.Span(buttons, style={"display": "inline-flex", "flexWrap": "nowrap", "overflowX": "auto", "maxWidth": "100%"}),
     ], style={"marginBottom": "12px"})
+
+
+# ===== RESUMEN FILTER BAR (Pedidos > Resumen) =====
+@callback(
+    Output("resumen-filter-bar", "children"),
+    Output("resumen-filter-bar", "style"),
+    Output("resumen-canal-dropdown", "value", allow_duplicate=True),
+    Output("resumen-date-range", "min_date_allowed", allow_duplicate=True),
+    Output("resumen-date-range", "max_date_allowed", allow_duplicate=True),
+    Output("resumen-date-range", "start_date", allow_duplicate=True),
+    Output("resumen-date-range", "end_date", allow_duplicate=True),
+    Input("store-module", "data"),
+    Input("store-page", "data"),
+    Input("store-refresh", "data"),
+    State("store-filters", "data"),
+    prevent_initial_call=True,
+)
+def render_resumen_filter_bar(module, page, _refresh, filters_json):
+    hidden = ([], {"display": "none"}, no_update, no_update, no_update, no_update, no_update)
+    if str(module).strip().lower() != "pedidos" or str(page).strip().lower() != "resumen":
+        return hidden
+    df = _load_cached("pedidos")
+    if df.empty:
+        return hidden
+
+    import json as _json
+    try:
+        filters = _json.loads(filters_json) if isinstance(filters_json, str) else (filters_json or {})
+    except Exception:
+        filters = {}
+
+    canales = ["TODOS"] + sorted(df["_canal"].dropna().unique().tolist()) if "_canal" in df.columns else ["TODOS"]
+    canal_val = filters.get("canal", "TODOS")
+    if canal_val not in canales:
+        canal_val = "TODOS"
+
+    canal_dropdown = html.Div([
+        html.Span("Canal: ", style={"fontSize": "0.78rem", "color": GRAY, "marginRight": "6px", "fontWeight": "500"}),
+        dcc.Dropdown(
+            id="resumen-canal-dropdown",
+            options=[{"label": c, "value": c} for c in canales],
+            value=canal_val,
+            clearable=False,
+            style={"minWidth": "160px", "fontSize": "0.8rem"},
+        ),
+    ], style={"display": "inline-flex", "alignItems": "center", "marginRight": "16px"})
+
+    fechas = pd.to_datetime(df["_fecha"], errors="coerce").dropna()
+    min_date = fechas.min().date().isoformat() if not fechas.empty else None
+    max_date = fechas.max().date().isoformat() if not fechas.empty else None
+
+    rango = filters.get("rango", [])
+    start_date = rango[0] if len(rango) == 2 and rango[0] else min_date
+    end_date = rango[1] if len(rango) == 2 and rango[1] else max_date
+
+    date_picker = html.Div([
+        html.Span("Periodo: ", style={"fontSize": "0.78rem", "color": GRAY, "marginRight": "6px", "fontWeight": "500"}),
+        dcc.DatePickerRange(
+            id="resumen-date-range",
+            min_date_allowed=min_date,
+            max_date_allowed=max_date,
+            start_date=start_date,
+            end_date=end_date,
+            display_format="DD/MM/YYYY",
+            clearable=True,
+            style={"fontSize": "0.8rem"},
+        ),
+    ], style={"display": "inline-flex", "alignItems": "center"})
+
+    visible = {"marginBottom": "10px", "display": "flex", "alignItems": "center", "gap": "4px", "flexWrap": "wrap"}
+    return html.Div([canal_dropdown, date_picker]), visible, canal_val, min_date, max_date, start_date, end_date
+
+
+@callback(
+    Output("store-filters", "data", allow_duplicate=True),
+    Input("resumen-canal-dropdown", "value"),
+    Input("resumen-date-range", "start_date"),
+    Input("resumen-date-range", "end_date"),
+    State("store-filters", "data"),
+    prevent_initial_call=True,
+)
+def update_resumen_filters(canal, start_date, end_date, current_json):
+    import json as _json
+    try:
+        filters = _json.loads(current_json) if isinstance(current_json, str) else (current_json or {})
+    except Exception:
+        filters = {}
+    filters = dict(filters)
+
+    ctx = dash.ctx
+    if ctx.triggered:
+        prop = ctx.triggered[0]["prop_id"].split(".")[0]
+        if prop == "resumen-canal-dropdown":
+            filters["canal"] = canal if canal and canal != "TODOS" else "Todos"
+        elif prop == "resumen-date-range":
+            if start_date and end_date:
+                filters["rango"] = [start_date, end_date]
+            else:
+                filters.pop("rango", None)
+
+    return _json.dumps(filters)
 
 
 # ===== FACTURAS DATE FILTER =====
