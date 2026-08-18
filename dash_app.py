@@ -76,7 +76,9 @@ def _parse_filters(filters):
 
 def _apply_special_filters(data, module, page, pareto_canal, bodega_filter):
     import json
-    if module == "pedidos" and page == "pareto" and pareto_canal and pareto_canal != "TODOS":
+    if (module in ("pedidos", "facturas") and pareto_canal and pareto_canal != "TODOS"
+            and "_canal" in data.columns
+            and pareto_canal in data["_canal"].astype(str).unique()):
         data = data[data["_canal"] == pareto_canal]
     if module == "inventario" and bodega_filter and bodega_filter != "[]" and "_bodega" in data.columns:
         try:
@@ -261,6 +263,7 @@ app.layout = html.Div([
     dcc.Store(id="store-clear", data=0),
     dcc.Store(id="store-tipo", data="pedidos"),
     dcc.Store(id="store-pareto-canal", data="TODOS"),
+    dcc.Store(id="store-facturas-rango", data=[]),
     dcc.Store(id="store-bodega-filter", data="[]"),
     build_sidebar(),
     html.Div([
@@ -276,6 +279,7 @@ app.layout = html.Div([
             html.Div([
                 html.Div(id="nav-bar"),
                 html.Div(id="canal-bar"),
+                html.Div(id="facturas-time-bar"),
                 html.Div(id="bodega-bar"),
                 html.Div(id="page-content"),
             ]),
@@ -331,7 +335,7 @@ def render_nav_bar(module, page):
         ))
     return html.Div([html.Div(buttons, style={"display": "flex", "flexWrap": "wrap"}), html.Hr(style={"margin": "12px 0"})])
 
-# ===== CANAL BAR CALLBACK (Pareto) =====
+# ===== CANAL FILTER CALLBACK (PEDIDOS + FACTURAS) =====
 @callback(
     Output("canal-bar", "children"),
     Input("store-module", "data"),
@@ -340,9 +344,9 @@ def render_nav_bar(module, page):
     Input("store-refresh", "data"),
 )
 def render_canal_bar(module, page, pareto_canal, _refresh):
-    if not (str(module).strip().lower() == "pedidos" and page == "pareto"):
+    if str(module).strip().lower() not in ("pedidos", "facturas"):
         return None
-    df = _load_cached("pedidos")
+    df = _load_cached(str(module).strip().lower())
     if df.empty:
         return None
     canales = ["TODOS"] + sorted(df["_canal"].dropna().unique().tolist()) if "_canal" in df.columns else ["TODOS"]
@@ -363,6 +367,54 @@ def render_canal_bar(module, page, pareto_canal, _refresh):
         html.Span("Canal: ", style={"fontSize": "0.78rem", "color": GRAY, "marginRight": "8px", "fontWeight": "500"}),
         html.Span(buttons, style={"display": "inline-flex", "flexWrap": "nowrap", "overflowX": "auto", "maxWidth": "100%"}),
     ], style={"marginBottom": "12px"})
+
+
+# ===== FACTURAS DATE FILTER =====
+@callback(
+    Output("facturas-time-bar", "children"),
+    Input("store-module", "data"),
+    Input("store-refresh", "data"),
+    Input("store-facturas-rango", "data"),
+)
+def render_facturas_time_bar(module, _refresh, current_range):
+    if str(module).strip().lower() != "facturas":
+        return None
+    df = _load_cached("facturas")
+    if df.empty or "_fecha" not in df.columns:
+        return None
+    fechas = pd.to_datetime(df["_fecha"], errors="coerce").dropna()
+    if fechas.empty:
+        return None
+    min_date = fechas.min().date().isoformat()
+    max_date = fechas.max().date().isoformat()
+    selected = current_range if isinstance(current_range, list) else []
+    start_date = selected[0] if len(selected) == 2 and selected[0] else min_date
+    end_date = selected[1] if len(selected) == 2 and selected[1] else max_date
+    return html.Div([
+        html.Span("Periodo: ", style={"fontSize": "0.78rem", "color": GRAY, "marginRight": "8px", "fontWeight": "500"}),
+        dcc.DatePickerRange(
+            id="facturas-date-range",
+            min_date_allowed=min_date,
+            max_date_allowed=max_date,
+            start_date=start_date,
+            end_date=end_date,
+            display_format="DD/MM/YYYY",
+            clearable=True,
+            style={"fontSize": "0.8rem"},
+        ),
+    ], style={"marginBottom": "12px", "display": "flex", "alignItems": "center", "gap": "6px"})
+
+
+@callback(
+    Output("store-facturas-rango", "data"),
+    Input("facturas-date-range", "start_date"),
+    Input("facturas-date-range", "end_date"),
+    prevent_initial_call=True,
+)
+def select_facturas_range(start_date, end_date):
+    if start_date and end_date:
+        return [start_date, end_date]
+    return []
 
 # ===== BODEGA BAR CALLBACK (Inventario) =====
 @callback(
@@ -417,9 +469,10 @@ def select_bodega(selected):
     Input("store-refresh", "data"),
     Input("store-clear", "data"),
     Input("store-pareto-canal", "data"),
+    Input("store-facturas-rango", "data"),
     Input("store-bodega-filter", "data"),
 )
-def render_page_content(module, page, filters, refresh_count, clear_count, pareto_canal, bodega_filter):
+def render_page_content(module, page, filters, refresh_count, clear_count, pareto_canal, facturas_range, bodega_filter):
     import json, traceback
     try:
         module = str(module).strip().lower()
@@ -433,6 +486,9 @@ def render_page_content(module, page, filters, refresh_count, clear_count, paret
             except: filters = {}
         if not isinstance(filters, dict):
             filters = {}
+        if module == "facturas" and isinstance(facturas_range, list) and len(facturas_range) == 2:
+            filters = dict(filters)
+            filters["rango"] = facturas_range
 
         df = _load_cached(module)
         if df.empty:
@@ -462,7 +518,7 @@ def render_page_content(module, page, filters, refresh_count, clear_count, paret
                 age = get_upload_age_hours(module)
                 age_text = f" hace {int(age / 24)} dias" if age is not None else ""
                 notice = dmc.Alert(
-                    f"Actualiza los datos de {mod_info['label']}{age_text}. La actualizacion semanal es cada lunes desde las 8:00 a. m.",
+                    f"Actualiza los datos de {mod_info['label']}{age_text}. La actualizacion semanal es cada lunes desde las 6:00 a. m.",
                     title="Actualizacion pendiente",
                     color="yellow", variant="light", withCloseButton=False,
                     className="mb-3",
@@ -817,10 +873,11 @@ def process_upload(n_clicks, contents, filename, refresh_count, active_module):
     State("store-module", "data"),
     State("store-filters", "data"),
     State("store-pareto-canal", "data"),
+    State("store-facturas-rango", "data"),
     State("store-bodega-filter", "data"),
     prevent_initial_call=True,
 )
-def download_csv(n, module, filters, pareto_canal, bodega_filter):
+def download_csv(n, module, filters, pareto_canal, facturas_range, bodega_filter):
     import json, io
     if not n:
         return no_update
@@ -830,6 +887,9 @@ def download_csv(n, module, filters, pareto_canal, bodega_filter):
             except: filters = {}
         if not isinstance(filters, dict):
             filters = {}
+        if str(module).strip().lower() == "facturas" and isinstance(facturas_range, list) and len(facturas_range) == 2:
+            filters = dict(filters)
+            filters["rango"] = facturas_range
         df = _load_cached(module)
         if df.empty:
             return dict(content="Sin datos. Sube un archivo Excel primero.", filename="sin_datos.txt")

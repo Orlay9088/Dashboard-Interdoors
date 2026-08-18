@@ -5,6 +5,7 @@ import io
 import threading
 from datetime import date, datetime
 from pathlib import Path
+from zoneinfo import ZoneInfo
 import pandas as pd
 
 LOCAL_BASE = Path(__file__).parent / "base"
@@ -172,7 +173,8 @@ def load_local(tipo, retries=3):
 MAX_FIRESTORE_CHUNK = 850_000
 STALE_HOURS = 144
 STALE_LUNES = True
-UPDATE_HOUR = 8
+UPDATE_HOUR = 6
+LOCAL_TIMEZONE = ZoneInfo("America/Bogota")
 
 
 def save_all_to_firestore():
@@ -228,7 +230,7 @@ def is_data_stale(tipo):
         return False
     if age > STALE_HOURS:
         return True
-    now = datetime.now()
+    now = datetime.now(LOCAL_TIMEZONE)
     if STALE_LUNES and now.weekday() == 0 and now.hour >= UPDATE_HOUR:
         meta = _load_json(META_FILE, {})
         last_str = meta.get(tipo, {}).get("fecha", "")
