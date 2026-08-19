@@ -113,6 +113,10 @@
     border: 0;
     background: transparent;
 }
+#resumen-date-group,
+#facturas-time-bar {
+    margin-left: auto;
+}
 
 @media (max-width: 768px) {
     .filter-toolbar {
@@ -134,6 +138,10 @@
     .filter-dropdown {
         flex: 1;
         width: auto;
+    }
+    #resumen-date-group,
+    #facturas-time-bar {
+        margin-left: 0;
     }
 }
 
