@@ -287,6 +287,12 @@ app.layout = html.Div([
                 html.Div(id="nav-bar"),
                 html.Div(id="canal-bar"),
                 html.Div(id="resumen-filter-bar"),
+                dcc.DatePickerRange(
+                    id="resumen-date-range",
+                    display_format="DD/MM/YYYY",
+                    clearable=True,
+                    style={"fontSize": "0.8rem"},
+                ),
                 html.Div(id="facturas-time-bar", children=[
                     html.Span("Periodo: ", style={"fontSize": "0.78rem", "color": GRAY, "marginRight": "8px", "fontWeight": "500"}),
                     dcc.DatePickerRange(
@@ -390,31 +396,20 @@ def render_canal_bar(module, page, pareto_canal, _refresh):
     Output("resumen-filter-bar", "children"),
     Output("resumen-filter-bar", "style"),
     Output("resumen-canal-dropdown", "value", allow_duplicate=True),
-    Output("resumen-date-range", "min_date_allowed", allow_duplicate=True),
-    Output("resumen-date-range", "max_date_allowed", allow_duplicate=True),
-    Output("resumen-date-range", "start_date", allow_duplicate=True),
-    Output("resumen-date-range", "end_date", allow_duplicate=True),
     Input("store-module", "data"),
     Input("store-page", "data"),
     Input("store-refresh", "data"),
     Input("store-clear", "data"),
     Input("store-pareto-canal", "data"),
-    State("store-filters", "data"),
     prevent_initial_call=True,
 )
-def render_resumen_filter_bar(module, page, _refresh, _clear, pareto_canal, filters_json):
-    hidden = ([], {"display": "none"}, no_update, no_update, no_update, no_update, no_update)
+def render_resumen_filter_bar(module, page, _refresh, _clear, pareto_canal):
+    hidden = ([], {"display": "none"}, no_update)
     if str(module).strip().lower() != "pedidos" or str(page).strip().lower() != "resumen":
         return hidden
     df = _load_cached("pedidos")
     if df.empty:
         return hidden
-
-    import json as _json
-    try:
-        filters = _json.loads(filters_json) if isinstance(filters_json, str) else (filters_json or {})
-    except Exception:
-        filters = {}
 
     canales = ["TODOS"] + sorted(df["_canal"].dropna().unique().tolist()) if "_canal" in df.columns else ["TODOS"]
     canal_val = pareto_canal if pareto_canal and pareto_canal in canales else "TODOS"
@@ -430,30 +425,44 @@ def render_resumen_filter_bar(module, page, _refresh, _clear, pareto_canal, filt
         ),
     ], style={"display": "inline-flex", "alignItems": "center", "marginRight": "16px"})
 
-    fechas = pd.to_datetime(df["_fecha"], errors="coerce").dropna()
-    min_date = fechas.min().date().isoformat() if not fechas.empty else None
-    max_date = fechas.max().date().isoformat() if not fechas.empty else None
+    visible = {"marginBottom": "10px", "display": "flex", "alignItems": "center", "gap": "4px", "flexWrap": "wrap"}
+    return html.Div([canal_dropdown]), visible, canal_val
 
+
+@callback(
+    Output("resumen-date-range", "min_date_allowed"),
+    Output("resumen-date-range", "max_date_allowed"),
+    Output("resumen-date-range", "start_date"),
+    Output("resumen-date-range", "end_date"),
+    Input("store-module", "data"),
+    Input("store-page", "data"),
+    Input("store-refresh", "data"),
+    Input("store-clear", "data"),
+    Input("store-pareto-canal", "data"),
+    State("store-filters", "data"),
+    prevent_initial_call=True,
+)
+def sync_resumen_dates(module, page, _refresh, _clear, _canal, filters_json):
+    none4 = (no_update, no_update, no_update, no_update)
+    if str(module).strip().lower() != "pedidos" or str(page).strip().lower() != "resumen":
+        return none4
+    df = _load_cached("pedidos")
+    if df.empty:
+        return none4
+    fechas = pd.to_datetime(df["_fecha"], errors="coerce").dropna()
+    if fechas.empty:
+        return none4
+    min_date = fechas.min().date().isoformat()
+    max_date = fechas.max().date().isoformat()
+    import json as _json
+    try:
+        filters = _json.loads(filters_json) if isinstance(filters_json, str) else (filters_json or {})
+    except Exception:
+        filters = {}
     rango = filters.get("rango", [])
     start_date = rango[0] if len(rango) == 2 and rango[0] else min_date
     end_date = rango[1] if len(rango) == 2 and rango[1] else max_date
-
-    date_picker = html.Div([
-        html.Span("Periodo: ", style={"fontSize": "0.78rem", "color": GRAY, "marginRight": "6px", "fontWeight": "500"}),
-        dcc.DatePickerRange(
-            id="resumen-date-range",
-            min_date_allowed=min_date,
-            max_date_allowed=max_date,
-            start_date=start_date,
-            end_date=end_date,
-            display_format="DD/MM/YYYY",
-            clearable=True,
-            style={"fontSize": "0.8rem"},
-        ),
-    ], style={"display": "inline-flex", "alignItems": "center"})
-
-    visible = {"marginBottom": "10px", "display": "flex", "alignItems": "center", "gap": "4px", "flexWrap": "wrap"}
-    return html.Div([canal_dropdown, date_picker]), visible, canal_val, min_date, max_date, start_date, end_date
+    return min_date, max_date, start_date, end_date
 
 
 @callback(
@@ -522,12 +531,14 @@ def render_facturas_time_bar(module, _refresh, current_range):
     Output("store-facturas-rango", "data"),
     Input("facturas-date-range", "start_date"),
     Input("facturas-date-range", "end_date"),
+    State("store-facturas-rango", "data"),
     prevent_initial_call=True,
 )
-def select_facturas_range(start_date, end_date):
-    if start_date and end_date:
-        return [start_date, end_date]
-    return []
+def select_facturas_range(start_date, end_date, current_range):
+    new = [start_date, end_date] if start_date and end_date else []
+    if new == (current_range or []):
+        return no_update
+    return new
 
 # ===== BODEGA BAR CALLBACK (Inventario) =====
 @callback(

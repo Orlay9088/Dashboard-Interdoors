@@ -67,7 +67,9 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   });
 
-  /* MutationObserver: detect when Dash loading overlay disappears */
+  /* MutationObserver: detect when Dash loading overlay disappears.
+     Scoped to sidebar + action area to avoid watching the entire body. */
+  var actionArea = document.getElementById("sidebar") || document.body;
   var observer = new MutationObserver(function () {
     var overlay = document.querySelector(
       "#_dash-loading, .dash-loading--default, ._dash-loading"
@@ -76,16 +78,12 @@ document.addEventListener("DOMContentLoaded", function () {
       clearAllLoading();
     }
   });
-  observer.observe(document.body, {
+  observer.observe(actionArea, {
     childList: true,
     subtree: true,
     attributes: true,
     attributeFilter: ["style", "class"],
   });
-
-  /* Also listen for Dash layout updates */
-  var dashRoot = document.getElementById("react-entry-point") || document.getElementById("dash-app-content") || document.body;
-  observer.observe(dashRoot, { childList: true, subtree: true });
 
   /* Fallback: check every 3 seconds if no loading overlay exists */
   setInterval(function () {
@@ -156,7 +154,13 @@ document.addEventListener("DOMContentLoaded", function () {
       el.closest("[class*='react-select']") ||
       el.closest("[class*='Select']") ||
       el.closest("[class*='Mantine']") ||
-      el.closest(".ant-select-dropdown")
+      el.closest(".ant-select-dropdown") ||
+      el.closest(".DateInput") ||
+      el.closest(".CalendarDay") ||
+      el.closest(".DayPickerNavigation") ||
+      el.closest("[class*='DateRangePicker']") ||
+      el.closest("[class*='datepicker']") ||
+      el.closest("[class*='DatePicker']")
     );
   }
 
