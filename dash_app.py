@@ -285,24 +285,27 @@ app.layout = html.Div([
         dcc.Loading(
             html.Div([
                 html.Div(id="nav-bar"),
-                html.Div(id="canal-bar"),
-                html.Div(id="resumen-filter-bar"),
-                dcc.DatePickerRange(
-                    id="resumen-date-range",
-                    display_format="DD/MM/YYYY",
-                    clearable=True,
-                    style={"fontSize": "0.8rem"},
-                ),
-                html.Div(id="facturas-time-bar", children=[
-                    html.Span("Periodo: ", style={"fontSize": "0.78rem", "color": GRAY, "marginRight": "8px", "fontWeight": "500"}),
-                    dcc.DatePickerRange(
-                        id="facturas-date-range",
-                        display_format="DD/MM/YYYY",
-                        clearable=True,
-                        style={"fontSize": "0.8rem"},
-                    ),
-                ], style={"display": "none"}),
-                html.Div(id="bodega-bar"),
+                html.Div(id="filter-bar", className="filter-toolbar", children=[
+                    html.Div(id="canal-bar"),
+                    html.Div(id="resumen-filter-bar"),
+                    html.Div([
+                        html.Span("Periodo:", className="filter-label"),
+                        dcc.DatePickerRange(
+                            id="resumen-date-range",
+                            display_format="DD/MM/YYYY",
+                            clearable=True,
+                        ),
+                    ], id="resumen-date-group", className="filter-group", style={"display": "none"}),
+                    html.Div(id="facturas-time-bar", children=[
+                        html.Span("Periodo:", className="filter-label"),
+                        dcc.DatePickerRange(
+                            id="facturas-date-range",
+                            display_format="DD/MM/YYYY",
+                            clearable=True,
+                        ),
+                    ], style={"display": "none"}),
+                    html.Div(id="bodega-bar"),
+                ]),
                 html.Div(id="page-content"),
             ]),
             type="circle", color=BLUE,
@@ -355,7 +358,9 @@ def render_nav_bar(module, page):
                 "cursor": "pointer", "fontWeight": "bold" if active else "normal",
             }
         ))
-    return html.Div([html.Div(buttons, style={"display": "flex", "flexWrap": "wrap"}), html.Hr(style={"margin": "12px 0"})])
+    return html.Div([
+        html.Span(buttons, style={"display": "flex", "flexWrap": "wrap", "gap": "6px"}),
+    ])
 
 # ===== CANAL FILTER CALLBACK (PEDIDOS + FACTURAS) =====
 @callback(
@@ -377,18 +382,12 @@ def render_canal_bar(module, page, pareto_canal, _refresh):
         active = c == pareto_canal
         buttons.append(html.Button(c,
             id={"type": "canal-btn", "name": c},
-            style={
-                "backgroundColor": BLUE if active else "white",
-                "color": "white" if active else GRAY,
-                "border": f"1px solid {BLUE}", "fontSize": "0.72rem",
-                "padding": "4px 10px", "borderRadius": "4px", "marginRight": "5px",
-                "cursor": "pointer", "fontWeight": "bold" if active else "normal",
-            }
+            className="filter-btn" + (" active" if active else ""),
         ))
     return html.Div([
-        html.Span("Canal: ", style={"fontSize": "0.78rem", "color": GRAY, "marginRight": "8px", "fontWeight": "500"}),
-        html.Span(buttons, style={"display": "inline-flex", "flexWrap": "nowrap", "overflowX": "auto", "maxWidth": "100%"}),
-    ], style={"marginBottom": "12px"})
+        html.Span("Canal:", className="filter-label"),
+        html.Span(buttons, className="filter-buttons"),
+    ])
 
 
 # ===== RESUMEN FILTER BAR (Pedidos > Resumen) =====
@@ -415,21 +414,21 @@ def render_resumen_filter_bar(module, page, _refresh, _clear, pareto_canal):
     canal_val = pareto_canal if pareto_canal and pareto_canal in canales else "TODOS"
 
     canal_dropdown = html.Div([
-        html.Span("Canal: ", style={"fontSize": "0.78rem", "color": GRAY, "marginRight": "6px", "fontWeight": "500"}),
+        html.Span("Canal:", className="filter-label"),
         dcc.Dropdown(
             id="resumen-canal-dropdown",
             options=[{"label": c, "value": c} for c in canales],
             value=canal_val,
             clearable=False,
-            style={"minWidth": "160px", "fontSize": "0.8rem"},
+            className="filter-dropdown",
         ),
-    ], style={"display": "inline-flex", "alignItems": "center", "marginRight": "16px"})
+    ], className="filter-group")
 
-    visible = {"marginBottom": "10px", "display": "flex", "alignItems": "center", "gap": "4px", "flexWrap": "wrap"}
-    return html.Div([canal_dropdown]), visible, canal_val
+    return html.Div([canal_dropdown]), {"display": "inline-flex"}, canal_val
 
 
 @callback(
+    Output("resumen-date-group", "style"),
     Output("resumen-date-range", "min_date_allowed"),
     Output("resumen-date-range", "max_date_allowed"),
     Output("resumen-date-range", "start_date"),
@@ -443,15 +442,16 @@ def render_resumen_filter_bar(module, page, _refresh, _clear, pareto_canal):
     prevent_initial_call=True,
 )
 def sync_resumen_dates(module, page, _refresh, _clear, _canal, filters_json):
+    hidden = ({"display": "none"}, no_update, no_update, no_update, no_update)
     none4 = (no_update, no_update, no_update, no_update)
     if str(module).strip().lower() != "pedidos" or str(page).strip().lower() != "resumen":
-        return none4
+        return hidden
     df = _load_cached("pedidos")
     if df.empty:
-        return none4
+        return hidden
     fechas = pd.to_datetime(df["_fecha"], errors="coerce").dropna()
     if fechas.empty:
-        return none4
+        return hidden
     min_date = fechas.min().date().isoformat()
     max_date = fechas.max().date().isoformat()
     import json as _json
@@ -462,7 +462,7 @@ def sync_resumen_dates(module, page, _refresh, _clear, _canal, filters_json):
     rango = filters.get("rango", [])
     start_date = rango[0] if len(rango) == 2 and rango[0] else min_date
     end_date = rango[1] if len(rango) == 2 and rango[1] else max_date
-    return min_date, max_date, start_date, end_date
+    return {"display": "inline-flex", "alignItems": "center"}, min_date, max_date, start_date, end_date
 
 
 @callback(
@@ -523,7 +523,7 @@ def render_facturas_time_bar(module, _refresh, current_range):
     selected = current_range if isinstance(current_range, list) else []
     start_date = selected[0] if len(selected) == 2 and selected[0] else min_date
     end_date = selected[1] if len(selected) == 2 and selected[1] else max_date
-    visible = {"marginBottom": "12px", "display": "flex", "alignItems": "center", "gap": "6px"}
+    visible = {"display": "inline-flex", "alignItems": "center"}
     return visible, min_date, max_date, start_date, end_date
 
 
@@ -560,19 +560,18 @@ def render_bodega_bar(module, _refresh, bodega_filter):
     if not isinstance(current_sel, list):
         current_sel = []
     return html.Div([
-        html.Span("Bodega: ", style={"fontSize": "0.78rem", "color": GRAY, "marginRight": "8px", "fontWeight": "500"}),
+        html.Span("Bodega:", className="filter-label"),
         dcc.Dropdown(
             id="bodega-dropdown",
             options=bodega_options,
             value=current_sel,
             multi=True,
             debounce=True,
-            placeholder="Todas las bodegas (selecciona para filtrar)",
-            className="d-inline-block",
-            style={"minWidth": "300px", "fontSize": "0.8rem"},
+            placeholder="Todas las bodegas",
+            className="filter-dropdown",
             clearable=True,
         ),
-    ], style={"marginBottom": "12px", "display": "flex", "alignItems": "center"})
+    ], className="filter-group")
 
 # ===== BODEGA FILTER CALLBACK =====
 @callback(
