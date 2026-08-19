@@ -444,7 +444,7 @@ def render_resumen_filter_bar(module, page, _refresh, _clear, pareto_canal):
 def sync_resumen_dates(module, page, _refresh, _clear, _canal, filters_json):
     hidden = ({"display": "none"}, no_update, no_update, no_update, no_update)
     none4 = (no_update, no_update, no_update, no_update)
-    if str(module).strip().lower() != "pedidos" or str(page).strip().lower() != "resumen":
+    if str(module).strip().lower() != "pedidos" or str(page).strip().lower() not in ("home", "resumen"):
         return hidden
     df = _load_cached("pedidos")
     if df.empty:
