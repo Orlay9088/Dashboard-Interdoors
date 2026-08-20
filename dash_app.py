@@ -636,7 +636,10 @@ def render_page_content(module, page, filters, refresh_count, clear_count, paret
         if not func:
             return dmc.Alert(f"Pagina no encontrada", title="Error", color="red")
         try:
-            content = func(data)
+            if func is pagina_home:
+                content = func(data, canal=pareto_canal)
+            else:
+                content = func(data)
             from firebase_config import is_data_stale, get_upload_age_hours
             if is_data_stale(module):
                 age = get_upload_age_hours(module)
