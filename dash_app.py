@@ -613,6 +613,8 @@ def render_page_content(module, page, filters, refresh_count, clear_count, paret
         if module == "facturas" and isinstance(facturas_range, list) and len(facturas_range) == 2:
             filters = dict(filters)
             filters["rango"] = facturas_range
+        if module == "inventario":
+            filters = {k: v for k, v in filters.items() if k not in ("rango", "asesor", "estado")}
 
         df = _load_cached(module)
         if df.empty:
