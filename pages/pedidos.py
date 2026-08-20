@@ -30,6 +30,13 @@ def pagina_home(data):
     else:
         inventario = inventario.copy()
 
+    if not pedidos.empty and "_canal" in pedidos.columns:
+        canal_vals = pedidos["_canal"].dropna().unique()
+        if len(canal_vals) == 1 and "_canal" in facturas.columns:
+            facturas = facturas[facturas["_canal"].isin(canal_vals)]
+        if len(canal_vals) == 1 and "_canal" in inventario.columns:
+            inventario = inventario[inventario["_canal"].isin(canal_vals)]
+
     vp = pedidos["_valor"].sum() if not pedidos.empty else 0
     vc = pedidos["_valor_sec"].sum() if not pedidos.empty and "_valor_sec" in pedidos.columns else 0
     ped_count = pedidos["_documento"].nunique() if not pedidos.empty else 0
