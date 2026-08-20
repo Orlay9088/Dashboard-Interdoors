@@ -290,14 +290,6 @@ def try_load(tipo):
     df = load_local(tipo)
     if not df.empty:
         return df, "local"
-    if SKIP_FIRESTORE_FILE.exists():
-        return pd.DataFrame(), "local"
-    if not _firestore_available():
-        return pd.DataFrame(), "local"
-    df = _load_from_firestore_chunked(tipo)
-    if not df.empty:
-        save_local(df, tipo)
-        return df, "firestore"
     return pd.DataFrame(), "local"
 
 
