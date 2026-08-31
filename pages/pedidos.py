@@ -44,6 +44,7 @@ def pagina_home(data, canal=None):
 
     vf = facturas["_valor"].sum() if not facturas.empty else 0
     fact_count = facturas["_documento"].nunique() if not facturas.empty else 0
+    fact_clientes = facturas["_cliente"].nunique() if not facturas.empty and "_cliente" in facturas.columns else 0
     fact_costo = facturas["_costo"].sum() if not facturas.empty and "_costo" in facturas.columns else 0
     mgn_pct = (vf - fact_costo) / vf * 100 if vf else 0
 
@@ -65,7 +66,7 @@ def pagina_home(data, canal=None):
         ("Ventas Totales", fmt_p(vf), fmt_pm(vf)),
         ("Margen Global", f"{mgn_pct:.1f}%", f"Costo: {fmt_pm(fact_costo)}"),
         ("Facturas", f"{fact_count:,}" if fact_count else "-", "emitidas" if fact_count else "Sin datos"),
-        ("Ticket Prom.", fmt_p(vf/fact_count) if fact_count else "-", "por factura" if fact_count else ""),
+        ("Ticket Prom.", fmt_p(vf/fact_clientes) if fact_clientes else "-", "por cliente" if fact_clientes else ""),
     ], facturas.empty))
 
     children.append(_home_block("INVENTARIO", AMBER, [

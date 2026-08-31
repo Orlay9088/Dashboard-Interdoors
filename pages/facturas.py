@@ -12,7 +12,7 @@ def pagina_resumen_ventas(data):
     total_clientes = data["_cliente"].nunique()
     num_vendedores = data["_vendedor"].nunique()
     costo_total = data["_costo"].sum() if "_costo" in data.columns else 0
-    ticket_prom = ventas / total_facturas if total_facturas else 0
+    ticket_prom = ventas / total_clientes if total_clientes else 0
     mgn_pct = (ventas - costo_total) / ventas * 100 if ventas else 0
     has_costo = "_costo" in data.columns
     has_margen = "_margen" in data.columns
@@ -22,7 +22,7 @@ def pagina_resumen_ventas(data):
 
     kpi_row = dbc.Row([
         dbc.Col(kpi_card("Ventas Totales", fmt_p(ventas), fmt_pm(ventas), color=BLUE), width=12, sm=6, lg=3),
-        dbc.Col(kpi_card("Ticket Promedio", fmt_p(ticket_prom), f"por factura", color=NAVY), width=12, sm=6, lg=3),
+        dbc.Col(kpi_card("Ticket Promedio", fmt_p(ticket_prom), f"por cliente", color=NAVY), width=12, sm=6, lg=3),
         dbc.Col(kpi_card("Margen Global", f"{mgn_pct:.1f}%", f"Costo: {fmt_pm(costo_total)}", color=GREEN if mgn_pct > 30 else AMBER), width=12, sm=6, lg=3),
         dbc.Col(kpi_card("Facturas", f"{total_facturas:,}", f"{total_clientes} clientes activos", color=GRAY), width=12, sm=6, lg=3),
     ], className="mb-4 g-3")
