@@ -209,19 +209,13 @@ def build_sidebar():
             ])
         ),
         html.Div(id="mod-last-file", className="small mb-1", style={"color": "#64748b", "minHeight": "1rem"}),
-    dbc.Button("Recargar ultimo archivo", id="btn-reload-module", color="secondary",
-               size="sm", className="w-100 mb-1", style={"fontSize": "0.75rem"}),
-        html.Div(id="reload-status", style={"fontSize": "0.75rem", "minHeight": "1rem"}),
     ], id="upload-section")),
 
     children.append(html.Hr(style={"borderColor": "rgba(255,255,255,0.15)"}))
 
     # Action buttons - compact layout
     children.extend([
-    dbc.Button("Refrescar datos", id="refresh-data", color="light", size="sm", className="w-100 mb-1 text-dark"),
     dbc.Button("Limpiar datos", id="clear-data", color="danger", size="sm", className="w-100 mb-1"),
-    dbc.Button("   Descargar CSV", id="btn-download-csv", color="success", size="sm", className="w-100 mb-1"),
-    dcc.Download(id="download-data"),
     html.Div(id="clear-status", style={"fontSize": "0.75rem", "minHeight": "1.2rem"}),
     html.Hr(style={"borderColor": "rgba(255,255,255,0.15)"}),
     html.H6("Nube", className="text-uppercase small fw-semibold mb-2", style={"color": "#94a3b8"}),
@@ -787,29 +781,6 @@ def update_last_file(module, _refresh):
     return ""
 
 
-# Sidebar: reload module from last saved parquet
-@callback(
-    Output("reload-status", "children"),
-    Output("store-refresh", "data", allow_duplicate=True),
-    Input("btn-reload-module", "n_clicks"),
-    State("store-module", "data"),
-    State("store-refresh", "data"),
-    prevent_initial_call=True,
-)
-def reload_module(n, module, count):
-    module = str(module).strip().lower()
-    if module not in MODULES:
-        return html.Div("Modulo invalido.", style={"color": RED}), no_update
-    _clear_cache(module)
-    from firebase_config import load_local
-    df = load_local(module)
-    if df.empty:
-        return html.Div("No hay datos guardados. Sube un archivo primero.", style={"color": AMBER}), no_update
-    _data_cache[module] = df.copy()
-    _cache_timestamps[module] = time.time()
-    return html.Div(f"Recargado: {len(df):,} registros.", style={"color": GREEN}), count + 1
-
-
 # Sidebar: update upload section title
 @callback(
     Output("upload-module-title", "children"),
@@ -998,42 +969,6 @@ def process_upload(n_clicks, contents, filename, refresh_count, active_module):
 
 
 
-@callback(
-    Output("download-data", "data"),
-    Input("btn-download-csv", "n_clicks"),
-    State("store-module", "data"),
-    State("store-filters", "data"),
-    State("store-pareto-canal", "data"),
-    State("store-facturas-rango", "data"),
-    State("store-bodega-filter", "data"),
-    prevent_initial_call=True,
-)
-def download_csv(n, module, filters, pareto_canal, facturas_range, bodega_filter):
-    import json, io
-    if not n:
-        return no_update
-    try:
-        if isinstance(filters, str):
-            try: filters = json.loads(filters)
-            except: filters = {}
-        if not isinstance(filters, dict):
-            filters = {}
-        if str(module).strip().lower() == "facturas" and isinstance(facturas_range, list) and len(facturas_range) == 2:
-            filters = dict(filters)
-            filters["rango"] = facturas_range
-        df = _load_cached(module)
-        if df.empty:
-            return dict(content="Sin datos. Sube un archivo Excel primero.", filename="sin_datos.txt")
-        data = apply_filters(df, filters)
-        if data.empty:
-            return dict(content="No hay datos con los filtros actuales.", filename="sin_resultados.txt")
-        data = _apply_special_filters(data, module, "", pareto_canal, bodega_filter)
-        buffer = io.StringIO()
-        data.to_csv(buffer, index=False, encoding="utf-8-sig")
-        return dict(content=buffer.getvalue(), filename=f"dashboard_{module}.csv")
-    except Exception:
-        return no_update
-
 
 @callback(
     Output("clear-status", "children"),
@@ -1078,16 +1013,6 @@ def execute_clear_confirmed(submit_n, clear_count):
         json.dumps({}),
         "TODOS",
     )
-@callback(
-    Output("store-refresh", "data", allow_duplicate=True),
-    Input("refresh-data", "n_clicks"),
-    State("store-refresh", "data"),
-    prevent_initial_call=True,
-)
-def refresh_data(n, count):
-    _clear_cache()
-    return count + 1
-
 
 @callback(
     Output("cloud-status", "children"),

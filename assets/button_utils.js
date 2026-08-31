@@ -9,17 +9,14 @@ document.addEventListener("DOMContentLoaded", function () {
      Uses MutationObserver on Dash loading overlay + per-click timeout.
      ========================================================= */
   var LOADING_IDS = [
-    "btn-save-cloud", "btn-load-cloud", "btn-reload-module",
-    "refresh-data", "btn-verify-api", "btn-download-csv",
+    "btn-save-cloud", "btn-load-cloud",
+    "btn-verify-api",
     "btn-process", "btn-single-analysis"
   ];
   var LOADING_TEXT = {
     "btn-save-cloud": "Guardando...",
     "btn-load-cloud": "Cargando...",
-    "btn-reload-module": "Recargando...",
-    "refresh-data": "Refrescando...",
     "btn-verify-api": "Verificando...",
-    "btn-download-csv": "Descargando...",
     "btn-process": "Procesando...",
     "btn-single-analysis": "Analizando..."
   };
@@ -174,22 +171,6 @@ document.addEventListener("DOMContentLoaded", function () {
 
   document.addEventListener("keydown", function (e) {
     if (isInInput(e.target) || isInDropdown(e.target)) return;
-
-    /* Ctrl+D = Download CSV */
-    if ((e.ctrlKey || e.metaKey) && (e.key === "d" || e.key === "D")) {
-      e.preventDefault();
-      var dlBtn = document.getElementById("btn-download-csv");
-      if (dlBtn) dlBtn.click();
-      return;
-    }
-
-    /* Alt+R = Refresh (not bare R) */
-    if (e.altKey && (e.key === "r" || e.key === "R")) {
-      e.preventDefault();
-      var refreshBtn = document.getElementById("refresh-data");
-      if (refreshBtn) refreshBtn.click();
-      return;
-    }
 
     /* 1/2/3 = Module switch */
     if (e.key === "1" && !e.altKey && !e.ctrlKey && !e.metaKey) {
