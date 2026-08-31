@@ -66,7 +66,7 @@ def pagina_home(data, canal=None):
         ("Ventas Totales", fmt_p(vf), fmt_pm(vf)),
         ("Margen Global", f"{mgn_pct:.1f}%", f"Costo: {fmt_pm(fact_costo)}"),
         ("Facturas", f"{fact_count:,}" if fact_count else "-", "emitidas" if fact_count else "Sin datos"),
-        ("Ticket Prom.", fmt_p(vf/fact_clientes) if fact_clientes else "-", "por cliente" if fact_clientes else ""),
+        ("Ticket Prom.", fmt_p(vf/fact_clientes) if fact_clientes else "-", f"{fact_clientes} clientes" if fact_clientes else ""),
     ], facturas.empty))
 
     children.append(_home_block("INVENTARIO", AMBER, [

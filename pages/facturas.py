@@ -22,7 +22,7 @@ def pagina_resumen_ventas(data):
 
     kpi_row = dbc.Row([
         dbc.Col(kpi_card("Ventas Totales", fmt_p(ventas), fmt_pm(ventas), color=BLUE), width=12, sm=6, lg=3),
-        dbc.Col(kpi_card("Ticket Promedio", fmt_p(ticket_prom), f"por cliente", color=NAVY), width=12, sm=6, lg=3),
+        dbc.Col(kpi_card("Ticket Promedio", fmt_p(ticket_prom), f"{total_clientes} clientes", color=NAVY), width=12, sm=6, lg=3),
         dbc.Col(kpi_card("Margen Global", f"{mgn_pct:.1f}%", f"Costo: {fmt_pm(costo_total)}", color=GREEN if mgn_pct > 30 else AMBER), width=12, sm=6, lg=3),
         dbc.Col(kpi_card("Facturas", f"{total_facturas:,}", f"{total_clientes} clientes activos", color=GRAY), width=12, sm=6, lg=3),
     ], className="mb-4 g-3")
