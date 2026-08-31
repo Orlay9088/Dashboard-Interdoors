@@ -94,7 +94,11 @@ def _apply_special_filters(data, module, page, pareto_canal, bodega_filter):
 # ============================================================
 app = dash.Dash(
     __name__,
-    external_stylesheets=[dbc.themes.BOOTSTRAP, dmc.styles.DATES],
+    external_stylesheets=[
+        dbc.themes.BOOTSTRAP,
+        dmc.styles.DATES,
+        "https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css",
+    ],
     title="Dashboard Interdoors",
     suppress_callback_exceptions=True,
 )
@@ -125,9 +129,10 @@ MODULES = {
 
 SIDEBAR_STYLE = {
     "position": "fixed", "top": 0, "left": 0, "bottom": 0,
-    "width": "260px", "padding": "1rem", "backgroundColor": DARKGRAY,
+    "width": "260px", "padding": "1.1rem 1rem", "backgroundColor": DARKGRAY,
     "color": "white", "overflowY": "auto", "zIndex": 1000,
     "transition": "transform 0.3s ease",
+    "display": "flex", "flexDirection": "column",
 }
 CONTENT_STYLE = {"marginLeft": "260px", "padding": "1.5rem", "background": "#F5F5F0", "minHeight": "100vh"}
 
@@ -138,64 +143,62 @@ CONTENT_STYLE = {"marginLeft": "260px", "padding": "1.5rem", "background": "#F5F
 def build_sidebar():
     children = [
         html.Div([
-            html.Div("INTERDOORS", style={
-                "fontSize": "1.3rem", "fontWeight": "bold", "color": "white",
-                "letterSpacing": "2px", "textAlign": "center",
-            }),
-            html.Div("Creando Hogares", style={
-                "fontSize": "0.65rem", "color": GOLD, "textAlign": "center",
-                "fontStyle": "italic", "letterSpacing": "1px", "marginBottom": "10px",
-            }),
-            html.Div(style={
-                "height": "2px", "background": f"linear-gradient(90deg, transparent, {GOLD}, transparent)",
-                "marginBottom": "16px",
-            }),
-        ]),
+            html.Div("INTERDOORS", className="brand-title"),
+            html.Div("Creando Hogares", className="brand-sub"),
+            html.Hr(className="brand-rule"),
+        ], className="sidebar-brand"),
     ]
 
     # Module cards
-    for key, mod in MODULES.items():
-        children.append(dbc.Button(
-            [
-                html.Div([
-                    html.Span(f"  {mod['label']}",
-                              id=f"mod-text-{key}",
-                              style={"fontSize": "0.95rem", "fontWeight": "bold", "color": "#94a3b8"}),
-                ]),
-                html.Div([
-                    html.Span(id=f"mod-dot-{key}", style={"fontSize": "0.65rem", "marginRight": "6px"}),
-                    html.Span(id=f"mod-badge-{key}",
-                              style={"fontSize": "0.7rem", "color": "#94a3b8"}),
-                ], style={"display": "flex", "alignItems": "center", "marginTop": "3px"}),
-            ],
-            id=f"mod-{key}",
-            className="w-100 text-start",
-            style={
-                "backgroundColor": "rgba(255,255,255,0.03)",
-                "border": "1px solid rgba(255,255,255,0.06)",
-                "borderLeft": "4px solid rgba(255,255,255,0.2)",
-                "borderRadius": "8px",
-                "padding": "12px 14px",
-                "marginBottom": "10px",
-                "transition": "all 0.3s",
-                "opacity": "0.6",
-            },
-        ))
-
-    children.append(html.Hr(style={"borderColor": "rgba(255,255,255,0.15)"}))
+    module_icons = {
+        "pedidos": "bi-box-seam",
+        "facturas": "bi-receipt",
+        "inventario": "bi-boxes",
+    }
+    children.append(html.Div([
+        html.Div("Navegacion", className="sidebar-section-title"),
+        *[
+            dbc.Button(
+                [
+                    html.Div([
+                        html.Span(module_icons.get(key, "bi-grid"), className="mod-icon",
+                                  style={"color": mod["color"]}),
+                        html.Span(f"{mod['label']}", id=f"mod-text-{key}",
+                                  className="mod-label",
+                                  style={"color": "#94a3b8", "fontWeight": "normal"}),
+                    ]),
+                    html.Div([
+                        html.Span(id=f"mod-dot-{key}", className="mod-dot"),
+                        html.Span(id=f"mod-badge-{key}", className="mod-badge"),
+                    ], className="mod-meta"),
+                ],
+                id=f"mod-{key}",
+                className="sidebar-module",
+                style={
+                    "backgroundColor": "rgba(255,255,255,0.05)",
+                    "borderLeft": f"4px solid {mod['color']}88",
+                    "borderColor": "rgba(255,255,255,0.08)",
+                },
+            )
+            for key, mod in MODULES.items()
+        ],
+    ], className="sidebar-section"))
 
     # Upload section - conditional per module
     children.append(html.Div([
+        html.Div("Datos", className="sidebar-section-title"),
         html.H6(id="upload-module-title", className="text-uppercase small fw-semibold mb-2",
                 style={"color": "#94a3b8"}),
         dcc.Upload(
             id="upload-data",
-            children=html.Div(["Arrastra o ", html.Span("selecciona .xlsx",
-                style={"color": "#93c5fd", "textDecoration": "underline", "cursor": "pointer"})]),
-            className="border border-2 border-dashed rounded-3 p-3 text-center small mb-2",
-            style={"cursor": "pointer", "borderColor": "rgba(255,255,255,0.3)", "color": "white",
-                   "width": "100%", "minHeight": "50px", "display": "flex",
-                   "alignItems": "center", "justifyContent": "center"},
+            children=html.Div([
+                html.I(className="bi bi-cloud-arrow-up"),
+                html.Div(["Arrastra o ", html.Span("selecciona .xlsx",
+                    style={"color": "#93c5fd", "textDecoration": "underline", "cursor": "pointer"})]),
+            ], style={"textAlign": "center"}),
+            className="upload-drop border border-2 border-dashed rounded-3 p-3 text-center small mb-2",
+            style={"width": "100%", "minHeight": "54px", "display": "flex",
+                   "alignItems": "center", "justifyContent": "center", "cursor": "pointer"},
             multiple=False,
             accept=".xlsx,.xls",
         ),
@@ -204,48 +207,62 @@ def build_sidebar():
             id="loading-process",
             type="default",
             children=html.Div([
-                dbc.Button("Procesar archivo", id="btn-process", color="primary", size="sm", className="w-100 mb-1"),
+                dbc.Button(
+                    [html.I(className="bi bi-gear-fill"), html.Span("Procesar archivo")],
+                    id="btn-process", className="btn-sidebar-primary",
+                ),
                 html.Div(id="upload-status", style={"fontSize": "0.8rem", "minHeight": "2rem"}),
             ])
         ),
         html.Div(id="mod-last-file", className="small mb-1", style={"color": "#64748b", "minHeight": "1rem"}),
-    ], id="upload-section")),
+        dbc.Button(
+            [html.I(className="bi bi-trash3"), html.Span("Limpiar datos")],
+            id="clear-data", className="btn-sidebar-danger",
+        ),
+        html.Div(id="clear-status", style={"fontSize": "0.75rem", "minHeight": "1.2rem"}),
+    ], id="upload-section", className="sidebar-section")),
 
-    children.append(html.Hr(style={"borderColor": "rgba(255,255,255,0.15)"}))
+    # Cloud
+    children.append(html.Div([
+        html.Div("Nube", className="sidebar-section-title"),
+        dbc.Button(
+            [html.I(className="bi bi-cloud-arrow-up"), html.Span("Guardar en la nube")],
+            id="btn-save-cloud", className="btn-sidebar-warning",
+        ),
+        dbc.Button(
+            [html.I(className="bi bi-cloud-arrow-down"), html.Span("Cargar desde la nube")],
+            id="btn-load-cloud", className="btn-sidebar-info",
+        ),
+        html.Div(id="cloud-status", style={"fontSize": "0.72rem", "minHeight": "1rem", "color": "#94a3b8"}),
+    ], className="sidebar-section")),
 
-    # Action buttons - compact layout
-    children.extend([
-    dbc.Button("Limpiar datos", id="clear-data", color="danger", size="sm", className="w-100 mb-1"),
-    html.Div(id="clear-status", style={"fontSize": "0.75rem", "minHeight": "1.2rem"}),
-    html.Hr(style={"borderColor": "rgba(255,255,255,0.15)"}),
-    html.H6("Nube", className="text-uppercase small fw-semibold mb-2", style={"color": "#94a3b8"}),
-    dbc.Button("Guardar en la nube", id="btn-save-cloud", color="warning", size="sm", className="w-100 mb-1", style={"fontSize": "0.75rem"}),
-    dbc.Button("Cargar desde la nube", id="btn-load-cloud", color="info", size="sm", className="w-100 mb-1", style={"fontSize": "0.75rem"}),
-    html.Div(id="cloud-status", style={"fontSize": "0.72rem", "minHeight": "1rem", "color": "#94a3b8"}),
-    html.Hr(style={"borderColor": "rgba(255,255,255,0.15)"}),
+    # IA
+    children.append(html.Div([
+        html.Div("IA Analisis", className="sidebar-section-title"),
+        dcc.Dropdown(
+            id="ai-model-select",
+            options=[
+                {"label": "OpenCode AI", "value": "opencode"},
+                {"label": "Gemini (Google)", "value": "gemini"},
+                {"label": "Sin IA (analisis local)", "value": "local"},
+            ],
+            value="local",
+            clearable=False,
+            className="mb-2",
+            style={"fontSize": "0.8rem"},
+        ),
+        dbc.Input(id="api-key-input", type="password", placeholder="API Key", size="sm", className="mb-1",
+                  style={"fontSize": "0.8rem"}),
+        dbc.Button(
+            [html.I(className="bi bi-check-circle"), html.Span("Verificar")],
+            id="btn-verify-api", className="btn-sidebar-success",
+        ),
+        html.Div(id="api-status", style={"fontSize": "0.75rem", "color": "#94a3b8", "minHeight": "1.2rem"}),
+        dcc.Store(id="store-api-key", data=""),
+        dcc.Store(id="store-ai-model", data="local"),
+    ], className="sidebar-section")),
 
-    html.H6("IA Analisis", className="text-uppercase small fw-semibold mb-2", style={"color": "#94a3b8"}),
-    dcc.Dropdown(
-        id="ai-model-select",
-        options=[
-            {"label": "OpenCode AI", "value": "opencode"},
-            {"label": "Gemini (Google)", "value": "gemini"},
-            {"label": "Sin IA (analisis local)", "value": "local"},
-        ],
-        value="local",
-        clearable=False,
-        className="mb-2",
-        style={"fontSize": "0.8rem"},
-    ),
-    dbc.Input(id="api-key-input", type="password", placeholder="API Key", size="sm", className="mb-1",
-              style={"fontSize": "0.8rem"}),
-    dbc.Button("Verificar", id="btn-verify-api", color="success", size="sm", className="w-100 mb-1"),
-    html.Div(id="api-status", style={"fontSize": "0.75rem", "color": "#94a3b8", "minHeight": "1.2rem"}),
-    dcc.Store(id="store-api-key", data=""),
-    dcc.Store(id="store-ai-model", data="local"),
-    html.Hr(style={"borderColor": "rgba(255,255,255,0.15)"}),
-    html.Div(id="sidebar-info", className="small", style={"color": "#94a3b8"}),
-])
+    children.append(html.Div(id="sidebar-info", className="small sidebar-footer", style={"color": "#94a3b8"}))
     return html.Div(children, id="sidebar", style=SIDEBAR_STYLE)
 
 
@@ -858,35 +875,34 @@ def highlight_active_module(module):
         if active:
             styles[f"mod-{key}"] = {
                 **BASE,
-                "backgroundColor": f"rgba(255,255,255,0.15)",
+                "backgroundColor": "rgba(255,255,255,0.14)",
                 "border": f"1px solid {color}",
                 "borderLeft": f"8px solid {color}",
-                "boxShadow": f"0 0 20px {color}44, inset 0 0 30px {color}10",
                 "opacity": "1",
             }
             texts[f"mod-text-{key}"] = {
-                "fontSize": "0.95rem", "fontWeight": "bold",
+                "fontSize": "0.9rem", "fontWeight": "bold",
                 "color": "white",
             }
             dots[f"mod-dot-{key}"] = "●"
             badges[f"mod-badge-{key}"] = {
-                "fontSize": "0.7rem", "color": color, "fontWeight": "bold",
+                "fontSize": "0.68rem", "color": color, "fontWeight": "bold",
             }
         else:
             styles[f"mod-{key}"] = {
                 **BASE,
-                "backgroundColor": "rgba(255,255,255,0.08)",
-                "border": "1px solid rgba(255,255,255,0.12)",
+                "backgroundColor": "rgba(255,255,255,0.05)",
+                "border": "1px solid rgba(255,255,255,0.08)",
                 "borderLeft": f"4px solid {color}88",
                 "opacity": "0.85",
             }
             texts[f"mod-text-{key}"] = {
-                "fontSize": "0.95rem", "fontWeight": "normal",
+                "fontSize": "0.9rem", "fontWeight": "normal",
                 "color": "#94a3b8",
             }
             dots[f"mod-dot-{key}"] = ""
             badges[f"mod-badge-{key}"] = {
-                "fontSize": "0.7rem", "color": "#94a3b8",
+                "fontSize": "0.68rem", "color": "#94a3b8",
             }
     return (
         styles["mod-pedidos"], styles["mod-facturas"], styles["mod-inventario"],
