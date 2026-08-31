@@ -802,7 +802,7 @@ def show_file_name(filename):
 @callback(
     Output("store-module", "data"),
     Output("store-page", "data"),
-    Output("file-name", "children"),
+    Output("file-name", "children", allow_duplicate=True),
     Output("upload-status", "children"),
     Input("mod-pedidos", "n_clicks"),
     Input("mod-facturas", "n_clicks"),
@@ -897,7 +897,7 @@ def highlight_active_module(module):
 
 
 @callback(
-    Output("upload-status", "children"),
+    Output("upload-status", "children", allow_duplicate=True),
     Output("store-refresh", "data"),
     Output("store-module", "data", allow_duplicate=True),
     Output("store-tipo", "data"),

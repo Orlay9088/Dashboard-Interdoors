@@ -13,6 +13,8 @@ COUNTER_FILE = LOCAL_BASE / ".sync_counter.json"
 CACHE_FILE = LOCAL_BASE / ".cache_meta.json"
 META_FILE = LOCAL_BASE / ".upload_meta.json"
 SKIP_FIRESTORE_FILE = LOCAL_BASE / ".skip_firestore"
+CONTROL_COLLECTION = "_control"
+CONTROL_CLEARED_DOC = "cleared"
 
 LOCAL_PARQUET = {
     "pedidos": LOCAL_BASE / "pedidos.parquet",
@@ -199,8 +201,8 @@ def save_all_to_firestore():
             results[tipo] = (saved, "ok")
         except Exception as e:
             results[tipo] = (0, str(e)[:60])
-    if attempted > 0 and successful == attempted and SKIP_FIRESTORE_FILE.exists():
-        SKIP_FIRESTORE_FILE.unlink(missing_ok=True)
+    if attempted > 0 and successful == attempted:
+        _clear_cleared_flag()
     return results
 
 
@@ -219,8 +221,8 @@ def load_all_from_firestore():
             results[tipo] = (len(df), "ok")
         except Exception as e:
             results[tipo] = (0, str(e)[:60])
-    if successful > 0 and SKIP_FIRESTORE_FILE.exists():
-        SKIP_FIRESTORE_FILE.unlink(missing_ok=True)
+    if successful > 0:
+        _clear_cleared_flag()
     return results
 
 
@@ -250,6 +252,7 @@ def try_save(df, tipo, filename=""):
     save_upload_meta(tipo, filename, n)
     if filename:
         save_last_file(tipo, filename)
+    _clear_cleared_flag()
     return n
 
 
@@ -290,6 +293,14 @@ def try_load(tipo):
     df = load_local(tipo)
     if not df.empty:
         return df, "local"
+    if _is_cleared():
+        return pd.DataFrame(), "local"
+    if not _firestore_available():
+        return pd.DataFrame(), "local"
+    df = _load_from_firestore_chunked(tipo)
+    if not df.empty:
+        save_local(df, tipo)
+        return df, "firestore"
     return pd.DataFrame(), "local"
 
 
@@ -330,6 +341,46 @@ def _firestore_available():
     render = Path("/etc/secrets")
     if (render / "firebase-key.json").exists() or (render / "firebase-key").exists():
         return True
+    return False
+
+
+def _set_cleared_flag():
+    """Marca en Firestore que el usuario limpio los datos (persiste reinicios)."""
+    _, db = _firestore_client()
+    if db:
+        try:
+            db.collection(CONTROL_COLLECTION).document(CONTROL_CLEARED_DOC).set(
+                {"cleared_at": datetime.now().isoformat()}, merge=True
+            )
+        except Exception:
+            pass
+    if not SKIP_FIRESTORE_FILE.exists():
+        SKIP_FIRESTORE_FILE.touch()
+
+
+def _clear_cleared_flag():
+    """Borra la marca de 'datos limpios' cuando vuelve a haber datos legitimos."""
+    _, db = _firestore_client()
+    if db:
+        try:
+            db.collection(CONTROL_COLLECTION).document(CONTROL_CLEARED_DOC).delete()
+        except Exception:
+            pass
+    if SKIP_FIRESTORE_FILE.exists():
+        SKIP_FIRESTORE_FILE.unlink(missing_ok=True)
+
+
+def _is_cleared():
+    """True si el usuario limpio los datos (flag persistente en Firestore o archivo local)."""
+    if SKIP_FIRESTORE_FILE.exists():
+        return True
+    try:
+        _, db = _firestore_client()
+        if db:
+            doc = db.collection(CONTROL_COLLECTION).document(CONTROL_CLEARED_DOC).get(timeout=5)
+            return doc.exists
+    except Exception:
+        pass
     return False
 
 
@@ -374,7 +425,7 @@ def clear_local_cache():
     for f in [COUNTER_FILE, CACHE_FILE, META_FILE, LAST_FILES_JSON]:
         if f.exists():
             f.unlink()
-    SKIP_FIRESTORE_FILE.touch()
+    _set_cleared_flag()
 
 
 def clear_firestore_data():
