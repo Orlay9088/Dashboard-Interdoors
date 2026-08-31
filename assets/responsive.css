@@ -166,6 +166,16 @@
 #sidebar .border-dashed {
     padding: 0.75rem !important;
 }
+#mod-pedidos, #mod-facturas, #mod-inventario {
+    padding: 14px 16px !important;
+    margin-bottom: 8px !important;
+}
+#mod-pedidos span[id^="mod-text-"], #mod-facturas span[id^="mod-text-"], #mod-inventario span[id^="mod-text-"] {
+    font-size: 1rem !important;
+}
+#mod-pedidos span[id^="mod-badge-"], #mod-facturas span[id^="mod-badge-"], #mod-inventario span[id^="mod-badge-"] {
+    font-size: 0.75rem !important;
+}
 #upload-status { min-height: 1.2rem !important; }
 #clear-status { min-height: 0.8rem !important; }
 #cloud-status { min-height: 0.8rem !important; }
