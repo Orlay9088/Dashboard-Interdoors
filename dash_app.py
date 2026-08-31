@@ -276,34 +276,34 @@ app.layout = html.Div([
                 "cursor": "pointer",
             }
         ),
-        dcc.Loading(
-            html.Div([
-                html.Div(id="nav-bar"),
-                html.Div(id="filter-bar", className="filter-toolbar", children=[
-                    html.Div(id="canal-bar"),
-                    html.Div(id="resumen-filter-bar"),
-                    html.Div([
-                        html.Span("Periodo:", className="filter-label"),
-                        dcc.DatePickerRange(
-                            id="resumen-date-range",
-                            display_format="DD/MM/YYYY",
-                            clearable=True,
-                        ),
-                    ], id="resumen-date-group", className="filter-group", style={"display": "none"}),
-                    html.Div(id="facturas-time-bar", children=[
-                        html.Span("Periodo:", className="filter-label"),
-                        dcc.DatePickerRange(
-                            id="facturas-date-range",
-                            display_format="DD/MM/YYYY",
-                            clearable=True,
-                        ),
-                    ], style={"display": "none"}),
-                    html.Div(id="bodega-bar"),
-                ]),
-                html.Div(id="page-content"),
+        html.Div([
+            html.Div(id="nav-bar"),
+            html.Div(id="filter-bar", className="filter-toolbar", children=[
+                html.Div(id="canal-bar"),
+                html.Div(id="resumen-filter-bar"),
+                html.Div([
+                    html.Span("Periodo:", className="filter-label"),
+                    dcc.DatePickerRange(
+                        id="resumen-date-range",
+                        display_format="DD/MM/YYYY",
+                        clearable=True,
+                    ),
+                ], id="resumen-date-group", className="filter-group", style={"display": "none"}),
+                html.Div(id="facturas-time-bar", children=[
+                    html.Span("Periodo:", className="filter-label"),
+                    dcc.DatePickerRange(
+                        id="facturas-date-range",
+                        display_format="DD/MM/YYYY",
+                        clearable=True,
+                    ),
+                ], style={"display": "none"}),
+                html.Div(id="bodega-bar"),
             ]),
-            type="circle", color=BLUE,
-        ),
+            dcc.Loading(
+                html.Div(id="page-content"),
+                type="circle", color=BLUE,
+            ),
+        ]),
         html.Hr(style={"margin": "16px 0"}),
         html.Div([
             html.Button("   Analizar con IA   ",
@@ -922,7 +922,7 @@ def process_upload(n_clicks, contents, filename, refresh_count, active_module):
         content_type, content_string = contents.split(",", 1)
         decoded = base64.b64decode(content_string)
         CARPETA_ENTRADA.mkdir(parents=True, exist_ok=True)
-        ruta = CARPETA_ENTRADA / filename
+        ruta = CARPETA_ENTRADA / Path(filename).name
         with open(ruta, "wb") as f:
             f.write(decoded)
 
@@ -971,19 +971,6 @@ def process_upload(n_clicks, contents, filename, refresh_count, active_module):
 
 
 @callback(
-    Output("clear-status", "children"),
-    Output("store-clear", "data"),
-    Output("store-filters", "data", allow_duplicate=True),
-    Output("store-pareto-canal", "data", allow_duplicate=True),
-    Input("clear-data", "n_clicks"),
-    State("store-clear", "data"),
-    prevent_initial_call=True,
-)
-def clear_data(n, clear_count):
-    return no_update, no_update, no_update, no_update
-
-
-@callback(
     Output("confirm-clear", "displayed"),
     Input("clear-data", "n_clicks"),
     prevent_initial_call=True,
@@ -1023,7 +1010,10 @@ def execute_clear_confirmed(submit_n, clear_count):
 )
 def save_to_cloud(n, count):
     from firebase_config import save_all_to_firestore
-    results = save_all_to_firestore()
+    try:
+        results = save_all_to_firestore()
+    except Exception as e:
+        return html.Div(f"Error guardando: {str(e)}", style={"color": RED}), no_update
     lines = []
     for tipo, (n_reg, status) in results.items():
         if n_reg > 0:
@@ -1043,7 +1033,10 @@ def save_to_cloud(n, count):
 def load_from_cloud(n, count):
     from firebase_config import load_all_from_firestore
     _clear_cache()
-    results = load_all_from_firestore()
+    try:
+        results = load_all_from_firestore()
+    except Exception as e:
+        return html.Div(f"Error cargando: {str(e)}", style={"color": RED}), no_update
     lines = []
     for tipo, (n_reg, status) in results.items():
         if n_reg > 0:
@@ -1108,7 +1101,7 @@ def navigate_buttons(n_clicks, current_page):
     if not ctx.triggered:
         return no_update, no_update
     triggered = ctx.triggered[0]["prop_id"]
-    obj = json.loads(triggered.split(".")[0])
+    obj = json.loads(triggered.rsplit(".n_clicks", 1)[0])
     page = obj["page"]
     if page == current_page:
         return no_update, no_update
@@ -1128,7 +1121,7 @@ def select_pareto_canal(n_clicks, current):
     if not ctx.triggered:
         return no_update
     triggered = ctx.triggered[0]["prop_id"]
-    obj = json.loads(triggered.split(".")[0])
+    obj = json.loads(triggered.rsplit(".n_clicks", 1)[0])
     name = obj["name"]
     return name if name != current else no_update
 
@@ -1146,7 +1139,7 @@ def home_navigate_module(n_clicks):
     if not ctx.triggered or not n_clicks or all(nc is None for nc in n_clicks):
         return no_update, no_update
     triggered = ctx.triggered[0]["prop_id"]
-    obj = json.loads(triggered.split(".")[0])
+    obj = json.loads(triggered.rsplit(".n_clicks", 1)[0])
     return obj.get("mod", "pedidos"), obj.get("page", "resumen")
 
 
@@ -1209,9 +1202,12 @@ def check_stale_periodic(_n):
         "fontSize": "1.5rem", "width": "40px", "height": "40px", "borderRadius": "8px",
         "cursor": "pointer",
     }
-    for mod in ["pedidos", "facturas", "inventario"]:
-        if is_data_stale(mod):
-            styles["background"] = "#b91c1c"
-            styles["color"] = "#fef2f2"
-            break
+    try:
+        for mod in ["pedidos", "facturas", "inventario"]:
+            if is_data_stale(mod):
+                styles["background"] = "#b91c1c"
+                styles["color"] = "#fef2f2"
+                break
+    except Exception:
+        pass
     return styles
