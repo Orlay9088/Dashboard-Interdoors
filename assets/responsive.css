@@ -158,7 +158,8 @@
 }
 #sidebar .btn {
     margin-bottom: 6px !important;
-    padding: 10px 12px !important;
+    padding: 12px 14px !important;
+    font-size: 0.85rem !important;
 }
 #sidebar .text-uppercase.small.fw-semibold {
     margin-bottom: 6px !important;
@@ -181,6 +182,11 @@
 #cloud-status { min-height: 0.8rem !important; }
 #api-status { min-height: 0.8rem !important; }
 #mod-last-file { min-height: 0.5rem !important; }
+#btn-single-analysis {
+    padding: 12px 28px !important;
+    font-size: 0.95rem !important;
+    border-radius: 8px !important;
+}
 
 /* ===== BUTTON LOADING STATE ===== */
 .btn-spinner {
