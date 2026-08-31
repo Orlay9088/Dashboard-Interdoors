@@ -145,6 +145,33 @@
     }
 }
 
+/* ===== SIDEBAR COMPACT — tamaños y menos separación ===== */
+#sidebar {
+    padding: 0.8rem 0.9rem !important;
+}
+#sidebar > div:first-child > div:last-child {
+    margin-bottom: 10px !important;
+}
+#sidebar hr {
+    margin: 8px 0 !important;
+    opacity: 0.5;
+}
+#sidebar .btn {
+    margin-bottom: 6px !important;
+    padding: 10px 12px !important;
+}
+#sidebar .text-uppercase.small.fw-semibold {
+    margin-bottom: 6px !important;
+}
+#sidebar .border-dashed {
+    padding: 0.75rem !important;
+}
+#upload-status { min-height: 1.2rem !important; }
+#clear-status { min-height: 0.8rem !important; }
+#cloud-status { min-height: 0.8rem !important; }
+#api-status { min-height: 0.8rem !important; }
+#mod-last-file { min-height: 0.5rem !important; }
+
 /* ===== BUTTON LOADING STATE ===== */
 .btn-spinner {
     display: inline-block;
