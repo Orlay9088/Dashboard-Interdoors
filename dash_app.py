@@ -934,14 +934,14 @@ def process_upload(n_clicks, contents, filename, refresh_count, active_module):
         with open(ruta, "wb") as f:
             f.write(decoded)
 
-        tipo, sheet = detectar_tipo(str(ruta))
+        tipo, sheet, header_row = detectar_tipo(str(ruta))
         if tipo == "generic":
             return html.Div([
                 html.Div(f"No se pudo identificar el tipo de archivo", style={"color": RED, "fontWeight": "bold"}),
                 html.Div(f"Columnas encontradas no coinciden con pedidos, facturas ni inventario.", className="small", style={"color": "#f87171"}),
                 html.Div(f"Verifica que el archivo tenga las columnas requeridas.", className="small mt-1", style={"color": GRAY}),
             ]), no_update, no_update, no_update, no_update, no_update
-        df_raw = pd.read_excel(str(ruta), sheet_name=sheet)
+        df_raw = pd.read_excel(str(ruta), sheet_name=sheet, header=header_row)
         df_norm = normalizar(df_raw, tipo)
         df_proc = procesar_etl(df_norm)
         n_reg = try_save(df_proc, tipo, filename)
