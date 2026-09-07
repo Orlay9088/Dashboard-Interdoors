@@ -699,13 +699,21 @@ def generate_analysis_single(n_clicks, module, page, filters, api_key, ai_model,
     data = _apply_special_filters(data, module, page, pareto_canal, bodega_filter)
 
     result = None
-    if ai_model == "opencode" and api_key:
-        result = generar_con_opencode(module, page, data, api_key)
-    elif ai_model == "gemini" and api_key:
-        result = generar_con_gemini(module, page, data, api_key)
+    try:
+        if ai_model == "opencode" and api_key:
+            result = generar_con_opencode(module, page, data, api_key)
+        elif ai_model == "gemini" and api_key:
+            result = generar_con_gemini(module, page, data, api_key)
 
-    if not result:
-        result = generar_analisis(module, page, data)
+        if not result:
+            result = generar_analisis(module, page, data)
+    except Exception as e:
+        import traceback
+        print(traceback.format_exc())
+        return html.Div(
+            f"Error en el analisis: {str(e)}",
+            className="text-muted", style={"color": RED},
+        ), False
     return result, False
 
 # ============================================================
