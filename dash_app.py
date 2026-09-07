@@ -1,4 +1,5 @@
 import base64
+import gc
 import threading
 import traceback
 from datetime import datetime
@@ -47,11 +48,11 @@ def _load_cached(module):
         if (now - last_load) > (24 * 3600):
             _data_cache.pop(module, None)
         if module in _data_cache and _data_cache[module] is not None:
-            return _data_cache[module].copy()
+            return _data_cache[module]
     df, backend = try_load(module)
     if not df.empty:
         with _cache_lock:
-            _data_cache[module] = df.copy()
+            _data_cache[module] = df
             _cache_timestamps[module] = now
     return df
 
@@ -104,6 +105,9 @@ server = app.server
 @server.route("/health")
 def health_check():
     return {"status": "ok", "service": "Dashboard Interdoors"}, 200
+
+
+MAX_UPLOAD_ROWS = 30_000
 
 
 MODULES = {
@@ -942,11 +946,21 @@ def process_upload(n_clicks, contents, filename, refresh_count, active_module):
                 html.Div(f"Verifica que el archivo tenga las columnas requeridas.", className="small mt-1", style={"color": GRAY}),
             ]), no_update, no_update, no_update, no_update, no_update
         df_raw = pd.read_excel(str(ruta), sheet_name=sheet, header=header_row)
+        n_raw = len(df_raw)
+        if n_raw > MAX_UPLOAD_ROWS:
+            return html.Div([
+                html.Div(f"Archivo demasiado grande: {n_raw:,} filas", style={"color": RED, "fontWeight": "bold"}),
+                html.Div(f"Maximo permitido: {MAX_UPLOAD_ROWS:,} filas. Verifica que sea el archivo correcto.",
+                         className="small", style={"color": "#f87171"}),
+            ]), no_update, no_update, no_update, no_update, no_update
         df_norm = normalizar(df_raw, tipo)
+        del df_raw
         df_proc = procesar_etl(df_norm)
+        del df_norm
         n_reg = try_save(df_proc, tipo, filename)
-        _data_cache[tipo] = df_proc.copy()
+        _data_cache[tipo] = df_proc
         _cache_timestamps[tipo] = time.time()
+        gc.collect()
 
         if tipo not in MODULES:
             tipo = str(active_module).strip().lower()
@@ -1022,6 +1036,7 @@ def save_to_cloud(n, count):
         results = save_all_to_firestore()
     except Exception as e:
         return html.Div(f"Error guardando: {str(e)}", style={"color": RED}), no_update
+    gc.collect()
     lines = []
     for tipo, (n_reg, status) in results.items():
         if n_reg > 0:
@@ -1045,6 +1060,7 @@ def load_from_cloud(n, count):
         results = load_all_from_firestore()
     except Exception as e:
         return html.Div(f"Error cargando: {str(e)}", style={"color": RED}), no_update
+    gc.collect()
     lines = []
     for tipo, (n_reg, status) in results.items():
         if n_reg > 0:

@@ -13,7 +13,7 @@ from pages.components import (
 def pagina_home(data, canal=None):
     from firebase_config import load_local
 
-    pedidos = data.copy()
+    pedidos = data
     try:
         from dash_app import _data_cache
         facturas = _data_cache.get("facturas")
@@ -23,12 +23,8 @@ def pagina_home(data, canal=None):
         inventario = None
     if facturas is None:
         facturas = load_local("facturas")
-    else:
-        facturas = facturas.copy()
     if inventario is None:
         inventario = load_local("inventario")
-    else:
-        inventario = inventario.copy()
 
     if canal and canal != "TODOS":
         if "_canal" in facturas.columns:

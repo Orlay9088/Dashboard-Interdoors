@@ -274,7 +274,7 @@ def _save_firestore_chunked(df, tipo, filename):
     if not db:
         raise RuntimeError("Firebase no disponible: no hay cliente Firestore")
     buf = io.BytesIO()
-    df.to_parquet(buf, index=False)
+    df.to_parquet(buf, index=False, compression="gzip")
     raw = base64.b64encode(buf.getvalue()).decode("ascii")
     chunks = [raw[i:i + MAX_FIRESTORE_CHUNK] for i in range(0, len(raw), MAX_FIRESTORE_CHUNK)]
     col_ref = db.collection(f"{tipo}_chunks")
@@ -311,8 +311,10 @@ def _load_from_firestore_chunked(tipo):
                 parts.append(doc.to_dict().get("data", ""))
         if not parts:
             return pd.DataFrame()
-        raw = "".join(parts)
-        buf = io.BytesIO(base64.b64decode(raw))
+        buf = io.BytesIO()
+        for part in parts:
+            buf.write(base64.b64decode(part.encode("ascii")))
+        buf.seek(0)
         df = pd.read_parquet(buf)
         if "_fecha" in df.columns:
             df["_fecha"] = pd.to_datetime(df["_fecha"], errors="coerce")
