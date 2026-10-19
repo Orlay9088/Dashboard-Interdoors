@@ -172,7 +172,7 @@ def load_local(tipo, retries=3):
 
 MAX_FIRESTORE_CHUNK = 850_000
 STALE_HOURS = 144
-STALE_LUNES = True
+STALE_VIERNES = True
 UPDATE_HOUR = 6
 LOCAL_TIMEZONE = ZoneInfo("America/Bogota")
 
@@ -231,7 +231,7 @@ def is_data_stale(tipo):
     if age > STALE_HOURS:
         return True
     now = datetime.now(LOCAL_TIMEZONE)
-    if STALE_LUNES and now.weekday() == 0 and now.hour >= UPDATE_HOUR:
+    if STALE_VIERNES and now.weekday() == 4 and now.hour >= UPDATE_HOUR:
         meta = _load_json(META_FILE, {})
         last_str = meta.get(tipo, {}).get("fecha", "")
         if last_str:

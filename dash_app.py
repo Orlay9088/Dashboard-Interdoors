@@ -645,7 +645,7 @@ def render_page_content(module, page, filters, refresh_count, clear_count, paret
                 age = get_upload_age_hours(module)
                 age_text = f" hace {int(age / 24)} dias" if age is not None else ""
                 notice = dmc.Alert(
-                    f"Actualiza los datos de {mod_info['label']}{age_text}. La actualizacion semanal es cada lunes desde las 6:00 a. m.",
+                    f"Actualiza los datos de {mod_info['label']}{age_text}. La actualizacion semanal es cada viernes desde las 6:00 a. m.",
                     title="Actualizacion pendiente",
                     color="yellow", variant="light", withCloseButton=False,
                     className="mb-3",
@@ -754,7 +754,7 @@ def update_badges_and_sidebar(_refresh, _clear):
             alertas.append(f"{tipo}: +{int(age / 24)}d")
         elif stale:
             dias = int(age / 24) if age else 0
-            alertas.append(f"{tipo}:   {dias}d (lunes)")
+            alertas.append(f"{tipo}:   {dias}d (viernes)")
 
     syncs = meta.get("syncs_remaining", 0)
     sync_info = f"| Firestore: {syncs}/3" if syncs > 0 else "| Firestore: agotado"
