@@ -40,6 +40,8 @@ from pages.inventario import (
 _data_cache = {}
 _cache_timestamps = {}
 _cache_lock = threading.Lock()
+_busy_ops = set()
+_busy_lock = threading.Lock()
 
 def _load_cached(module):
     with _cache_lock:
@@ -64,6 +66,20 @@ def _clear_cache(module=None):
         else:
             _data_cache.clear()
             _cache_timestamps.clear()
+
+
+def _begin_op(name):
+    """Marca una operacion como 'en curso'. Devuelve False si ya estaba activa."""
+    with _busy_lock:
+        if name in _busy_ops:
+            return False
+        _busy_ops.add(name)
+        return True
+
+
+def _end_op(name):
+    with _busy_lock:
+        _busy_ops.discard(name)
 
 
 def _parse_filters(filters):
@@ -667,17 +683,8 @@ def render_page_content(module, page, filters, refresh_count, clear_count, paret
 
 # ===== SINGLE ANALYSIS CALLBACK =====
 @callback(
-    Output("btn-single-analysis", "disabled"),
-    Input("btn-single-analysis", "n_clicks"),
-    prevent_initial_call=True,
-)
-def disable_analysis_button(n_clicks):
-    return True
-
-
-@callback(
     Output("analisis-result", "children"),
-    Output("btn-single-analysis", "disabled", allow_duplicate=True),
+    Output("btn-single-analysis", "disabled"),
     Input("btn-single-analysis", "n_clicks"),
     State("store-module", "data"),
     State("store-page", "data"),
@@ -926,13 +933,15 @@ def highlight_active_module(module):
 )
 def process_upload(n_clicks, contents, filename, refresh_count, active_module):
     import json
-    if not contents:
-        return html.Div("Selecciona un archivo Excel primero.", style={"color": AMBER}), no_update, no_update, no_update, no_update, no_update
-    if not filename:
-        return html.Div("Selecciona un archivo.", style={"color": AMBER}), no_update, no_update, no_update, no_update, no_update
-    if not filename.endswith((".xlsx", ".xls")):
-        return html.Div("Solo archivos Excel.", style={"color": RED}), no_update, no_update, no_update, no_update, no_update
+    if not _begin_op("process"):
+        return html.Div("Procesando archivo anterior...", style={"color": AMBER}), no_update, no_update, no_update, no_update, no_update
     try:
+        if not contents:
+            return html.Div("Selecciona un archivo Excel primero.", style={"color": AMBER}), no_update, no_update, no_update, no_update, no_update
+        if not filename:
+            return html.Div("Selecciona un archivo.", style={"color": AMBER}), no_update, no_update, no_update, no_update, no_update
+        if not filename.endswith((".xlsx", ".xls")):
+            return html.Div("Solo archivos Excel.", style={"color": RED}), no_update, no_update, no_update, no_update, no_update
         content_type, content_string = contents.split(",", 1)
         decoded = base64.b64decode(content_string)
         CARPETA_ENTRADA.mkdir(parents=True, exist_ok=True)
@@ -989,6 +998,8 @@ def process_upload(n_clicks, contents, filename, refresh_count, active_module):
             html.Div("Error procesando archivo", style={"color": RED, "fontWeight": "bold"}),
             html.Div(str(e), className="small", style={"color": "#f87171"}),
         ]), no_update, no_update, no_update, no_update, no_update
+    finally:
+        _end_op("process")
 
 
 
@@ -996,11 +1007,12 @@ def process_upload(n_clicks, contents, filename, refresh_count, active_module):
 
 @callback(
     Output("confirm-clear", "displayed"),
+    Output("clear-status", "children", allow_duplicate=True),
     Input("clear-data", "n_clicks"),
     prevent_initial_call=True,
 )
 def show_clear_confirm(n):
-    return True
+    return True, ""
 
 
 @callback(
@@ -1034,10 +1046,14 @@ def execute_clear_confirmed(submit_n, clear_count):
 )
 def save_to_cloud(n, count):
     from firebase_config import save_all_to_firestore
+    if not _begin_op("save_cloud"):
+        return html.Div("Guardando... espera a que termine.", style={"color": AMBER}), no_update
     try:
         results = save_all_to_firestore()
     except Exception as e:
         return html.Div(f"Error guardando: {str(e)}", style={"color": RED}), no_update
+    finally:
+        _end_op("save_cloud")
     gc.collect()
     lines = []
     for tipo, (n_reg, status) in results.items():
@@ -1057,11 +1073,15 @@ def save_to_cloud(n, count):
 )
 def load_from_cloud(n, count):
     from firebase_config import load_all_from_firestore
+    if not _begin_op("load_cloud"):
+        return html.Div("Cargando... espera a que termine.", style={"color": AMBER}), no_update
     _clear_cache()
     try:
         results = load_all_from_firestore()
     except Exception as e:
         return html.Div(f"Error cargando: {str(e)}", style={"color": RED}), no_update
+    finally:
+        _end_op("load_cloud")
     gc.collect()
     lines = []
     for tipo, (n_reg, status) in results.items():

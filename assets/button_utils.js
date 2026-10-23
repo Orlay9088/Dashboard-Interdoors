@@ -11,14 +11,13 @@ document.addEventListener("DOMContentLoaded", function () {
   var LOADING_IDS = [
     "btn-save-cloud", "btn-load-cloud",
     "btn-verify-api",
-    "btn-process", "btn-single-analysis"
+    "btn-process"
   ];
   var LOADING_TEXT = {
     "btn-save-cloud": "Guardando...",
     "btn-load-cloud": "Cargando...",
     "btn-verify-api": "Verificando...",
-    "btn-process": "Procesando...",
-    "btn-single-analysis": "Analizando..."
+    "btn-process": "Procesando..."
   };
 
   function setButtonLoading(btn, loading, btnId) {
@@ -60,13 +59,13 @@ document.addEventListener("DOMContentLoaded", function () {
       setButtonLoading(btn, true, id);
       setTimeout(function () {
         setButtonLoading(btn, false, id);
-      }, 20000);
+      }, 90000);
     });
   });
 
   /* MutationObserver: detect when Dash loading overlay disappears.
-     Scoped to sidebar + action area to avoid watching the entire body. */
-  var actionArea = document.getElementById("sidebar") || document.body;
+     Watch the whole document so buttons outside the sidebar (e.g. content area)
+     are also tracked. */
   var observer = new MutationObserver(function () {
     var overlay = document.querySelector(
       "#_dash-loading, .dash-loading--default, ._dash-loading"
@@ -75,7 +74,7 @@ document.addEventListener("DOMContentLoaded", function () {
       clearAllLoading();
     }
   });
-  observer.observe(actionArea, {
+  observer.observe(document.body, {
     childList: true,
     subtree: true,
     attributes: true,
