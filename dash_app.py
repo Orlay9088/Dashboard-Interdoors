@@ -107,7 +107,7 @@ def health_check():
     return {"status": "ok", "service": "Dashboard Interdoors"}, 200
 
 
-MAX_UPLOAD_ROWS = 30_000
+MAX_UPLOAD_ROWS = 50_000
 
 
 MODULES = {
