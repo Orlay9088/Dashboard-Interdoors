@@ -81,11 +81,11 @@ def _apply_special_filters(data, module, page, pareto_canal, bodega_filter):
             and "_canal" in data.columns
             and pareto_canal in data["_canal"].astype(str).unique()):
         data = data[data["_canal"] == pareto_canal]
-    if module == "inventario" and bodega_filter and bodega_filter != "[]" and "_bodega" in data.columns:
+    if module == "inventario" and bodega_filter and bodega_filter not in ([], "[]", None) and "_bodega" in data.columns:
         try:
-            selected = json.loads(bodega_filter)
-            if selected:
-                data = data[data["_bodega"].astype(str).isin(selected)]
+            selected = json.loads(bodega_filter) if isinstance(bodega_filter, str) else bodega_filter
+            if isinstance(selected, list) and selected:
+                data = data[data["_bodega"].astype(str).isin([str(s) for s in selected])]
         except Exception:
             pass
     return data
@@ -437,7 +437,6 @@ def render_resumen_filter_bar(module, page, _refresh, _clear, pareto_canal):
     Input("store-clear", "data"),
     Input("store-pareto-canal", "data"),
     State("store-filters", "data"),
-    prevent_initial_call=True,
 )
 def sync_resumen_dates(module, page, _refresh, _clear, _canal, filters_json):
     hidden = ({"display": "none"}, no_update, no_update, no_update, no_update)
@@ -490,8 +489,12 @@ def update_resumen_dates(start_date, end_date, current_json):
     filters = dict(filters)
     if start_date and end_date:
         filters["rango"] = [start_date, end_date]
+    elif start_date is None and end_date is None:
+        if "rango" in filters:
+            filters.pop("rango", None)
+            return _json.dumps(filters)
     else:
-        filters.pop("rango", None)
+        return no_update
     return _json.dumps(filters)
 
 
@@ -564,7 +567,6 @@ def render_bodega_bar(module, _refresh, bodega_filter):
             options=bodega_options,
             value=current_sel,
             multi=True,
-            debounce=True,
             placeholder="Todas las bodegas",
             className="filter-dropdown",
             clearable=True,
