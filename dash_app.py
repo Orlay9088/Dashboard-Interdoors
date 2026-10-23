@@ -106,6 +106,55 @@ def _apply_special_filters(data, module, page, pareto_canal, bodega_filter):
             pass
     return data
 
+
+def _build_filter_banner(filters, pareto_canal, bodega_filter):
+    """Devuelve un banner visible con los filtros activos y boton para limpiar cada uno."""
+    import json as _json
+    active = []
+    asesor = filters.get("asesor")
+    if asesor and asesor != "Todos":
+        active.append(("Asesor", str(asesor), "clear-filter-asesor"))
+    if pareto_canal and pareto_canal != "TODOS":
+        active.append(("Canal", str(pareto_canal), "clear-filter-canal"))
+    try:
+        bodega_sel = _json.loads(bodega_filter) if isinstance(bodega_filter, str) else bodega_filter
+    except Exception:
+        bodega_sel = []
+    if isinstance(bodega_sel, list) and bodega_sel:
+        active.append(("Bodega", ", ".join(str(b) for b in bodega_sel), "clear-filter-bodega"))
+
+    if not active:
+        return None
+
+    chips = []
+    for label, value, btn_id in active:
+        chips.append(html.Span([
+            html.Span(f"{label}: ", style={"fontWeight": "bold", "color": "#334155"}),
+            html.Span(value, style={"color": "#1d4ed8"}),
+            html.Button("\u00d7", id=btn_id,
+                        style={
+                            "background": "none", "border": "none", "cursor": "pointer",
+                            "color": "#64748b", "fontSize": "1rem", "fontWeight": "bold",
+                            "padding": "0 6px", "marginLeft": "6px", "lineHeight": "1",
+                        },
+                        title=f"Quitar filtro de {label}"),
+        ], style={
+            "display": "inline-flex", "alignItems": "center",
+            "background": "#eff6ff", "border": "1px solid #bfdbfe",
+            "borderRadius": "999px", "padding": "3px 6px 3px 12px",
+            "marginRight": "8px", "fontSize": "0.78rem",
+        }))
+
+    return html.Div(
+        [html.Span("Filtros activos: ", style={"fontWeight": "600", "color": "#475569", "fontSize": "0.8rem", "marginRight": "4px"})] + chips,
+        style={
+            "display": "flex", "flexWrap": "wrap", "alignItems": "center",
+            "gap": "4px", "marginBottom": "12px", "padding": "8px 12px",
+            "background": "#f0f9ff", "border": "1px solid #bae6fd",
+            "borderRadius": "10px",
+        },
+    )
+
 # ============================================================
 # APP SETUP
 # ============================================================
@@ -658,6 +707,7 @@ def render_page_content(module, page, filters, refresh_count, clear_count, paret
                 content = func(data, canal=pareto_canal)
             else:
                 content = func(data)
+            banner = _build_filter_banner(filters, pareto_canal, bodega_filter)
             from firebase_config import is_data_stale, get_upload_age_hours
             if is_data_stale(module):
                 age = get_upload_age_hours(module)
@@ -669,6 +719,8 @@ def render_page_content(module, page, filters, refresh_count, clear_count, paret
                     className="mb-3",
                 )
                 content = [notice] + (content if isinstance(content, list) else [content])
+            if banner is not None:
+                content = [banner] + (content if isinstance(content, list) else [content])
             return html.Div(content)
         except Exception as e:
             return dmc.Alert([html.Div(f"Error: {module}/{page}", style={"fontWeight":"bold"}),
@@ -1233,6 +1285,42 @@ def crossfilter_asesor(click_part, click_rank, current_json):
     except Exception:
         pass
     return no_update
+
+
+# ===== LIMPIAR FILTROS INDIVIDUALES (botones del banner) =====
+@callback(
+    Output("store-filters", "data", allow_duplicate=True),
+    Input("clear-filter-asesor", "n_clicks"),
+    State("store-filters", "data"),
+    prevent_initial_call=True,
+)
+def clear_asesor_filter(n_clicks, current_json):
+    import json
+    try:
+        filters = json.loads(current_json) if isinstance(current_json, str) else (current_json or {})
+    except Exception:
+        filters = {}
+    filters = dict(filters)
+    filters.pop("asesor", None)
+    return json.dumps(filters)
+
+
+@callback(
+    Output("store-pareto-canal", "data", allow_duplicate=True),
+    Input("clear-filter-canal", "n_clicks"),
+    prevent_initial_call=True,
+)
+def clear_canal_filter(n_clicks):
+    return "TODOS"
+
+
+@callback(
+    Output("store-bodega-filter", "data", allow_duplicate=True),
+    Input("clear-filter-bodega", "n_clicks"),
+    prevent_initial_call=True,
+)
+def clear_bodega_filter(n_clicks):
+    return "[]"
 
 
 @callback(
