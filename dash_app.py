@@ -412,13 +412,14 @@ def render_nav_bar(module, page):
         buttons.append(html.Button(
             plabel,
             id={"type": "nav-btn", "page": pk},
+            className="nav-btn" + (" active" if active else ""),
             style={
                 "backgroundColor": BLUE if active else "white",
                 "color": "white" if active else GRAY,
                 "border": f"1px solid {BLUE}", "fontSize": "0.78rem",
                 "padding": "6px 14px", "borderRadius": "6px",
                 "marginRight": "6px", "marginBottom": "4px",
-                "cursor": "pointer", "fontWeight": "bold" if active else "normal",
+                "cursor": "pointer", "fontWeight": "600",
             }
         ))
     return html.Div([
@@ -938,12 +939,12 @@ def highlight_active_module(module):
                 "opacity": "1",
             }
             texts[f"mod-text-{key}"] = {
-                "fontSize": "0.95rem", "fontWeight": "bold",
+                "fontSize": "0.95rem", "fontWeight": "600",
                 "color": "white",
             }
             dots[f"mod-dot-{key}"] = "●"
             badges[f"mod-badge-{key}"] = {
-                "fontSize": "0.7rem", "color": color, "fontWeight": "bold",
+                "fontSize": "0.7rem", "color": color, "fontWeight": "600",
             }
         else:
             styles[f"mod-{key}"] = {
@@ -954,7 +955,7 @@ def highlight_active_module(module):
                 "opacity": "0.85",
             }
             texts[f"mod-text-{key}"] = {
-                "fontSize": "0.95rem", "fontWeight": "normal",
+                "fontSize": "0.95rem", "fontWeight": "600",
                 "color": "#94a3b8",
             }
             dots[f"mod-dot-{key}"] = ""

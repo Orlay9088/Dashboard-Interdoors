@@ -115,7 +115,7 @@ def _home_block(title, color, kpis, is_empty):
         return html.Div([
             html.Div([
                 html.H6(title, className="fw-bold mb-1", style={"color": color, "fontSize": "0.8rem", "display": "inline", "letterSpacing": "1.5px", "textTransform": "uppercase"}),
-                html.Button("Ir al modulo", id={"type": "home-nav", "mod": mod_id, "page": first_page}, style={
+                html.Button("Ir al modulo", id={"type": "home-nav", "mod": mod_id, "page": first_page}, className="home-nav", style={
                     "background": "none", "border": f"1px solid {color}", "cursor": "pointer",
                     "color": color, "fontSize": "0.6rem", "padding": "2px 8px", "borderRadius": "4px",
                     "float": "right",
@@ -128,7 +128,7 @@ def _home_block(title, color, kpis, is_empty):
     return html.Div([
         html.Div([
             html.H6(title, className="fw-bold mb-3", style={"color": color, "fontSize": "0.8rem", "display": "inline", "letterSpacing": "1.5px", "textTransform": "uppercase"}),
-            html.Button("Ir al modulo", id={"type": "home-nav", "mod": mod_id, "page": first_page}, style={
+            html.Button("Ir al modulo", id={"type": "home-nav", "mod": mod_id, "page": first_page}, className="home-nav", style={
                 "background": "none", "border": f"1px solid {color}", "cursor": "pointer",
                 "color": color, "fontSize": "0.6rem", "padding": "2px 8px", "borderRadius": "4px",
                 "float": "right", "marginTop": "-3px",

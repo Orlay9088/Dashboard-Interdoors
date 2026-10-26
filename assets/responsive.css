@@ -97,6 +97,25 @@
     min-width: 160px;
     font-size: 0.78rem;
 }
+/* ===== NAV BUTTONS (paginas dentro de cada modulo) ===== */
+.nav-btn {
+    transition: background-color .18s, border-color .18s, color .18s, box-shadow .18s;
+}
+.nav-btn:hover {
+    border-color: #1d4ed8;
+    box-shadow: 0 2px 6px rgba(37, 99, 235, .2);
+}
+.nav-btn.active {
+    box-shadow: 0 2px 8px rgba(37, 99, 235, .35);
+}
+/* ===== HOME-NAV (Ir al modulo) ===== */
+.home-nav {
+    transition: opacity .18s, transform .18s;
+}
+.home-nav:hover {
+    opacity: 0.75;
+    transform: translateY(-1px);
+}
 .filter-toolbar .DateRangePicker,
 .filter-toolbar .DateInput,
 .filter-toolbar .DateInput_input {
